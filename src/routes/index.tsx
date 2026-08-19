@@ -107,38 +107,7 @@ const FOOTER_COLS = [
 
 function Index() {
   return (
-    <div className="min-h-screen bg-cream font-body">
-      {/* Header */}
-      <header className="bg-navy-deep">
-        <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6 py-4">
-          <Logo />
-          <nav className="ml-auto hidden items-center gap-6 lg:flex">
-            {NAV.map((item, i) => (
-              <a
-                key={item}
-                href="#"
-                className={`text-[0.78rem] tracking-wide transition-colors hover:text-gold ${
-                  i === 0 ? "text-gold" : "text-on-navy-muted"
-                }`}
-              >
-                {item}
-              </a>
-            ))}
-          </nav>
-          <a
-            href="#"
-            className="ml-auto rounded-md bg-gold px-4 py-2 text-[0.72rem] font-semibold tracking-wide text-navy-deep transition-opacity hover:opacity-90 lg:ml-0"
-          >
-            APP ይመርኳ
-          </a>
-          <button
-            aria-label="ፈልግ"
-            className="text-on-navy-muted transition-colors hover:text-gold"
-          >
-            <Search className="h-[18px] w-[18px]" />
-          </button>
-        </div>
-      </header>
+    <>
 
       {/* Hero */}
       <section className="relative isolate overflow-hidden bg-navy-deep">
@@ -418,53 +387,6 @@ function Index() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-navy-soft/40 bg-navy-deep">
-        <div className="mx-auto grid max-w-[1180px] gap-8 px-6 py-12 md:grid-cols-[1.3fr_1fr_1fr_1fr_1.1fr]">
-          <div>
-            <Logo size="lg" />
-            <p className="mt-4 text-[0.7rem] leading-5 text-on-navy-muted">
-              ቃሱን አንብብ፣ አምነትን ተረዳ፣
-              <br />
-              በሕይወትህ ኑር፤
-            </p>
-          </div>
-          {FOOTER_COLS.map((col) => (
-            <div key={col.title}>
-              <h4 className="text-xs font-semibold text-gold">{col.title}</h4>
-              <ul className="mt-3 space-y-2">
-                {col.links.map((l) => (
-                  <li key={l}>
-                    <a
-                      href="#"
-                      className="text-[0.7rem] text-on-navy-muted hover:text-gold"
-                    >
-                      {l}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          <div>
-            <h4 className="text-xs font-semibold text-gold">ያማኸኝ</h4>
-            <ul className="mt-3 space-y-2 text-[0.7rem] text-on-navy-muted">
-              <li className="flex items-center gap-2">
-                <Mail className="h-3.5 w-3.5 text-gold" /> info@rabbimessenger.com
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5 text-gold" /> +251 9XX XXX XXX
-              </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-gold" /> አዲስ አበባ፣ ኢትዮጵያ
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className="border-t border-navy-soft/40 py-4 text-center text-[0.65rem] text-on-navy-muted">
-          © 2024 RABBI. All Rights Reserved.
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }
