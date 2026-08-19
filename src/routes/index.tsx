@@ -501,6 +501,6 @@ function Index() {
           © 2024 RABBI. All Rights Reserved.
         </div>
       </footer>
-
+    </div>
   );
 }
