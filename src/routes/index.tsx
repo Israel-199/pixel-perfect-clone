@@ -104,42 +104,6 @@ const FOOTER_COLS = [
   },
 ];
 
-const MAP = [
-  {
-    title: "መጽሐፍት\n(BOOKS)",
-    items: ["መጽሐፍ ምዘናት", "ሁሉም መጽሐፍት", "የመሬ መጽሐፍት", "መጽሐፍ ዝርዝር (ምግባይ)"],
-  },
-  {
-    title: "ጥናት\n(STUDY)",
-    items: [
-      "መጽሐፍ ቅዱስ",
-      "ሪቢ ጥያቄ (AI)",
-      "ግርስ / ዕብራይስጥ",
-      "የጥናት መሣሪያዎች",
-      "የመጽሐፍ ካርታ",
-    ],
-  },
-  {
-    title: "RABBI ACADEMY\n(አካዳሚ)",
-    items: ["ኮርሶች", "መምህርች", "የኮርስ ዝርዝር", "ሬተናዎች", "ምስክር ወረቀት", "FAQ"],
-  },
-  {
-    title: "MEDIA\n(ሚዲያ)",
-    items: ["ቪዲዮዎች", "አዲዮዎች", "ፖድካስት", "ልዮ መርሃ ግብር", "LIVE"],
-  },
-  {
-    title: "ጽሑፎች\n(ARTICLES)",
-    items: ["ሁሉም ጽሑፎች", "የምድብ ጽሑፎች", "ታሞዊ ጽሑፎች", "የጸላተ ጽሑፍ"],
-  },
-  {
-    title: "ጸሎት\n(PRAYER)",
-    items: ["የሃሬ ጸሎት", "የጸሎት ርእሳት", "የማል ጸሎት", "የጸሎት መመሪያ"],
-  },
-  {
-    title: "ስለ RABBI\n(ABOUT)",
-    items: ["ስለ እኛ", "ሪዕይ እና ተልእኮ", "ቡድናችን", "አገናኙት", "የማኸኝ"],
-  },
-];
 
 function Index() {
   return (
@@ -501,38 +465,6 @@ function Index() {
           © 2024 RABBI. All Rights Reserved.
         </div>
       </footer>
-
-      {/* Navigation map */}
-      <section className="mx-auto max-w-[1180px] px-6 py-12">
-        <h2 className="text-center text-sm font-bold tracking-wide text-navy">
-          RABBI WEBSITE – የከንልት ካርታ (NAVIGATION MAP)
-        </h2>
-        <div className="mt-6 flex justify-center">
-          <div className="rounded bg-navy-deep px-8 py-2 text-center text-[0.7rem] font-semibold text-on-navy">
-            HOME
-            <div className="text-[0.6rem] font-normal text-gold-soft">(ቤት)</div>
-          </div>
-        </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
-          {MAP.map((col) => (
-            <div key={col.title}>
-              <div className="whitespace-pre-line rounded bg-navy-deep px-2 py-2 text-center text-[0.65rem] font-semibold text-on-navy">
-                {col.title}
-              </div>
-              <ul className="mt-2 space-y-2">
-                {col.items.map((it) => (
-                  <li
-                    key={it}
-                    className="rounded border border-gold/40 bg-card px-2 py-2 text-center text-[0.6rem] text-navy"
-                  >
-                    {it}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
