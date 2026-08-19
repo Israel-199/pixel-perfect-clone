@@ -502,37 +502,5 @@ function Index() {
         </div>
       </footer>
 
-      {/* Navigation map */}
-      <section className="mx-auto max-w-[1180px] px-6 py-12">
-        <h2 className="text-center text-sm font-bold tracking-wide text-navy">
-          RABBI WEBSITE – የከንልት ካርታ (NAVIGATION MAP)
-        </h2>
-        <div className="mt-6 flex justify-center">
-          <div className="rounded bg-navy-deep px-8 py-2 text-center text-[0.7rem] font-semibold text-on-navy">
-            HOME
-            <div className="text-[0.6rem] font-normal text-gold-soft">(ቤት)</div>
-          </div>
-        </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
-          {MAP.map((col) => (
-            <div key={col.title}>
-              <div className="whitespace-pre-line rounded bg-navy-deep px-2 py-2 text-center text-[0.65rem] font-semibold text-on-navy">
-                {col.title}
-              </div>
-              <ul className="mt-2 space-y-2">
-                {col.items.map((it) => (
-                  <li
-                    key={it}
-                    className="rounded border border-gold/40 bg-card px-2 py-2 text-center text-[0.6rem] text-navy"
-                  >
-                    {it}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
   );
 }
