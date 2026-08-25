@@ -1,13 +1,48 @@
-import { createFileRoute } from "@tanstack/react-router";
+import React, { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/rabbi/Logo";
+import { useAuth } from "@/lib/auth";
+import { fetchApi } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
   component: LoginRoute,
 });
 
 function LoginRoute() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const data = await fetchApi<{ token: string; user: any }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      login(data.token, data.user);
+      if (data.user.role === "ADMIN") {
+        navigate({ to: "/admin" });
+      } else {
+        navigate({ to: "/my-books" });
+      }
+    } catch (err: any) {
+      setError(err.message || "መግባት አልተሳካም። እባክዎ መረጃዎን ያረጋግጡ።");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="animate-in fade-in flex min-h-[70vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="animate-in fade-in flex min-h-[75vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <Logo size="lg" />
@@ -16,76 +51,65 @@ function LoginRoute() {
           ወደ አካውንትዎ ይግቡ
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          ወይም{" "}
-          <a href="#" className="font-medium text-gold hover:text-gold/80">
-            አዲስ አካውንት ይፍጠሩ
-          </a>
+          አዲስ አካውንት የሎትም?{" "}
+          <Link to="/register" className="font-medium text-gold hover:underline">
+            እዚህ ይመዝገቡ
+          </Link>
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-card px-4 py-8 shadow-card sm:rounded-lg sm:px-10 border border-gold/10">
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+        <div className="bg-card px-4 py-8 shadow-card sm:rounded-xl sm:px-10 border border-gold/20">
+          {error && (
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-navy">
-                ኢሜይል ወይም ስልክ ቁጥር
+              <label htmlFor="email" className="block text-sm font-medium text-navy mb-1">
+                ኢሜይል አድራሻ
               </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="block w-full appearance-none rounded-md border border-navy/20 px-3 py-2 placeholder-muted-foreground shadow-sm focus:border-gold focus:outline-none focus:ring-gold sm:text-sm"
-                />
-              </div>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@mail.com"
+                className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
+              />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-navy">
+              <label htmlFor="password" className="block text-sm font-medium text-navy mb-1">
                 የይለፍ ቃል (Password)
               </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  className="block w-full appearance-none rounded-md border border-navy/20 px-3 py-2 placeholder-muted-foreground shadow-sm focus:border-gold focus:outline-none focus:ring-gold sm:text-sm"
-                />
-              </div>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
+              />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-navy/20 text-gold focus:ring-gold"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-muted-foreground">
-                  አስታውሰኝ
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <a href="#" className="font-medium text-gold hover:text-gold/80">
-                  የይለፍ ቃል ረሱ?
-                </a>
-              </div>
+            <div className="flex items-center justify-between text-sm">
+              <Link to="/forgot-password" className="font-medium text-gold hover:underline">
+                የይለፍ ቃል ረሱ?
+              </Link>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                className="flex w-full justify-center rounded-md border border-transparent bg-gold px-4 py-2 text-sm font-semibold text-navy-deep shadow-sm transition-all hover:bg-gold/90 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 active:scale-95"
-              >
-                ግባ
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full justify-center rounded-lg border border-transparent bg-gold px-4 py-2.5 text-sm font-semibold text-navy-deep shadow transition-all hover:bg-gold/90 focus:outline-none disabled:opacity-50"
+            >
+              {loading ? "በመግባት ላይ..." : "ግባ"}
+            </button>
           </form>
         </div>
       </div>
