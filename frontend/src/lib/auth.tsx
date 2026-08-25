@@ -22,7 +22,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("rabbi_auth_token"));
+  const [token, setToken] = useState<string | null>(() =>
+    typeof window !== "undefined" ? localStorage.getItem("rabbi_auth_token") : null
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -48,13 +50,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [token]);
 
   const login = (newToken: string, newUser: User) => {
-    localStorage.setItem("rabbi_auth_token", newToken);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("rabbi_auth_token", newToken);
+    }
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
-    localStorage.removeItem("rabbi_auth_token");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("rabbi_auth_token");
+    }
     setToken(null);
     setUser(null);
   };

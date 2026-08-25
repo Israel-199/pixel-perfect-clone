@@ -4,7 +4,7 @@ export async function fetchApi<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem("rabbi_auth_token");
+  const token = typeof window !== "undefined" ? localStorage.getItem("rabbi_auth_token") : null;
 
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),

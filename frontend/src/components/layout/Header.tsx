@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 const BASE_NAV = [
   { label: "ቤት", href: "/" },
   { label: "መጽሐፍት", href: "/books" },
-  { label: "MEDIA", href: "/media" },
+  { label: "ሚዲያ", href: "/media" },
   { label: "ጽሑፎች", href: "/articles" },
   { label: "ጸሎት", href: "/prayer" },
   { label: "ስለ RABBI", href: "/about" },

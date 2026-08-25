@@ -8,6 +8,8 @@ export const Route = createFileRoute("/register")({
   component: RegisterRoute,
 });
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function RegisterRoute() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -24,8 +26,29 @@ function RegisterRoute() {
     e.preventDefault();
     setError(null);
 
+    // Client-side Input Validations
+    if (!fullName.trim()) {
+      setError("እባክዎ ሙሉ ስምዎን ያስገቡ (Full Name is required).");
+      return;
+    }
+
+    if (!phone.trim() || phone.trim().length < 9) {
+      setError("እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ (Valid Phone Number is required).");
+      return;
+    }
+
+    if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
+      setError("እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid Email is required).");
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError("የይለፍ ቃል ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት (Password must be at least 6 characters).");
+      return;
+    }
+
     if (password !== confirmPassword) {
-      setError("የይለፍ ቃሎቹ አይመሳሰሉም። እባክዎ እንደገና ያረጋግጡ።");
+      setError("የይለፍ ቃሎቹ አይመሳሰሉም። እባክዎ እንደገና ያረጋግጡ (Passwords do not match).");
       return;
     }
 
@@ -35,9 +58,9 @@ function RegisterRoute() {
       const data = await fetchApi<{ token: string; user: any }>("/auth/register", {
         method: "POST",
         body: JSON.stringify({
-          fullName,
-          phone,
-          email,
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
           password,
           confirmPassword,
         }),
@@ -56,7 +79,7 @@ function RegisterRoute() {
     <div className="animate-in fade-in flex min-h-[80vh] flex-col justify-center py-10 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <Logo size="lg" />
+          <Logo size="lg" variant="badge" />
         </div>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
           አዲስ አካውንት ይፍጠሩ
@@ -80,7 +103,7 @@ function RegisterRoute() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-navy mb-1">
-                ሙሉ ስም (Full Name)
+                ሙሉ ስም (Full Name) <span className="text-red-500">*</span>
               </label>
               <input
                 id="fullName"
@@ -95,7 +118,7 @@ function RegisterRoute() {
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-navy mb-1">
-                ስልክ ቁጥር (Phone Number)
+                ስልክ ቁጥር (Phone Number) <span className="text-red-500">*</span>
               </label>
               <input
                 id="phone"
@@ -110,7 +133,7 @@ function RegisterRoute() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy mb-1">
-                ኢሜይል አድራሻ (Email Address)
+                ኢሜይል አድራሻ (Email Address) <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -125,7 +148,7 @@ function RegisterRoute() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy mb-1">
-                የይለፍ ቃል (Password)
+                የይለፍ ቃል (Password) <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -134,14 +157,14 @@ function RegisterRoute() {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="ቢያንስ 6 ፊደላት"
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-navy mb-1">
-                የይለፍ ቃል ማረጋገጫ (Confirm Password)
+                የይለፍ ቃል ማረጋገጫ (Confirm Password) <span className="text-red-500">*</span>
               </label>
               <input
                 id="confirmPassword"

@@ -3,27 +3,44 @@ import bcrypt from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class AuthService {
   static async register(data: { fullName?: string; phone?: string; email: string; password: string; confirmPassword?: string }) {
     const { fullName, phone, email, password, confirmPassword } = data;
 
-    if (!email || !password) {
-      throw new Error("Email and password are required.");
+    if (!fullName || !fullName.trim()) {
+      throw new Error("ሙሉ ስም ማስገባት ተገቢ ነው (Full Name is required).");
     }
 
-    if (confirmPassword && password !== confirmPassword) {
-      throw new Error("Passwords do not match.");
+    if (!phone || !phone.trim() || phone.trim().length < 9) {
+      throw new Error("ትክክለኛ ስልክ ቁጥር ማስገባት ተገቢ ነው (A valid Phone Number is required).");
     }
 
-    if (password.length < 6) {
-      throw new Error("Password must be at least 6 characters long.");
+    if (!email || !email.trim()) {
+      throw new Error("ኢሜይል አድራሻ ማስገባት ተገቢ ነው (Email is required).");
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Please provide a valid email address).");
+    }
+
+    if (!password) {
+      throw new Error("የይለፍ ቃል ማስገባት ተገቢ ነው (Password is required).");
+    }
+
+    if (password.length < 6) {
+      throw new Error("የይለፍ ቃል ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት (Password must be at least 6 characters).");
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+      throw new Error("የይለፍ ቃሎቹ አይመሳሰሉም (Passwords do not match).");
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existingUser) {
-      throw new Error("User with this email already exists.");
+      throw new Error("በዚህ ኢሜይል የተመዘገበ ተጠቃሚ አለ (User with this email already exists).");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,8 +49,8 @@ export class AuthService {
 
     const user = await prisma.user.create({
       data: {
-        fullName: fullName || "",
-        phone: phone || "",
+        fullName: fullName.trim(),
+        phone: phone.trim(),
         email: cleanEmail,
         password: hashedPassword,
         role: role,
@@ -59,19 +76,27 @@ export class AuthService {
   static async login(data: { email: string; password: string }) {
     const { email, password } = data;
 
-    if (!email || !password) {
-      throw new Error("Email and password are required.");
+    if (!email || !email.trim()) {
+      throw new Error("ኢሜይል ማስገባት ተገቢ ነው (Email is required).");
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Please enter a valid email).");
+    }
+
+    if (!password) {
+      throw new Error("የይለፍ ቃል ማስገባት ተገቢ ነው (Password is required).");
+    }
+
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
-      throw new Error("Invalid email or password.");
+      throw new Error("የተሳሳተ ኢሜይል ወይም የይለፍ ቃል (Invalid email or password).");
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new Error("Invalid email or password.");
+      throw new Error("የተሳሳተ ኢሜይል ወይም የይለፍ ቃል (Invalid email or password).");
     }
 
     const token = jsonwebtoken.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, {
@@ -91,14 +116,18 @@ export class AuthService {
   }
 
   static async forgotPassword(email: string) {
-    if (!email) {
-      throw new Error("Email is required.");
+    if (!email || !email.trim()) {
+      throw new Error("ኢሜይል አድራሻ ማስገባት ተገቢ ነው (Email is required).");
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Please enter a valid email).");
+    }
+
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
-      throw new Error("No account found with this email address.");
+      throw new Error("በዚህ ኢሜይል አድራሻ የተመዘገበ አካውንት አልተገኘም (No account found with this email).");
     }
 
     const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
@@ -109,24 +138,28 @@ export class AuthService {
       data: { resetToken, resetTokenExpiry: expiry },
     });
 
-    return { resetToken, message: "Password reset code generated." };
+    return { resetToken, message: "የማረጋገጫ ኮድ ተልኳል (Reset code generated successfully)." };
   }
 
   static async resetPassword(data: { email: string; resetToken?: string; newPassword: string }) {
     const { email, resetToken, newPassword } = data;
 
-    if (!email || !newPassword) {
-      throw new Error("Email and new password are required.");
+    if (!email || !email.trim()) {
+      throw new Error("ኢሜይል ማስገባት ተገቢ ነው (Email is required).");
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("አዲሱ የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት (New password must be at least 6 characters).");
     }
 
     const cleanEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
-      throw new Error("User not found.");
+      throw new Error("ተጠቃሚው አልተገኘም (User not found).");
     }
 
     if (user.resetToken && resetToken && user.resetToken !== resetToken) {
-      throw new Error("Invalid reset token.");
+      throw new Error("የተሳሳተ የማረጋገጫ ኮድ (Invalid reset token).");
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -139,7 +172,7 @@ export class AuthService {
       },
     });
 
-    return { message: "Password updated successfully." };
+    return { message: "የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል (Password updated successfully)." };
   }
 
   static async getUserProfile(userId: string) {
@@ -148,7 +181,7 @@ export class AuthService {
       select: { id: true, fullName: true, phone: true, email: true, role: true, createdAt: true },
     });
     if (!user) {
-      throw new Error("User not found.");
+      throw new Error("ተጠቃሚ አልተገኘም (User not found).");
     }
     return user;
   }

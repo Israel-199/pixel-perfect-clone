@@ -76,7 +76,7 @@ function ForgotPasswordRoute() {
     <div className="animate-in fade-in flex min-h-[75vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <Logo size="lg" />
+          <Logo size="lg" variant="badge" />
         </div>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
           የይለፍ ቃል ለመቀየር

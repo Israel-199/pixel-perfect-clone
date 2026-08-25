@@ -12,8 +12,12 @@ export class AdminService {
   }
 
   static async updateRequestStatus(id: string, status: "PENDING" | "PERMITTED" | "REJECTED") {
+    if (!id || !id.trim()) {
+      throw new Error("የጥያቄ መታወቂያ ተገቢ ነው (Request ID is required).");
+    }
+
     if (!["PENDING", "PERMITTED", "REJECTED"].includes(status)) {
-      throw new Error("Invalid status value.");
+      throw new Error("የተሳሳተ የሁኔታ እሴት (Invalid status value).");
     }
 
     return prisma.purchaseRequest.update({
@@ -35,22 +39,37 @@ export class AdminService {
     audioUrl?: string;
     mediaType?: string;
   }) {
-    if (!data.title || !data.coverUrl) {
-      throw new Error("Title and cover image URL are required.");
+    if (!data.title || !data.title.trim()) {
+      throw new Error("የመጽሐፉ ርዕስ ማስገባት ተገቢ ነው (Title is required).");
+    }
+
+    if (!data.coverUrl || !data.coverUrl.trim()) {
+      throw new Error("የከቨር ፎቶ URL ማስገባት ተገቢ ነው (Cover image URL is required).");
+    }
+
+    const numPrice = data.price !== undefined ? parseFloat(data.price.toString()) : 0;
+    if (isNaN(numPrice) || numPrice < 0) {
+      throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
+    }
+
+    const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE"];
+    const mediaType = (data.mediaType || "BOOK").toUpperCase();
+    if (!validMediaTypes.includes(mediaType)) {
+      throw new Error("የተሳሳተ የሜዲያ ዓይነት (Invalid media type).");
     }
 
     return prisma.book.create({
       data: {
-        title: data.title,
-        author: data.author || "RABBI",
-        description: data.description || "",
-        price: data.price ? parseFloat(data.price.toString()) : 0,
-        coverUrl: data.coverUrl,
-        sampleContent: data.sampleContent || "",
-        fullContent: data.fullContent || "",
-        videoUrl: data.videoUrl || null,
-        audioUrl: data.audioUrl || null,
-        mediaType: data.mediaType || "BOOK",
+        title: data.title.trim(),
+        author: data.author ? data.author.trim() : "RABBI",
+        description: data.description ? data.description.trim() : "",
+        price: numPrice,
+        coverUrl: data.coverUrl.trim(),
+        sampleContent: data.sampleContent ? data.sampleContent.trim() : "",
+        fullContent: data.fullContent ? data.fullContent.trim() : "",
+        videoUrl: data.videoUrl ? data.videoUrl.trim() : null,
+        audioUrl: data.audioUrl ? data.audioUrl.trim() : null,
+        mediaType: mediaType,
       },
     });
   }
@@ -70,24 +89,32 @@ export class AdminService {
       mediaType?: string;
     }
   ) {
+    if (!id || !id.trim()) {
+      throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
+    }
+
     return prisma.book.update({
       where: { id },
       data: {
-        title: data.title,
-        author: data.author,
-        description: data.description,
+        title: data.title?.trim(),
+        author: data.author?.trim(),
+        description: data.description?.trim(),
         price: data.price !== undefined ? parseFloat(data.price.toString()) : undefined,
-        coverUrl: data.coverUrl,
-        sampleContent: data.sampleContent,
-        fullContent: data.fullContent,
-        videoUrl: data.videoUrl,
-        audioUrl: data.audioUrl,
-        mediaType: data.mediaType,
+        coverUrl: data.coverUrl?.trim(),
+        sampleContent: data.sampleContent?.trim(),
+        fullContent: data.fullContent?.trim(),
+        videoUrl: data.videoUrl?.trim(),
+        audioUrl: data.audioUrl?.trim(),
+        mediaType: data.mediaType?.toUpperCase(),
       },
     });
   }
 
   static async deleteBook(id: string) {
+    if (!id || !id.trim()) {
+      throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
+    }
+
     return prisma.book.delete({ where: { id } });
   }
 }

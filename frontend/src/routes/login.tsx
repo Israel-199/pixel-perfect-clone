@@ -8,6 +8,8 @@ export const Route = createFileRoute("/login")({
   component: LoginRoute,
 });
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function LoginRoute() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -20,12 +22,23 @@ function LoginRoute() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
+      setError("እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid Email is required).");
+      return;
+    }
+
+    if (!password) {
+      setError("እባክዎ የይለፍ ቃልዎን ያስገቡ (Password is required).");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const data = await fetchApi<{ token: string; user: any }>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       login(data.token, data.user);
@@ -45,7 +58,7 @@ function LoginRoute() {
     <div className="animate-in fade-in flex min-h-[75vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <Logo size="lg" />
+          <Logo size="lg" variant="badge" />
         </div>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
           ወደ አካውንትዎ ይግቡ
@@ -69,7 +82,7 @@ function LoginRoute() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy mb-1">
-                ኢሜይል አድራሻ
+                ኢሜይል አድራሻ <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -84,7 +97,7 @@ function LoginRoute() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy mb-1">
-                የይለፍ ቃል (Password)
+                የይለፍ ቃል (Password) <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
