@@ -4,40 +4,50 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://neondb_owner:npg_A3jlvsL7YfCt@ep-round-king-axezl3ww.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  requests  PurchaseRequest[]
+  id               String            @id @default(uuid())
+  fullName         String?
+  phone            String?
+  email            String            @unique
+  password         String
+  role             Role              @default(USER)
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  requests         PurchaseRequest[]
 }
 
 model Book {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  price       Float
-  coverUrl    String
-  contentUrl  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  requests    PurchaseRequest[]
+  id            String            @id @default(uuid())
+  title         String
+  author        String?           @default("RABBI")
+  description   String?
+  price         Float             @default(0)
+  coverUrl      String
+  sampleContent String?           @db.Text
+  fullContent   String?           @db.Text
+  videoUrl      String?
+  audioUrl      String?
+  mediaType     String            @default("BOOK") // BOOK, VIDEO, AUDIO, IMAGE
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  requests      PurchaseRequest[]
 }
 
 model PurchaseRequest {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  book      Book     @relation(fields: [bookId], references: [id])
-  bookId    String
-  status    RequestStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String        @id @default(uuid())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  book            Book          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId          String
+  status          RequestStatus @default(PENDING)
+  paymentProofUrl String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 enum Role {
@@ -50,3 +60,4 @@ enum RequestStatus {
   PERMITTED
   REJECTED
 }
+
