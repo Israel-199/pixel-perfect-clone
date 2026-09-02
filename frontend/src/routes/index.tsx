@@ -100,19 +100,19 @@ function Index() {
               RABBI
             </h1>
             <div className="gold-rule mt-4 text-sm tracking-[0.3em] text-gold-soft">
-              ጊታና መምህር
+              ጌታና መምህር
             </div>
             <p className="mt-8 text-xl font-semibold text-on-navy md:text-2xl">
-              ሃሬ ከመምህር ምን ትሟራለህ?
+              ዛሬ ከመምህር ምን ትሟራለህ?
             </p>
             <p className="mt-3 text-sm text-on-navy-muted">
-              ቃሱን አንብብ ፤ አምነትን ተረዳ ፤ በሕይወትህ ኑር
+              ቃሉን አንብብ ፤ እምነትን ተረዳ ፤ በሕይወትህ ኑር
             </p>
             <Link
               to="/books"
               className="mt-8 inline-flex items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-navy-deep transition-opacity hover:opacity-90"
             >
-              ሃሬ አንብብ <ArrowRight className="h-4 w-4" />
+              ዛሬ አንብብ <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
@@ -122,7 +122,7 @@ function Index() {
               የዛሬ ቃል
             </div>
             <p className="mt-4 text-[0.85rem] leading-7 text-on-navy">
-              &ldquo;እናንተ መምህር እና ጊታ ትላላችሁ፤ ትክከል ትላላችሁ፤ እኔ ሰለሆነ እንዲ ነው፤&rdquo;
+              &ldquo;እናንተ መምህር ጌታም ትሉኛላችሁ፤ እንዲሁም ነኝና መልካም ትላላችሁ።&rdquo;
             </p>
             <p className="mt-4 text-xs text-on-navy-muted">ዮሐንስ 13:13</p>
             <Link
