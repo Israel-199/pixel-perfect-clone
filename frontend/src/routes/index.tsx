@@ -51,14 +51,14 @@ export const Route = createFileRoute("/")({
 const PILLARS = [
   {
     icon: BookOpen,
-    title: "አንብብ",
+    title: "ንባቦች",
     body: "መጽሐፍ ቅዱስን አንብብ፤\nመጽሐፍትን ገናኝ፤",
     link: "የበለጠ ይመልከቱ",
     to: "/books",
   },
   {
     icon: Brain,
-    title: "ትምር",
+    title: "ትምህርት",
     body: "ተረዳ፣ ጥናት አድርግ፤\nአውቀትን አድርግ፤",
     link: "የበለጠ ይመልከቱ",
     to: "/articles",
