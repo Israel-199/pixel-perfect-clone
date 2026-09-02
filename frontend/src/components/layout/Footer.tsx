@@ -1,14 +1,24 @@
+import { Link } from "@tanstack/react-router";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { Logo } from "@/components/rabbi/Logo";
 
 const FOOTER_COLS = [
   {
     title: "መጽሐፍት",
-    links: ["መዓረሳዊ አደጎት", "ጸሎት", "አምነት", "ደዓ መጽሐፍት", "ሁሉም መጽሐፍት"],
+    links: [
+      { label: "ሁሉም መጽሐፍት", to: "/books" },
+      { label: "ጸሎት", to: "/prayer" },
+      { label: "ጽሑፎች", to: "/articles" },
+      { label: "ሚዲያ", to: "/media" },
+    ],
   },
   {
     title: "ደጋፍ",
-    links: ["ስለ እኛ", "ደጋፍ ያግኙ", "የአጋርነት ጥያቄ", "የማሕዋንት ፖሊሲ"],
+    links: [
+      { label: "ስለ እኛ", to: "/about" },
+      { label: "ደጋፍ ያግኙ", to: "/about" },
+      { label: "የአጋርነት ጥያቄ", to: "/about" },
+    ],
   },
 ];
 
@@ -28,14 +38,14 @@ export function Footer() {
           <div key={col.title}>
             <h4 className="text-xs font-semibold text-gold">{col.title}</h4>
             <ul className="mt-3 space-y-2">
-              {col.links.map((l) => (
-                <li key={l}>
-                  <a
-                    href="#"
-                    className="text-[0.7rem] text-on-navy-muted hover:text-gold"
+              {col.links.map((item) => (
+                <li key={item.label}>
+                  <Link
+                    to={item.to}
+                    className="text-[0.7rem] text-on-navy-muted hover:text-gold transition-colors"
                   >
-                    {l}
-                  </a>
+                    {item.label}
+                  </Link>
                 </li>
               ))}
             </ul>

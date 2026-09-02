@@ -86,12 +86,12 @@ export function Header() {
               </Link>
             )}
 
-            <a
-              href="#"
+            <Link
+              to="/books"
               className="rounded-md bg-gold px-4 py-2 text-[0.72rem] font-semibold tracking-wide text-navy-deep transition-all hover:opacity-90 active:scale-95 hidden sm:inline-block"
             >
               APP ይመርኳ
-            </a>
+            </Link>
 
             <button
               aria-label="ፈልግ"

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Search,
   ArrowRight,
@@ -48,67 +48,42 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const NAV = [
-  "ቤት",
-  "መጽሐፍት",
-  "ጥናት",
-  "RABBI ACADEMY",
-  "MEDIA",
-  "ጽሑፎች",
-  "ጸሎት",
-  "ስለ RABBI",
-];
-
 const PILLARS = [
   {
     icon: BookOpen,
     title: "አንብብ",
     body: "መጽሐፍ ቅዱስን አንብብ፤\nመጽሐፍትን ገናኝ፤",
     link: "የበለጠ ይመልከቱ",
+    to: "/books",
   },
   {
     icon: Brain,
     title: "ትምር",
     body: "ተረዳ፣ ጥናት አድርግ፤\nአውቀትን አድርግ፤",
     link: "የበለጠ ይመልከቱ",
+    to: "/articles",
   },
   {
     icon: HandHeart,
     title: "ጸሎይ",
     body: "ጸሎት ግባቦ፣ በውገራሰ ኑር፤\nበዖሉ ተገናኝ፤",
     link: "የበለጠ ይመልከቱ",
+    to: "/prayer",
   },
 ];
 
 const SECTIONS = [
-  { icon: BookOpen, title: "መጽሐፍት", sub: "ቤቴ–መጽሐፍት" },
-  { icon: MessageSquare, title: "RABBI ጥያቄ", sub: "ጠይቅ" },
-  { icon: Play, title: "ሚዲያ", sub: "ቪዲዮ፣ አዲዮ፣ ፖድካስት" },
-  { icon: Pencil, title: "ጽሑፎች", sub: "መንፈሳዊ ጽሑፎች" },
-  { icon: HandHeart, title: "ጸሎት ክፍል", sub: "የጸሎት ርእሳዎች" },
-  { icon: Users, title: "መህበረሰብ", sub: "ተገናኝ እና አገሩ" },
+  { icon: BookOpen, title: "መጽሐፍት", sub: "ቤቴ–መጽሐፍት", to: "/books" },
+  { icon: MessageSquare, title: "RABBI ጥያቄ", sub: "ጠይቅ", to: "/about" },
+  { icon: Play, title: "ሚዲያ", sub: "ቪዲዮ፣ አዲዮ፣ ፖድካስት", to: "/media" },
+  { icon: Pencil, title: "ጽሑፎች", sub: "መንፈሳዊ ጽሑፎች", to: "/articles" },
+  { icon: HandHeart, title: "ጸሎት ክፍል", sub: "የጸሎት ርእሳዎች", to: "/prayer" },
+  { icon: Users, title: "መህበረሰብ", sub: "ተገናኝ እና አገሩ", to: "/about" },
 ];
-
-const FOOTER_COLS = [
-  {
-    title: "መጽሐፍት",
-    links: ["መዓረሳዊ አደጎት", "ጸሎት", "አምነት", "ደዓ መጽሐፍት", "ሁሉም መጽሐፍት"],
-  },
-  {
-    title: "RABBI ACADEMY",
-    links: ["ኮርሶች", "መምህርች", "የምሰክር ወረቀት", "FAQ"],
-  },
-  {
-    title: "ደጋፍ",
-    links: ["ስለ እኛ", "ደጋፍ ያግኙ", "የአጋርነት ጥያቄ", "የማሕዋንት ፖሊሲ"],
-  },
-];
-
 
 function Index() {
   return (
     <>
-
       {/* Hero */}
       <section className="relative isolate overflow-hidden bg-navy-deep">
         <img
@@ -133,12 +108,12 @@ function Index() {
             <p className="mt-3 text-sm text-on-navy-muted">
               ቃሱን አንብብ ፤ አምነትን ተረዳ ፤ በሕይወትህ ኑር
             </p>
-            <a
-              href="#"
+            <Link
+              to="/books"
               className="mt-8 inline-flex items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-navy-deep transition-opacity hover:opacity-90"
             >
               ሃሬ አንብብ <ArrowRight className="h-4 w-4" />
-            </a>
+            </Link>
           </div>
 
           <aside className="rounded-lg border border-gold/25 bg-navy-deep/85 p-6 backdrop-blur-sm">
@@ -150,12 +125,12 @@ function Index() {
               &ldquo;እናንተ መምህር እና ጊታ ትላላችሁ፤ ትክከል ትላላችሁ፤ እኔ ሰለሆነ እንዲ ነው፤&rdquo;
             </p>
             <p className="mt-4 text-xs text-on-navy-muted">ዮሐንስ 13:13</p>
-            <a
-              href="#"
+            <Link
+              to="/articles"
               className="mt-5 inline-flex rounded-md border border-gold/60 px-4 py-2 text-xs font-medium text-gold transition-colors hover:bg-gold/10"
             >
               መሉ ጥቅስ አንብብ
-            </a>
+            </Link>
           </aside>
         </div>
       </section>
@@ -163,7 +138,7 @@ function Index() {
       {/* Pillars */}
       <section className="mx-auto max-w-[1180px] px-6 py-10">
         <div className="grid rounded-lg bg-card shadow-card md:grid-cols-3">
-          {PILLARS.map(({ icon: Icon, title, body, link }, i) => (
+          {PILLARS.map(({ icon: Icon, title, body, link, to }, i) => (
             <article
               key={title}
               className={`flex items-center gap-5 p-8 ${
@@ -178,12 +153,12 @@ function Index() {
                 <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">
                   {body}
                 </p>
-                <a
-                  href="#"
+                <Link
+                  to={to}
                   className="mt-3 inline-block text-xs font-medium text-navy-soft hover:text-gold"
                 >
                   {link} →
-                </a>
+                </Link>
               </div>
             </article>
           ))}
@@ -203,8 +178,8 @@ function Index() {
                 ጸሎት ግባ፣ በዖፍር ይምዳ፤
               </p>
               <div className="mt-5 space-y-2">
-                <a
-                  href="#"
+                <Link
+                  to="/books"
                   className="flex items-center gap-2 rounded bg-black px-3 py-2 text-on-navy"
                 >
                   <Play className="h-4 w-4 text-gold" />
@@ -213,9 +188,9 @@ function Index() {
                     <br />
                     <strong className="text-[0.75rem]">Google Play</strong>
                   </span>
-                </a>
-                <a
-                  href="#"
+                </Link>
+                <Link
+                  to="/books"
                   className="flex items-center gap-2 rounded bg-black px-3 py-2 text-on-navy"
                 >
                   <ArrowRight className="h-4 w-4 -rotate-90 text-gold" />
@@ -224,7 +199,7 @@ function Index() {
                     <br />
                     <strong className="text-[0.75rem]">App Store</strong>
                   </span>
-                </a>
+                </Link>
               </div>
             </div>
             <div className="w-[110px] shrink-0 rounded-[1.1rem] border-4 border-navy-soft bg-navy p-1">
@@ -244,9 +219,9 @@ function Index() {
         <div className="rounded-lg bg-card p-6 shadow-card">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-navy">የመሬ መጽሐፍ</h3>
-            <a href="#" className="text-xs text-muted-foreground hover:text-gold">
+            <Link to="/books" className="text-xs text-muted-foreground hover:text-gold">
               ሁሉንም ይመልከቱ →
-            </a>
+            </Link>
           </div>
           <div className="mt-5 flex items-center gap-4">
             <img
@@ -264,18 +239,18 @@ function Index() {
                 ከእብራት ወይ ተስፋ፣ ከእንግ ወይ አምነት የሚያደርን መንፈሳዊ ጉዞ፤
               </p>
               <div className="mt-4 flex gap-2">
-                <a
-                  href="#"
+                <Link
+                  to="/books"
                   className="rounded border border-gold px-3 py-1.5 text-[0.7rem] text-navy hover:bg-gold/10"
                 >
                   ስለ መጽሐፉ
-                </a>
-                <a
-                  href="#"
+                </Link>
+                <Link
+                  to="/books"
                   className="rounded bg-navy-deep px-3 py-1.5 text-[0.7rem] text-on-navy hover:opacity-90"
                 >
                   በAPP አንብብ
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -315,12 +290,12 @@ function Index() {
             loading="lazy"
             className="mt-4 h-[110px] w-full rounded object-cover"
           />
-          <a
-            href="#"
+          <Link
+            to="/articles"
             className="mt-4 inline-flex items-center gap-2 rounded-md border border-gold px-4 py-2 text-xs font-medium text-gold hover:bg-gold/10"
           >
             ኮርሰችን ይመልከቱ →
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -328,10 +303,10 @@ function Index() {
       <section className="mx-auto max-w-[1180px] px-6 pb-16">
         <h3 className="mb-4 text-sm font-semibold text-navy">ተመደጂ ክፍሎች</h3>
         <div className="grid rounded-lg bg-card shadow-card sm:grid-cols-3 lg:grid-cols-6">
-          {SECTIONS.map(({ icon: Icon, title, sub }, i) => (
-            <a
+          {SECTIONS.map(({ icon: Icon, title, sub, to }, i) => (
+            <Link
               key={title}
-              href="#"
+              to={to}
               className={`flex flex-col items-center gap-2 px-4 py-7 text-center transition-colors hover:bg-secondary ${
                 i > 0 ? "lg:border-l lg:border-border" : ""
               }`}
@@ -339,7 +314,7 @@ function Index() {
               <Icon className="h-6 w-6 text-navy" strokeWidth={1.5} />
               <span className="text-xs font-semibold text-navy">{title}</span>
               <span className="text-[0.65rem] text-muted-foreground">{sub}</span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>

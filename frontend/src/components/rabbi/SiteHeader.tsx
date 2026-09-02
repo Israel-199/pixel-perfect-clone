@@ -2,14 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { Logo } from "@/components/rabbi/Logo";
 
-export const NAV: { label: string; to?: string }[] = [
+export const NAV: { label: string; to: string }[] = [
   { label: "ቤት", to: "/" },
   { label: "መጽሐፍት", to: "/books" },
-  { label: "ጥናት", to: "/study" },
-  { label: "RABBI ACADEMY" },
+  { label: "ጥናት", to: "/articles" },
+  { label: "RABBI ACADEMY", to: "/about" },
   { label: "MEDIA", to: "/media" },
   { label: "ጽሑፎች", to: "/articles" },
-  { label: "ጸሎት" },
+  { label: "ጸሎት", to: "/prayer" },
   { label: "ስለ RABBI", to: "/about" },
 ];
 
@@ -21,33 +21,23 @@ export function SiteHeader() {
           <Logo />
         </Link>
         <nav className="ml-auto hidden items-center gap-6 lg:flex">
-          {NAV.map(({ label, to }) =>
-            to ? (
-              <Link
-                key={label}
-                to={to}
-                className="text-[0.78rem] tracking-wide text-on-navy-muted transition-colors hover:text-gold"
-                activeProps={{ className: "text-gold" }}
-              >
-                {label}
-              </Link>
-            ) : (
-              <a
-                key={label}
-                href="#"
-                className="text-[0.78rem] tracking-wide text-on-navy-muted transition-colors hover:text-gold"
-              >
-                {label}
-              </a>
-            ),
-          )}
+          {NAV.map(({ label, to }) => (
+            <Link
+              key={label}
+              to={to}
+              className="text-[0.78rem] tracking-wide text-on-navy-muted transition-colors hover:text-gold"
+              activeProps={{ className: "text-gold" }}
+            >
+              {label}
+            </Link>
+          ))}
         </nav>
-        <a
-          href="#"
+        <Link
+          to="/books"
           className="ml-auto rounded-md bg-gold px-4 py-2 text-[0.72rem] font-semibold tracking-wide text-navy-deep transition-opacity hover:opacity-90 lg:ml-0"
         >
           APP ይመርኳ
-        </a>
+        </Link>
         <button
           aria-label="ፈልግ"
           className="text-on-navy-muted transition-colors hover:text-gold"
