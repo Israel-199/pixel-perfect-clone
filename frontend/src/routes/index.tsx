@@ -78,7 +78,7 @@ const SECTIONS = [
   { icon: Play, title: "ሚዲያ", sub: "ቪዲዮ፣ አዲዮ፣ ፖድካስት", to: "/media" },
   { icon: Pencil, title: "ጽሑፎች", sub: "መንፈሳዊ ጽሑፎች", to: "/articles" },
   { icon: HandHeart, title: "ጸሎት ክፍል", sub: "የጸሎት ርእሳዎች", to: "/prayer" },
-  { icon: Users, title: "መህበረሰብ", sub: "ተገናኝ እና አገሩ", to: "/about" },
+  { icon: Users, title: "ማህበረሰብ", sub: "ተገናኝ እና አገሩ", to: "/about" },
 ];
 
 function Index() {
