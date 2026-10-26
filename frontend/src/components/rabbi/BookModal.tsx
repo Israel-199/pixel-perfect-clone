@@ -70,6 +70,15 @@ export const BookModal: React.FC<BookModalProps> = ({
     }
   };
 
+  const handleSendReceipt = () => {
+    if (!user) {
+      onClose();
+      navigate({ to: "/login" });
+      return;
+    }
+    window.open("https://t.me/rabbi_admin", "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
       <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-gold/30 shadow-2xl p-6 md:p-8">
@@ -174,15 +183,14 @@ export const BookModal: React.FC<BookModalProps> = ({
                     <Lock className="h-4 w-4 text-amber-600" />
                     <span>ጥያቄዎ በመጠባበቅ ላይ ነው (Pending Approval)</span>
                   </div>
-                  <a
-                    href="https://t.me/rabbi_admin"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all"
+                  <button
+                    type="button"
+                    onClick={handleSendReceipt}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all cursor-pointer shadow-sm active:scale-[0.99]"
                   >
                     <Send className="h-4 w-4" />
-                    <span>የክፍያደረሰኝ ለቴሌግራም አድሚን ይላኩ (@rabbi_admin)</span>
-                  </a>
+                    <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -195,15 +203,14 @@ export const BookModal: React.FC<BookModalProps> = ({
                     <span>{loading ? "በመላክ ላይ..." : "መጽሐፉን ጠይቅ (Request Access)"}</span>
                   </button>
 
-                  <a
-                    href="https://t.me/rabbi_admin"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-navy-deep/5 px-4 py-2.5 text-xs font-semibold text-navy hover:bg-gold/10 transition-all"
+                  <button
+                    type="button"
+                    onClick={handleSendReceipt}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-navy-deep/5 px-4 py-2.5 text-xs font-semibold text-navy hover:bg-gold/10 transition-all cursor-pointer active:scale-[0.99]"
                   >
                     <Send className="h-4 w-4 text-gold" />
-                    <span>የክፍያ ደረሰኝ በቴሌግራም ለመላክ (@rabbi_admin)</span>
-                  </a>
+                    <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                  </button>
                 </div>
               )}
             </div>

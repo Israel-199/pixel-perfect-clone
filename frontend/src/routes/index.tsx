@@ -291,7 +291,7 @@ function Index() {
             className="mt-4 h-[110px] w-full rounded object-cover"
           />
           <Link
-            to="/articles"
+            to="/courses"
             className="mt-4 inline-flex items-center gap-2 rounded-md border border-gold px-4 py-2 text-xs font-medium text-gold hover:bg-gold/10"
           >
             ኮርሰችን ይመልከቱ →

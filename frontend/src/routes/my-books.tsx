@@ -40,6 +40,14 @@ function MyBooksRoute() {
     }
   };
 
+  const handleSendReceipt = () => {
+    if (!user) {
+      navigate({ to: "/login" });
+      return;
+    }
+    window.open("https://t.me/rabbi_admin", "_blank", "noopener,noreferrer");
+  };
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate({ to: "/login" });
@@ -175,15 +183,14 @@ function MyBooksRoute() {
                       <div className="text-[0.72rem] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 font-medium">
                         ጥያቄዎ በመታየት ላይ ነው። ክፍያ ደረሰኝ በቴሌግራም መላክ ይችላሉ።
                       </div>
-                      <a
-                        href="https://t.me/rabbi_admin"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-all"
+                      <button
+                        type="button"
+                        onClick={handleSendReceipt}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-all cursor-pointer"
                       >
                         <Send className="h-3.5 w-3.5" />
-                        <span>የክፍያ ደረሰኝ ላክ (@rabbi_admin)</span>
-                      </a>
+                        <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                      </button>
                     </div>
                   ) : (
                     <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200 text-center font-medium">

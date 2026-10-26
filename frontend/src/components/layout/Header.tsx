@@ -10,6 +10,7 @@ const BASE_NAV = [
   { label: "ሚዲያ", href: "/media" },
   { label: "ጽሑፎች", href: "/articles" },
   { label: "ጸሎት", href: "/prayer" },
+  { label: "ኮርስ", href: "/courses" },
   { label: "ስለ RABBI", href: "/about" },
 ];
 

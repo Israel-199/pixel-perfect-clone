@@ -14,6 +14,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ArticlesRouteImport } from './routes/articles'
 import { Route as BooksRouteImport } from './routes/books'
+import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MediaRouteImport } from './routes/media'
@@ -44,6 +45,11 @@ const ArticlesRoute = ArticlesRouteImport.update({
 const BooksRoute = BooksRouteImport.update({
   id: '/books',
   path: '/books',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoursesRoute = CoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/articles': typeof ArticlesRoute
   '/books': typeof BooksRoute
+  '/courses': typeof CoursesRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/media': typeof MediaRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/articles': typeof ArticlesRoute
   '/books': typeof BooksRoute
+  '/courses': typeof CoursesRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/media': typeof MediaRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/articles': typeof ArticlesRoute
   '/books': typeof BooksRoute
+  '/courses': typeof CoursesRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/media': typeof MediaRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/articles'
     | '/books'
+    | '/courses'
     | '/forgot-password'
     | '/login'
     | '/media'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/articles'
     | '/books'
+    | '/courses'
     | '/forgot-password'
     | '/login'
     | '/media'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/articles'
     | '/books'
+    | '/courses'
     | '/forgot-password'
     | '/login'
     | '/media'
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ArticlesRoute: typeof ArticlesRoute
   BooksRoute: typeof BooksRoute
+  CoursesRoute: typeof CoursesRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   MediaRoute: typeof MediaRoute
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/books'
       fullPath: '/books'
       preLoaderRoute: typeof BooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/courses': {
+      id: '/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof CoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -261,6 +281,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ArticlesRoute: ArticlesRoute,
   BooksRoute: BooksRoute,
+  CoursesRoute: CoursesRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   MediaRoute: MediaRoute,

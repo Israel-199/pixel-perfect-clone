@@ -4,20 +4,22 @@ import { Logo } from "@/components/rabbi/Logo";
 
 const FOOTER_COLS = [
   {
-    title: "መጽሐፍት",
+    title: "መጽሐፍትና ኮርሶች",
     links: [
       { label: "ሁሉም መጽሐፍት", to: "/books" },
+      { label: "ኮርሶች እና ስልጠናዎች", to: "/courses" },
       { label: "ጸሎት", to: "/prayer" },
       { label: "ጽሑፎች", to: "/articles" },
       { label: "ሚዲያ", to: "/media" },
     ],
   },
   {
-    title: "ደጋፍ",
+    title: "ደጋፍና መረጃ",
     links: [
       { label: "ስለ እኛ", to: "/about" },
-      { label: "ደጋፍ ያግኙ", to: "/about" },
+      { label: "ራዕይና ተልዕኮ", to: "/about" },
       { label: "የአጋርነት ጥያቄ", to: "/about" },
+      { label: "ያግኙን", to: "/about" },
     ],
   },
 ];
