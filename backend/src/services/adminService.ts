@@ -1,4 +1,9 @@
 import { prisma } from "../config/prisma";
+import bcrypt from "bcryptjs";
+import jsonwebtoken from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class AdminService {
   static async getAllRequests() {
@@ -52,10 +57,10 @@ export class AdminService {
       throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
     }
 
-    const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE"];
+    const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE", "COURSE", "ARTICLE", "PRAYER"];
     const mediaType = (data.mediaType || "BOOK").toUpperCase();
     if (!validMediaTypes.includes(mediaType)) {
-      throw new Error("የተሳሳተ የሜዲያ ዓይነት (Invalid media type).");
+      throw new Error("የተሳሳተ የይዘት ዓይነት (Invalid content/media type).");
     }
 
     return prisma.book.create({
@@ -116,5 +121,89 @@ export class AdminService {
     }
 
     return prisma.book.delete({ where: { id } });
+  }
+
+  static async updateProfile(
+    adminUserId: string,
+    data: {
+      email?: string;
+      password?: string;
+      currentPassword?: string;
+      fullName?: string;
+      phone?: string;
+    }
+  ) {
+    const adminUser = await prisma.user.findUnique({ where: { id: adminUserId } });
+    if (!adminUser || adminUser.role !== "ADMIN") {
+      throw new Error("የአስተዳዳሪ ተጠቃሚ አልተገኘም (Admin user not found).");
+    }
+
+    const updateData: any = {};
+
+    if (data.fullName && data.fullName.trim()) {
+      updateData.fullName = data.fullName.trim();
+    }
+
+    if (data.phone && data.phone.trim()) {
+      updateData.phone = data.phone.trim();
+    }
+
+    // Email update
+    if (data.email && data.email.trim()) {
+      const cleanEmail = data.email.toLowerCase().trim();
+      if (!EMAIL_REGEX.test(cleanEmail)) {
+        throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid email is required).");
+      }
+      if (cleanEmail !== adminUser.email) {
+        const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
+        if (existing) {
+          throw new Error("ይህ የኢሜይል አድራሻ አስቀድሞ በሌላ ተጠቃሚ ተመዝግቧል (Email already in use).");
+        }
+        updateData.email = cleanEmail;
+      }
+    }
+
+    // Password update
+    if (data.password && data.password.trim()) {
+      if (data.password.length < 6) {
+        throw new Error("አዲሱ የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት (Password must be at least 6 characters).");
+      }
+
+      if (data.currentPassword) {
+        const isValid = await bcrypt.compare(data.currentPassword, adminUser.password);
+        if (!isValid) {
+          throw new Error("ያሁኑ የይለፍ ቃል ልክ አይደለም (Current password is incorrect).");
+        }
+      }
+
+      updateData.password = await bcrypt.hash(data.password.trim(), 10);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: adminUserId },
+      data: updateData,
+    });
+
+    const token = jsonwebtoken.sign(
+      {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        role: updatedUser.role,
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return {
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        fullName: updatedUser.fullName,
+        phone: updatedUser.phone,
+      },
+      token,
+      message: "የአስተዳዳሪ ፕሮፋይል በተሳካ ሁኔታ ተሻሽሏል (Admin profile updated successfully).",
+    };
   }
 }

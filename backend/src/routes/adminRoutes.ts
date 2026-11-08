@@ -9,6 +9,7 @@ router.use(authenticateToken, requireAdmin);
 
 router.get("/requests", AdminController.getAllRequests);
 router.put("/requests/:id", AdminController.updateRequestStatus);
+router.put("/profile", AdminController.updateProfile);
 router.post("/books", AdminController.createBook);
 router.put("/books/:id", AdminController.updateBook);
 router.delete("/books/:id", AdminController.deleteBook);

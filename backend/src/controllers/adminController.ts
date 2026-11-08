@@ -84,4 +84,18 @@ export class AdminController {
       res.status(500).json({ error: "File upload failed." });
     }
   }
+
+  static async updateProfile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const adminUserId = req.user?.userId;
+      if (!adminUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const result = await AdminService.updateProfile(adminUserId, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to update admin profile." });
+    }
+  }
 }

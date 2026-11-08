@@ -61,3 +61,15 @@ enum RequestStatus {
   REJECTED
 }
 
+model PrivatePrayer {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  submittedBy String?
+  contactInfo String?
+  isPrayed    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+

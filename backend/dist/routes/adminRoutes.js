@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const adminController_1 = require("../controllers/adminController");
+const authMiddleware_1 = require("../middlewares/authMiddleware");
+const cloudinary_1 = require("../config/cloudinary");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.authenticateToken, authMiddleware_1.requireAdmin);
+router.get("/requests", adminController_1.AdminController.getAllRequests);
+router.put("/requests/:id", adminController_1.AdminController.updateRequestStatus);
+router.put("/profile", adminController_1.AdminController.updateProfile);
+router.post("/books", adminController_1.AdminController.createBook);
+router.put("/books/:id", adminController_1.AdminController.updateBook);
+router.delete("/books/:id", adminController_1.AdminController.deleteBook);
+router.post("/upload", cloudinary_1.upload.single("file"), adminController_1.AdminController.uploadFile);
+exports.default = router;

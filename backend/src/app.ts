@@ -5,6 +5,7 @@ import authRoutes from "./routes/authRoutes";
 import bookRoutes from "./routes/bookRoutes";
 import requestRoutes from "./routes/requestRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import privatePrayerRoutes from "./routes/privatePrayerRoutes";
 import { prisma } from "./config/prisma";
 
 dotenv.config();
@@ -20,6 +21,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/private-prayers", privatePrayerRoutes);
 
 // Healthcheck
 app.get("/api/health", (req, res) => {
