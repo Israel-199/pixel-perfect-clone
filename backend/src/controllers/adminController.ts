@@ -4,6 +4,24 @@ import { AuthRequest } from "../middlewares/authMiddleware";
 import { cloudinary } from "../config/cloudinary";
 
 export class AdminController {
+  static async getDashboardStats(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const stats = await AdminService.getDashboardStats();
+      res.json({ stats });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch dashboard statistics." });
+    }
+  }
+
+  static async getContentsWithStats(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const contents = await AdminService.getContentsWithStats();
+      res.json({ contents });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch contents with statistics." });
+    }
+  }
+
   static async getAllRequests(req: AuthRequest, res: Response): Promise<void> {
     try {
       const requests = await AdminService.getAllRequests();

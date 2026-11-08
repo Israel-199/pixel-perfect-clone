@@ -4,6 +4,24 @@ exports.AdminController = void 0;
 const adminService_1 = require("../services/adminService");
 const cloudinary_1 = require("../config/cloudinary");
 class AdminController {
+    static async getDashboardStats(req, res) {
+        try {
+            const stats = await adminService_1.AdminService.getDashboardStats();
+            res.json({ stats });
+        }
+        catch (error) {
+            res.status(500).json({ error: "Failed to fetch dashboard statistics." });
+        }
+    }
+    static async getContentsWithStats(req, res) {
+        try {
+            const contents = await adminService_1.AdminService.getContentsWithStats();
+            res.json({ contents });
+        }
+        catch (error) {
+            res.status(500).json({ error: "Failed to fetch contents with statistics." });
+        }
+    }
     static async getAllRequests(req, res) {
         try {
             const requests = await adminService_1.AdminService.getAllRequests();

@@ -6,6 +6,8 @@ const authMiddleware_1 = require("../middlewares/authMiddleware");
 const cloudinary_1 = require("../config/cloudinary");
 const router = (0, express_1.Router)();
 router.use(authMiddleware_1.authenticateToken, authMiddleware_1.requireAdmin);
+router.get("/stats", adminController_1.AdminController.getDashboardStats);
+router.get("/contents-with-stats", adminController_1.AdminController.getContentsWithStats);
 router.get("/requests", adminController_1.AdminController.getAllRequests);
 router.put("/requests/:id", adminController_1.AdminController.updateRequestStatus);
 router.put("/profile", adminController_1.AdminController.updateProfile);

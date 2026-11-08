@@ -7,6 +7,8 @@ const router = Router();
 
 router.use(authenticateToken, requireAdmin);
 
+router.get("/stats", AdminController.getDashboardStats);
+router.get("/contents-with-stats", AdminController.getContentsWithStats);
 router.get("/requests", AdminController.getAllRequests);
 router.put("/requests/:id", AdminController.updateRequestStatus);
 router.put("/profile", AdminController.updateProfile);

@@ -7,13 +7,150 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class AdminService {
   static async getAllRequests() {
-    return prisma.purchaseRequest.findMany({
+    const requests = await prisma.purchaseRequest.findMany({
       include: {
         user: { select: { id: true, fullName: true, phone: true, email: true } },
-        book: { select: { id: true, title: true, coverUrl: true, price: true, mediaType: true } },
+        book: {
+          select: {
+            id: true,
+            title: true,
+            coverUrl: true,
+            price: true,
+            mediaType: true,
+            requests: {
+              where: { status: "PERMITTED" },
+              select: { id: true, userId: true },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
+
+    return requests.map((req) => ({
+      ...req,
+      book: req.book
+        ? {
+            ...req.book,
+            approvedBuyersCount: req.book.requests?.length || 0,
+          }
+        : null,
+    }));
+  }
+
+  static async getContentsWithStats() {
+    const books = await prisma.book.findMany({
+      include: {
+        requests: {
+          include: {
+            user: { select: { id: true, fullName: true, phone: true, email: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return books.map((book) => {
+      const approvedRequests = book.requests.filter((r) => r.status === "PERMITTED");
+      const pendingRequests = book.requests.filter((r) => r.status === "PENDING");
+      const rejectedRequests = book.requests.filter((r) => r.status === "REJECTED");
+
+      const buyers = approvedRequests.map((r) => ({
+        requestId: r.id,
+        userId: r.user.id,
+        fullName: r.user.fullName || "ስም አልተገለጸም",
+        email: r.user.email,
+        phone: r.user.phone || "-",
+        approvedAt: r.updatedAt,
+        paymentProofUrl: r.paymentProofUrl,
+      }));
+
+      return {
+        id: book.id,
+        title: book.title,
+        author: book.author || "RABBI",
+        description: book.description,
+        price: book.price,
+        coverUrl: book.coverUrl,
+        mediaType: book.mediaType || "BOOK",
+        sampleContent: book.sampleContent,
+        fullContent: book.fullContent,
+        videoUrl: book.videoUrl,
+        audioUrl: book.audioUrl,
+        createdAt: book.createdAt,
+        updatedAt: book.updatedAt,
+        approvedCount: approvedRequests.length,
+        pendingCount: pendingRequests.length,
+        rejectedCount: rejectedRequests.length,
+        totalRevenue: approvedRequests.length * (book.price || 0),
+        buyers,
+      };
+    });
+  }
+
+  static async getDashboardStats() {
+    const allRequests = await prisma.purchaseRequest.findMany({
+      include: {
+        book: { select: { id: true, title: true, price: true, coverUrl: true, mediaType: true } },
+      },
+    });
+
+    const approvedRequests = allRequests.filter((r) => r.status === "PERMITTED");
+    const pendingRequests = allRequests.filter((r) => r.status === "PENDING");
+    const rejectedRequests = allRequests.filter((r) => r.status === "REJECTED");
+
+    const totalRevenue = approvedRequests.reduce((sum, r) => sum + (r.book?.price || 0), 0);
+    const uniqueBuyerIds = new Set(approvedRequests.map((r) => r.userId));
+
+    // Per book statistics
+    const bookStatsMap: Record<
+      string,
+      {
+        id: string;
+        title: string;
+        price: number;
+        coverUrl: string;
+        mediaType: string;
+        approvedCount: number;
+        revenue: number;
+      }
+    > = {};
+
+    for (const req of approvedRequests) {
+      if (!req.book) continue;
+      if (!bookStatsMap[req.book.id]) {
+        bookStatsMap[req.book.id] = {
+          id: req.book.id,
+          title: req.book.title,
+          price: req.book.price,
+          coverUrl: req.book.coverUrl,
+          mediaType: req.book.mediaType || "BOOK",
+          approvedCount: 0,
+          revenue: 0,
+        };
+      }
+      bookStatsMap[req.book.id].approvedCount += 1;
+      bookStatsMap[req.book.id].revenue += req.book.price || 0;
+    }
+
+    const topSellingBooks = Object.values(bookStatsMap).sort(
+      (a, b) => b.approvedCount - a.approvedCount
+    );
+
+    const totalBooks = await prisma.book.count();
+    const totalUsers = await prisma.user.count();
+
+    return {
+      totalApprovedSales: approvedRequests.length,
+      totalPendingRequests: pendingRequests.length,
+      totalRejectedRequests: rejectedRequests.length,
+      totalRevenue,
+      totalUniqueBuyers: uniqueBuyerIds.size,
+      totalBooks,
+      totalUsers,
+      topSellingBooks,
+    };
   }
 
   static async updateRequestStatus(id: string, status: "PENDING" | "PERMITTED" | "REJECTED") {
