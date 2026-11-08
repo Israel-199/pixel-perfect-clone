@@ -32,6 +32,11 @@ import {
   Check,
   Home,
   LogOut,
+  Users,
+  ShoppingBag,
+  TrendingUp,
+  Coins,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
@@ -39,6 +44,16 @@ import { fetchApi } from "@/lib/api";
 export const Route = createFileRoute("/admin")({
   component: AdminRoute,
 });
+
+interface ContentBuyer {
+  requestId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  approvedAt: string;
+  paymentProofUrl?: string | null;
+}
 
 interface PrivatePrayerAdminItem {
   id: string;
@@ -67,6 +82,7 @@ interface AdminRequestItem {
     coverUrl: string;
     price: number;
     mediaType: string;
+    approvedBuyersCount?: number;
   };
 }
 
@@ -83,9 +99,34 @@ interface ContentItemAdmin {
   videoUrl?: string | null;
   audioUrl?: string | null;
   createdAt: string;
+  updatedAt?: string;
+  approvedCount?: number;
+  pendingCount?: number;
+  rejectedCount?: number;
+  totalRevenue?: number;
+  buyers?: ContentBuyer[];
 }
 
-type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE";
+interface DashboardStats {
+  totalApprovedSales: number;
+  totalPendingRequests: number;
+  totalRejectedRequests: number;
+  totalRevenue: number;
+  totalUniqueBuyers: number;
+  totalBooks: number;
+  totalUsers: number;
+  topSellingBooks: Array<{
+    id: string;
+    title: string;
+    price: number;
+    coverUrl: string;
+    mediaType: string;
+    approvedCount: number;
+    revenue: number;
+  }>;
+}
+
+type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE";
 type ContentFilterType = "ALL" | "BOOK" | "VIDEO" | "AUDIO" | "COURSE" | "ARTICLE" | "PRAYER";
 type RequestFilterType = "ALL" | "BOOK" | "MEDIA" | "COURSE";
 
@@ -94,6 +135,15 @@ function AdminRoute() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>("REQUESTS");
+
+  // Real-time tracking and dashboard stats state
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [selectedBookForBuyers, setSelectedBookForBuyers] = useState<ContentItemAdmin | null>(null);
+  const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+  const [trackingSearch, setTrackingSearch] = useState("");
+  const [trackingTypeFilter, setTrackingTypeFilter] = useState<string>("ALL");
+  const [trackingBuyerFilter, setTrackingBuyerFilter] = useState<"ALL" | "HAS_BUYERS" | "NO_BUYERS">("ALL");
 
   // Private Prayers state
   const [privatePrayers, setPrivatePrayers] = useState<PrivatePrayerAdminItem[]>([]);
@@ -180,6 +230,19 @@ function AdminRoute() {
   // Polling ref
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch Dashboard Stats (Real-time tracking)
+  const fetchDashboardStats = async (quiet = false) => {
+    try {
+      if (!quiet) setStatsLoading(true);
+      const data = await fetchApi<{ stats: DashboardStats }>("/admin/stats");
+      setStats(data.stats);
+    } catch (err) {
+      console.error("Failed to load dashboard stats:", err);
+    } finally {
+      if (!quiet) setStatsLoading(false);
+    }
+  };
+
   // Fetch Requests (silent for background polling)
   const fetchAdminRequests = async (quiet = false) => {
     try {
@@ -196,16 +259,20 @@ function AdminRoute() {
     }
   };
 
-  // Fetch All Contents
-  const fetchAdminContents = async () => {
+  // Fetch All Contents with stats (approvedCount, revenue, buyers)
+  const fetchAdminContents = async (quiet = false) => {
     try {
-      setContentLoading(true);
-      const data = await fetchApi<{ books: ContentItemAdmin[] }>("/books");
-      setContents(data.books);
+      if (!quiet) setContentLoading(true);
+      const data = await fetchApi<{ contents: ContentItemAdmin[] }>("/admin/contents-with-stats");
+      setContents(data.contents || []);
     } catch (err) {
-      console.error("Failed to load contents:", err);
+      console.error("Failed to load contents with stats:", err);
+      try {
+        const fallback = await fetchApi<{ books: ContentItemAdmin[] }>("/books");
+        setContents(fallback.books || []);
+      } catch (e) {}
     } finally {
-      setContentLoading(false);
+      if (!quiet) setContentLoading(false);
     }
   };
 
@@ -264,11 +331,14 @@ function AdminRoute() {
       fetchAdminRequests();
       fetchAdminContents();
       fetchPrivatePrayers();
+      fetchDashboardStats();
 
-      // Setup real-time polling every 4 seconds for requests and private prayers
+      // Setup real-time polling every 4 seconds for requests, contents, prayers, and tracking stats
       pollingRef.current = setInterval(() => {
         fetchAdminRequests(true);
         fetchPrivatePrayers(true);
+        fetchAdminContents(true);
+        fetchDashboardStats(true);
       }, 4000);
 
       return () => {
@@ -277,7 +347,7 @@ function AdminRoute() {
     }
   }, [user, authLoading]);
 
-  // Update Request Status (Approve / Reject)
+  // Update Request Status (Approve / Reject) with instantaneous tracking update
   const handleUpdateStatus = async (id: string, status: "PERMITTED" | "REJECTED" | "PENDING") => {
     try {
       await fetchApi(`/admin/requests/${id}`, {
@@ -285,6 +355,8 @@ function AdminRoute() {
         body: JSON.stringify({ status }),
       });
       fetchAdminRequests(true);
+      fetchAdminContents(true);
+      fetchDashboardStats(true);
     } catch (err: any) {
       alert(err.message || "የጥያቄ ሁኔት መቀየር አልተሳካም።");
     }
@@ -553,6 +625,47 @@ function AdminRoute() {
     return true;
   });
 
+  // Real-time tracking calculations
+  const totalApprovedSales =
+    stats?.totalApprovedSales ??
+    requests.filter((r) => r.status === "PERMITTED").length;
+
+  const totalRevenue =
+    stats?.totalRevenue ??
+    requests
+      .filter((r) => r.status === "PERMITTED")
+      .reduce((sum, r) => sum + (r.book?.price || 0), 0);
+
+  const totalPending = stats?.totalPendingRequests ?? pendingCount;
+
+  const totalUniqueBuyers =
+    stats?.totalUniqueBuyers ??
+    new Set(requests.filter((r) => r.status === "PERMITTED").map((r) => r.user?.id || r.id)).size;
+
+  // Filtered contents for Tracking tab
+  const filteredTrackingContents = contents.filter((item) => {
+    const matchType =
+      trackingTypeFilter === "ALL"
+        ? true
+        : item.mediaType === trackingTypeFilter;
+
+    const buyersCount = item.approvedCount || 0;
+    const matchBuyer =
+      trackingBuyerFilter === "ALL"
+        ? true
+        : trackingBuyerFilter === "HAS_BUYERS"
+          ? buyersCount > 0
+          : buyersCount === 0;
+
+    const matchSearch =
+      trackingSearch.trim() === ""
+        ? true
+        : item.title.toLowerCase().includes(trackingSearch.toLowerCase()) ||
+          (item.author && item.author.toLowerCase().includes(trackingSearch.toLowerCase()));
+
+    return matchType && matchBuyer && matchSearch;
+  });
+
   return (
     <div className="animate-in fade-in min-h-screen bg-navy/5 pb-20">
       {/* Top Admin Header Bar */}
@@ -567,7 +680,7 @@ function AdminRoute() {
               የ RABBI አስተዳዳሪ ዳሽቦርድ
             </h1>
             <p className="text-xs text-on-navy-muted mt-1">
-              መጽሐፍትን፣ ሚዲያዎችን፣ ኮርሶችን፣ ጽሑፎችን እና ጸሎቶችን ሙሉ በሙሉ ይቆጣጠሩ።
+              መጽሐፍትን፣ ሚዲያዎችን፣ ኮርሶችን፣ ጽሑፎችን፣ የገዢዎች ክትትልና ጸሎቶችን ሙሉ በሙሉ ይቆጣጠሩ።
             </p>
           </div>
 
@@ -589,6 +702,7 @@ function AdminRoute() {
                 fetchAdminRequests();
                 fetchAdminContents();
                 fetchPrivatePrayers();
+                fetchDashboardStats();
               }}
               title="በእጅ አድስ (Manual Refresh)"
               className="flex items-center gap-1.5 rounded-xl bg-gold/15 px-3 py-1.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-gold/25 transition-all cursor-pointer"
@@ -597,7 +711,7 @@ function AdminRoute() {
               <span className="hidden sm:inline">አድስ</span>
             </button>
 
-            {/* Link to Website (since Header is hidden on Admin) */}
+            {/* Link to Website */}
             <Link
               to="/"
               className="flex items-center gap-1.5 rounded-xl bg-gold/20 px-3 py-1.5 text-xs font-bold text-gold border border-gold/40 hover:bg-gold hover:text-navy-deep transition-all cursor-pointer shadow-sm"
@@ -613,7 +727,7 @@ function AdminRoute() {
               <span className="font-bold text-white text-[11px]">{user?.email}</span>
             </div>
 
-            {/* Logout Button (since Footer/Header are hidden on Admin) */}
+            {/* Logout Button */}
             <button
               onClick={() => {
                 logout();
@@ -630,6 +744,136 @@ function AdminRoute() {
       </div>
 
       <div className="mx-auto max-w-[1200px] px-4 md:px-6 mt-8">
+        {/* ================= REAL-TIME TRACKING DASHBOARD STATS ================= */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-gold" />
+              <h2 className="font-display text-lg font-bold text-navy">
+                የቀጥታ ሽያጭና የገዢዎች ክትትል (Live Sales & Buyers Tracking)
+              </h2>
+            </div>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              በየ 4 ሴኮንዱ በቀጥታ የሚታደስ
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Total Approved Sales */}
+            <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  የተፈቀዱ ግዢዎች
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-500/10 text-green-600 border border-green-500/20">
+                  <ShoppingBag className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="font-display text-2xl md:text-3xl font-extrabold text-navy">
+                  {totalApprovedSales}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  የተፈቀደላቸው የይዘት ጥያቄዎች
+                </p>
+              </div>
+            </div>
+
+            {/* Card 2: Total Revenue */}
+            <div className="rounded-2xl bg-card border border-gold/30 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between bg-gradient-to-br from-card via-card to-gold/5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gold uppercase tracking-wider">
+                  ጠቅላላ የተገኘ ገቢ
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold border border-gold/30">
+                  <Coins className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="font-display text-2xl md:text-3xl font-extrabold text-navy-deep">
+                  {totalRevenue.toLocaleString()} <span className="text-sm font-bold text-gold">ETB</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  ከተፈቀዱ ግዢዎች የተሰበሰበ
+                </p>
+              </div>
+            </div>
+
+            {/* Card 3: Pending Requests */}
+            <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  በመጠባበቅ ላይ
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-display text-2xl md:text-3xl font-extrabold text-navy">
+                    {totalPending}
+                  </span>
+                  {totalPending > 0 && (
+                    <span className="rounded-full bg-amber-500/20 text-amber-700 px-2 py-0.5 text-[10px] font-bold animate-pulse">
+                      ማረጋገጫ ይጠብቃል
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  ፍቃድ የሚጠብቁ ጥያቄዎች
+                </p>
+              </div>
+            </div>
+
+            {/* Card 4: Unique Buyers */}
+            <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  የገዙ ተጠቃሚዎች
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 border border-sky-500/20">
+                  <Users className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="font-display text-2xl md:text-3xl font-extrabold text-navy">
+                  {totalUniqueBuyers}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  ቢያንስ 1 ይዘት የገዙ ተጠቃሚዎች
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Top Selling Quick Ribbon */}
+          {stats?.topSellingBooks && stats.topSellingBooks.length > 0 && (
+            <div className="mt-3 rounded-xl bg-card border border-gold/20 p-3 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 font-bold text-navy shrink-0">
+                <Sparkles className="h-4 w-4 text-gold" />
+                <span>በብዛት የተገዙ ይዘቶች (Top Sellers)፦</span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0">
+                {stats.topSellingBooks.slice(0, 4).map((b, idx) => (
+                  <div
+                    key={b.id}
+                    className="flex items-center gap-2 rounded-lg bg-navy/5 px-2.5 py-1 border border-navy/10 shrink-0"
+                  >
+                    <span className="font-bold text-gold text-[11px]">#{idx + 1}</span>
+                    <span className="font-bold text-navy text-[11px] max-w-[130px] truncate">
+                      {b.title}
+                    </span>
+                    <span className="rounded-md bg-green-100 text-green-800 px-1.5 py-0.2 text-[10px] font-bold">
+                      {b.approvedCount} ገዢዎች
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Navigation Tabs Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 border-b border-navy/15 scrollbar-none">
           <button
@@ -659,6 +903,18 @@ function AdminRoute() {
           >
             <BookOpen className="h-4 w-4" />
             <span>ይዘቶችን አስተዳድር ({contents.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("TRACKING")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === "TRACKING"
+                ? "bg-navy-deep text-gold shadow-md border border-gold/40"
+                : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
+            }`}
+          >
+            <TrendingUp className="h-4 w-4 text-gold" />
+            <span>የሽያጭና የገዢዎች ክትትል (Sales & Tracking)</span>
           </button>
 
           <button
@@ -812,6 +1068,25 @@ function AdminRoute() {
                               <span>
                                 <strong className="text-navy">ስልክ:</strong> {req.user?.phone}
                               </span>
+                            )}
+                          </div>
+
+                          {/* Real Tracking Info on Request Item */}
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-gold/15 px-2.5 py-1 text-xs font-bold text-navy-deep border border-gold/30">
+                              <Users className="h-3.5 w-3.5 text-gold" />
+                              <span>ይህንን ይዘት እስካሁን የገዙ ተጠቃሚዎች፦ <strong className="text-gold font-extrabold">{req.book?.approvedBuyersCount ?? 0}</strong></span>
+                            </span>
+
+                            {req.paymentProofUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewReceiptUrl(req.paymentProofUrl!)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-navy-deep px-2.5 py-1 text-xs font-bold text-gold border border-gold/40 hover:bg-navy transition-all cursor-pointer shadow-sm active:scale-95"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                <span>የክፍያ ደረሰኝ እይ (Receipt)</span>
+                              </button>
                             )}
                           </div>
                         </div>
@@ -1019,6 +1294,48 @@ function AdminRoute() {
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
                         {item.description || "ምንም መግለጫ የለም።"}
                       </p>
+
+                      {/* Real Tracking Info for this content */}
+                      <div className="mt-3 rounded-xl bg-navy/5 border border-gold/20 p-2.5 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-bold text-navy">
+                            <Users className="h-4 w-4 text-gold" />
+                            <span>የገዙ ተጠቃሚዎች፦</span>
+                          </div>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              (item.approvedCount || 0) > 0
+                                ? "bg-green-100 text-green-800 border border-green-300"
+                                : "bg-navy/10 text-muted-foreground"
+                            }`}
+                          >
+                            {item.approvedCount || 0} ተጠቃሚዎች
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-navy/10">
+                          <span>
+                            ገቢ፦{" "}
+                            <strong className="text-navy font-bold">
+                              {((item.approvedCount || 0) * (item.price || 0)).toLocaleString()} ETB
+                            </strong>
+                          </span>
+                          {(item.pendingCount || 0) > 0 && (
+                            <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-300 text-[10px]">
+                              {item.pendingCount} በመጠባበቅ ላይ
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBookForBuyers(item)}
+                          className="mt-1 w-full flex items-center justify-center gap-1.5 rounded-lg bg-navy-deep py-1.5 text-[11px] font-bold text-gold hover:bg-navy transition-all cursor-pointer shadow-sm active:scale-98"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          <span>የገዢዎች ዝርዝር ({item.approvedCount || 0})</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-navy/10 flex items-center justify-between gap-2">
@@ -1046,6 +1363,182 @@ function AdminRoute() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= TAB: SALES & BUYERS TRACKING ================= */}
+        {activeTab === "TRACKING" && (
+          <div className="space-y-6">
+            {/* Header / Filter bar */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-card p-5 rounded-2xl border border-gold/20 shadow-sm">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-gold" />
+                  <h3 className="font-display text-base font-bold text-navy">
+                    የይዘቶች ሽያጭና የገዢዎች ዝርዝር ክትትል (Book & Content Sales Tracker)
+                  </h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ለእያንዳንዱ መጽሐፍ፣ ኮርስ ወይም ሚዲያ ስንት ተጠቃሚዎች እንደገዙ እና ያመጣውን ገቢ በቀጥታ ይከታተሉ።
+                </p>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <div className="relative min-w-[180px] flex-1 md:w-56">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={trackingSearch}
+                    onChange={(e) => setTrackingSearch(e.target.value)}
+                    placeholder="በርዕስ ወይም ደራሲ ፈልግ..."
+                    className="w-full rounded-xl border border-navy/20 pl-8 pr-3 py-1.5 text-xs focus:border-gold focus:outline-none bg-background"
+                  />
+                </div>
+
+                <select
+                  value={trackingTypeFilter}
+                  onChange={(e) => setTrackingTypeFilter(e.target.value)}
+                  className="rounded-xl border border-navy/20 px-3 py-1.5 text-xs bg-background text-navy focus:border-gold focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">ሁሉም ምድቦች</option>
+                  <option value="BOOK">መጽሐፍት (Books)</option>
+                  <option value="VIDEO">ቪዲዮ (Videos)</option>
+                  <option value="AUDIO">ኦዲዮ (Audios)</option>
+                  <option value="COURSE">ኮርስ (Courses)</option>
+                  <option value="ARTICLE">ጽሑፎች (Articles)</option>
+                  <option value="PRAYER">ጸሎት (Prayers)</option>
+                </select>
+
+                <select
+                  value={trackingBuyerFilter}
+                  onChange={(e) => setTrackingBuyerFilter(e.target.value as any)}
+                  className="rounded-xl border border-navy/20 px-3 py-1.5 text-xs bg-background text-navy focus:border-gold focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">ሁሉም ይዘቶች ({contents.length})</option>
+                  <option value="HAS_BUYERS">የተገዙ ብቻ (With Buyers)</option>
+                  <option value="NO_BUYERS">ያልተገዙ (No Buyers Yet)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Tracking Table */}
+            {filteredTrackingContents.length === 0 ? (
+              <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center shadow-card">
+                <ShoppingBag className="h-10 w-10 text-gold/60 mx-auto mb-3" />
+                <h4 className="font-display text-base font-bold text-navy mb-1">
+                  ምንም ይዘት አልተገኘም
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  የተመረጠውን ማጣሪያ የሚያሟላ መጽሐፍ ወይም ይዘት አልተገኘም።
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-card border border-gold/20 shadow-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-navy-deep text-gold font-bold uppercase tracking-wider text-[11px] border-b border-gold/20">
+                      <tr>
+                        <th className="px-4 py-3.5">ይዘት / መጽሐፍ</th>
+                        <th className="px-4 py-3.5">ምድብ</th>
+                        <th className="px-4 py-3.5">የአንዱ ዋጋ</th>
+                        <th className="px-4 py-3.5 text-center">የገዙ ተጠቃሚዎች</th>
+                        <th className="px-4 py-3.5">ጠቅላላ ገቢ</th>
+                        <th className="px-4 py-3.5">በመጠባበቅ ላይ</th>
+                        <th className="px-4 py-3.5 text-right">የገዢዎች ዝርዝር</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-navy/10">
+                      {filteredTrackingContents.map((item) => {
+                        const buyersCount = item.approvedCount || 0;
+                        const pendingReqCount = item.pendingCount || 0;
+                        const revenue = buyersCount * (item.price || 0);
+
+                        return (
+                          <tr
+                            key={item.id}
+                            className="hover:bg-gold/5 transition-all text-navy"
+                          >
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={item.coverUrl}
+                                  alt={item.title}
+                                  className="h-12 w-10 rounded-lg object-cover border border-gold/30 shrink-0 shadow-xs"
+                                />
+                                <div>
+                                  <div className="font-bold text-navy text-xs line-clamp-1 max-w-[220px]">
+                                    {item.title}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                                    ደራሲ: {item.author || "RABBI"}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3.5">
+                              <span className="rounded-md bg-navy/5 px-2 py-0.5 text-[10px] font-bold text-navy-deep border border-navy/10">
+                                {item.mediaType}
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-3.5 font-bold text-navy">
+                              {item.price > 0 ? `${item.price} ETB` : "ነፃ (Free)"}
+                            </td>
+
+                            <td className="px-4 py-3.5 text-center">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold text-xs ${
+                                  buyersCount > 0
+                                    ? "bg-green-100 text-green-800 border border-green-300 shadow-xs"
+                                    : "bg-navy/5 text-muted-foreground"
+                                }`}
+                              >
+                                <Users className="h-3.5 w-3.5 text-green-700" />
+                                {buyersCount} ተጠቃሚዎች
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-3.5 font-extrabold text-navy-deep">
+                              {revenue > 0 ? (
+                                <span className="text-gold font-bold">
+                                  {revenue.toLocaleString()} ETB
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">0 ETB</span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3.5">
+                              {pendingReqCount > 0 ? (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-700 animate-pulse">
+                                  <Clock className="h-3 w-3" />
+                                  {pendingReqCount} በመጠባበቅ ላይ
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px]">-</span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBookForBuyers(item)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-navy-deep px-3.5 py-1.5 text-xs font-bold text-gold hover:bg-navy transition-all cursor-pointer shadow-sm active:scale-95"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                <span>ገዢዎችን እይ ({buyersCount})</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -1776,6 +2269,206 @@ function AdminRoute() {
                 className="flex-1 rounded-xl bg-red-600 py-2 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer"
               >
                 አዎ፣ ሰርዝ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BUYERS LIST MODAL ================= */}
+      {selectedBookForBuyers && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-card border border-gold/40 p-6 md:p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gold/20 pb-4 mb-5">
+              <div className="flex items-center gap-3">
+                <img
+                  src={selectedBookForBuyers.coverUrl}
+                  alt={selectedBookForBuyers.title}
+                  className="h-16 w-12 rounded-xl object-cover border border-gold/30 shrink-0 shadow-sm"
+                />
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="rounded-md bg-navy-deep px-2 py-0.5 text-[10px] font-bold text-gold">
+                      {selectedBookForBuyers.mediaType}
+                    </span>
+                    <span className="text-xs font-bold text-navy">
+                      {selectedBookForBuyers.price > 0 ? `${selectedBookForBuyers.price} ETB` : "ነፃ (Free)"}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-navy line-clamp-1">
+                    {selectedBookForBuyers.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    ደራሲ/መምህር፦ {selectedBookForBuyers.author || "RABBI"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedBookForBuyers(null)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-navy/10 hover:text-navy transition-all cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Book Performance Metrics */}
+            <div className="grid grid-cols-3 gap-3 mb-6 p-4 rounded-2xl bg-navy/5 border border-gold/20">
+              <div className="text-center">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase">
+                  የገዙ ተጠቃሚዎች
+                </div>
+                <div className="text-xl md:text-2xl font-extrabold text-navy mt-1">
+                  {selectedBookForBuyers.approvedCount || 0}
+                </div>
+              </div>
+
+              <div className="text-center border-x border-navy/10">
+                <div className="text-[11px] font-bold text-gold uppercase">
+                  የተገኘ ገቢ
+                </div>
+                <div className="text-xl md:text-2xl font-extrabold text-navy-deep mt-1">
+                  {((selectedBookForBuyers.approvedCount || 0) * (selectedBookForBuyers.price || 0)).toLocaleString()}{" "}
+                  <span className="text-xs text-gold">ETB</span>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase">
+                  በመጠባበቅ ላይ
+                </div>
+                <div className="text-xl md:text-2xl font-extrabold text-amber-600 mt-1">
+                  {selectedBookForBuyers.pendingCount || 0}
+                </div>
+              </div>
+            </div>
+
+            {/* Buyers List Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5 font-bold text-navy text-sm">
+                <Users className="h-4 w-4 text-gold" />
+                <span>የተፈቀደላቸውና የገዙ ተጠቃሚዎች ዝርዝር</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                ጠቅላላ፦ {selectedBookForBuyers.buyers?.length || 0}
+              </span>
+            </div>
+
+            {/* Buyers List Content */}
+            {!selectedBookForBuyers.buyers || selectedBookForBuyers.buyers.length === 0 ? (
+              <div className="rounded-2xl border border-navy/10 bg-background/50 p-8 text-center">
+                <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                <h5 className="font-bold text-navy text-sm mb-1">
+                  ይህንን ይዘት እስካሁን የገዛ ተጠቃሚ የለም
+                </h5>
+                <p className="text-xs text-muted-foreground">
+                  ተጠቃሚዎች ጥያቄ ሲያቀርቡና በአስተዳዳሪው ፍቃድ (Approve) ሲያገኙ እዚህ በስም፣ በስልክና በኢሜይል ዝርዝር ይታያሉ።
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1">
+                {selectedBookForBuyers.buyers.map((buyer, idx) => (
+                  <div
+                    key={buyer.requestId || idx}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-background border border-gold/20 shadow-xs hover:border-gold/40 transition-all"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold font-bold text-xs shrink-0">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-navy text-sm">
+                            {buyer.fullName}
+                          </span>
+                          <span className="rounded-md bg-green-100 text-green-800 px-2 py-0.2 text-[10px] font-bold flex items-center gap-1">
+                            <Check className="h-3 w-3 text-green-600" />
+                            ተፈቅዷል (Approved)
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          <span>📧 {buyer.email}</span>
+                          {buyer.phone && buyer.phone !== "-" && (
+                            <span>📱 {buyer.phone}</span>
+                          )}
+                          <span>
+                            📅 {new Date(buyer.approvedAt).toLocaleDateString()} ({new Date(buyer.approvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {buyer.paymentProofUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewReceiptUrl(buyer.paymentProofUrl!)}
+                        className="self-end sm:self-center inline-flex items-center gap-1 rounded-lg bg-navy/5 px-2.5 py-1.5 text-xs font-semibold text-navy hover:bg-gold/20 hover:text-navy-deep transition-all cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-gold" />
+                        <span>ደረሰኝ እይ</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 pt-4 border-t border-gold/20 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedBookForBuyers(null)}
+                className="rounded-xl bg-navy-deep px-5 py-2 text-xs font-bold text-gold hover:bg-navy transition-all cursor-pointer shadow-sm"
+              >
+                ዝጋ (Close)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= PAYMENT RECEIPT PREVIEW MODAL ================= */}
+      {previewReceiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative max-w-2xl w-full rounded-2xl bg-card border border-gold/40 p-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-navy/10">
+              <h4 className="font-display text-sm font-bold text-navy flex items-center gap-1.5">
+                <Eye className="h-4 w-4 text-gold" />
+                የክፍያ ማረጋገጫ ደረሰኝ (Payment Proof Receipt)
+              </h4>
+              <button
+                type="button"
+                onClick={() => setPreviewReceiptUrl(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-navy/10 hover:text-navy cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[75vh] overflow-auto flex items-center justify-center rounded-xl bg-navy/5 p-2">
+              <img
+                src={previewReceiptUrl}
+                alt="Payment proof receipt"
+                className="max-h-[70vh] w-auto object-contain rounded-lg shadow-sm"
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between pt-2 border-t border-navy/10">
+              <a
+                href={previewReceiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-gold hover:underline flex items-center gap-1"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                በሙሉ መጠን ክፈት (Open Full Size)
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewReceiptUrl(null)}
+                className="rounded-xl bg-navy-deep px-4 py-1.5 text-xs font-bold text-gold hover:bg-navy cursor-pointer shadow-sm"
+              >
+                ዝጋ
               </button>
             </div>
           </div>
