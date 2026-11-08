@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -13,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { AuthProvider } from "@/lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -118,20 +120,20 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-import { AuthProvider } from "@/lib/auth";
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <div className="min-h-screen bg-cream font-body flex gap-0 flex-col">
-          <Header />
+          {!isAdmin && <Header />}
           <main className="flex-1">
             <Outlet />
           </main>
-          <Footer />
+          {!isAdmin && <Footer />}
         </div>
       </AuthProvider>
     </QueryClientProvider>

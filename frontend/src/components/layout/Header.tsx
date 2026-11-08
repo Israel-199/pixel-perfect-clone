@@ -86,14 +86,6 @@ export function Header() {
                 ግባ / Login
               </Link>
             )}
-
-            <Link
-              to="/books"
-              className="rounded-md bg-gold px-4 py-2 text-[0.72rem] font-semibold tracking-wide text-navy-deep transition-all hover:opacity-90 active:scale-95 hidden sm:inline-block"
-            >
-              APP ይመርኳ
-            </Link>
-
             <button
               aria-label="ፈልግ"
               className="text-on-navy-muted transition-colors hover:text-gold ml-1"
@@ -146,3 +138,5 @@ export function Header() {
     </>
   );
 }
+
+
