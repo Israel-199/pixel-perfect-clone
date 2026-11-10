@@ -96,6 +96,51 @@ class AdminController {
             res.status(500).json({ error: "File upload failed." });
         }
     }
+    static async getAllAdmins(req, res) {
+        try {
+            const requestingAdminId = req.user?.userId;
+            if (!requestingAdminId) {
+                res.status(401).json({ error: "Unauthorized" });
+                return;
+            }
+            const admins = await adminService_1.AdminService.getAllAdmins(requestingAdminId);
+            res.json({ admins });
+        }
+        catch (error) {
+            res.status(500).json({ error: "Failed to fetch admins." });
+        }
+    }
+    static async createAdmin(req, res) {
+        try {
+            const admin = await adminService_1.AdminService.createAdmin(req.body);
+            res.status(201).json({ admin, message: "Admin created successfully." });
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to create admin." });
+        }
+    }
+    static async updateAdmin(req, res) {
+        try {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const requestingAdminId = req.user?.userId || "";
+            const admin = await adminService_1.AdminService.updateAdmin(id, req.body, requestingAdminId);
+            res.json({ admin, message: "Admin updated successfully." });
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to update admin." });
+        }
+    }
+    static async deleteAdmin(req, res) {
+        try {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const requestingAdminId = req.user?.userId || "";
+            await adminService_1.AdminService.deleteAdmin(id, requestingAdminId);
+            res.json({ success: true, message: "Admin deleted successfully." });
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to delete admin." });
+        }
+    }
     static async updateProfile(req, res) {
         try {
             const adminUserId = req.user?.userId;

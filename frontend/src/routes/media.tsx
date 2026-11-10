@@ -49,34 +49,34 @@ function MediaRoute() {
   return (
     <div className="animate-in fade-in pb-20">
       {/* Header Banner */}
-      <div className="bg-navy-deep px-6 py-16 text-center border-b border-gold/20">
-        <h1 className="font-display text-4xl text-gold md:text-5xl font-bold">መንፈሳዊ ሚዲያዎች</h1>
-        <p className="mt-3 text-sm text-on-navy-muted max-w-xl mx-auto">
+      <div className="bg-navy-deep px-4 sm:px-6 py-10 sm:py-16 text-center border-b border-gold/20">
+        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">መንፈሳዊ ሚዲያዎች</h1>
+        <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
           የተመረጡ የቪዲዮና ኦዲዮ ትምህርቶች፣ መዝሙሮችና መንፈሳዊ ውይይቶች።
         </p>
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-6 mt-10">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* Category Filters */}
-        <div className="grid gap-4 sm:grid-cols-3 mb-10">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3 mb-8 sm:mb-10">
           {SUB_SECTIONS.map(({ icon: Icon, type, title, desc }) => (
             <div
               key={title}
               onClick={() => setSelectedFilter(type)}
-              className={`group cursor-pointer rounded-2xl p-5 shadow-card transition-all border ${
+              className={`group cursor-pointer rounded-2xl p-4 sm:p-5 shadow-card transition-all border ${
                 selectedFilter === type
                   ? "bg-navy-deep text-white border-gold shadow-lg"
                   : "bg-card text-navy border-gold/10 hover:border-gold/30 hover:-translate-y-1"
               }`}
             >
               <div
-                className={`mb-3 inline-flex rounded-full p-3 ${
+                className={`mb-2 sm:mb-3 inline-flex rounded-full p-2.5 sm:p-3 ${
                   selectedFilter === type ? "bg-gold text-navy-deep" : "bg-navy/5 text-navy group-hover:bg-navy-deep group-hover:text-gold"
                 }`}
               >
-                <Icon className="h-6 w-6" strokeWidth={1.5} />
+                <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />
               </div>
-              <h3 className="font-display text-base font-bold">{title}</h3>
+              <h3 className="font-display text-sm sm:text-base font-bold">{title}</h3>
               <p
                 className={`mt-1 text-xs ${
                   selectedFilter === type ? "text-on-navy-muted" : "text-muted-foreground"
@@ -89,8 +89,8 @@ function MediaRoute() {
         </div>
 
         {/* Media Grid */}
-        <h2 className="font-display text-2xl font-bold text-navy mb-6 flex items-center gap-2">
-          <PlayCircle className="h-6 w-6 text-gold" />
+        <h2 className="font-display text-xl sm:text-2xl font-bold text-navy mb-5 sm:mb-6 flex items-center gap-2">
+          <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6 text-gold shrink-0" />
           <span>ያሉ ሚዲያዎች ({filteredItems.length})</span>
         </h2>
 

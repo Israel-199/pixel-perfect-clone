@@ -27,7 +27,7 @@ const FOOTER_COLS = [
 export function Footer() {
   return (
     <footer className="border-t border-navy-soft/40 bg-navy-deep">
-      <div className="mx-auto grid max-w-[1180px] gap-8 px-6 py-12 md:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
+      <div className="mx-auto grid max-w-[1180px] gap-8 px-4 sm:px-6 py-10 sm:py-12 grid-cols-1 sm:grid-cols-2 md:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
         <div>
           <Logo size="lg" />
           <p className="mt-4 text-[0.7rem] leading-5 text-on-navy-muted">

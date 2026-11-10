@@ -16,5 +16,9 @@ router.post("/books", AdminController.createBook);
 router.put("/books/:id", AdminController.updateBook);
 router.delete("/books/:id", AdminController.deleteBook);
 router.post("/upload", upload.single("file"), AdminController.uploadFile);
+router.get("/admins", AdminController.getAllAdmins);
+router.post("/admins", AdminController.createAdmin);
+router.put("/admins/:id", AdminController.updateAdmin);
+router.delete("/admins/:id", AdminController.deleteAdmin);
 
 export default router;

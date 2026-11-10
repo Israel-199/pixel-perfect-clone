@@ -103,6 +103,48 @@ export class AdminController {
     }
   }
 
+  static async getAllAdmins(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const requestingAdminId = req.user?.userId;
+      if (!requestingAdminId) { res.status(401).json({ error: "Unauthorized" }); return; }
+      const admins = await AdminService.getAllAdmins(requestingAdminId);
+      res.json({ admins });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch admins." });
+    }
+  }
+
+  static async createAdmin(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const admin = await AdminService.createAdmin(req.body);
+      res.status(201).json({ admin, message: "Admin created successfully." });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to create admin." });
+    }
+  }
+
+  static async updateAdmin(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const requestingAdminId = req.user?.userId || "";
+      const admin = await AdminService.updateAdmin(id, req.body, requestingAdminId);
+      res.json({ admin, message: "Admin updated successfully." });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to update admin." });
+    }
+  }
+
+  static async deleteAdmin(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const requestingAdminId = req.user?.userId || "";
+      await AdminService.deleteAdmin(id, requestingAdminId);
+      res.json({ success: true, message: "Admin deleted successfully." });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to delete admin." });
+    }
+  }
+
   static async updateProfile(req: AuthRequest, res: Response): Promise<void> {
     try {
       const adminUserId = req.user?.userId;

@@ -293,25 +293,25 @@ function PrayerRoute() {
   return (
     <div className="animate-in fade-in pb-24">
       {/* Header Banner */}
-      <div className="relative overflow-hidden bg-navy-deep px-6 py-16 text-center border-b border-gold/20">
+      <div className="relative overflow-hidden bg-navy-deep px-4 sm:px-6 py-10 sm:py-16 text-center border-b border-gold/20">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         <div className="relative mx-auto max-w-4xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1 text-xs font-semibold text-gold mb-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 sm:px-4 py-1 text-[11px] sm:text-xs font-semibold text-gold mb-3">
             <Heart className="h-3.5 w-3.5" />
             <span>የጸሎትና የምልጃ ማዕከል • The Prayer Sanctuary</span>
           </div>
-          <h1 className="font-display text-4xl text-gold md:text-5xl font-bold">
+          <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">
             ጸሎት
           </h1>
-          <p className="mt-3 text-xs md:text-sm text-on-navy-muted max-w-xl mx-auto">
+          <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
             ጸሎት ወደ እግዚአብሔር የምንቀርብበት፣ ኃይልንና ሰላምን የምንቀበልበት ሕያው ድልድይ ነው።
           </p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-6 mt-10">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* The 4 Category Cards from User Request */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-10">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 mb-8 sm:mb-10">
           {SUB_SECTIONS.map(({ id, icon: Icon, title, desc }) => {
             const isSelected = activeTab === id;
             return (
@@ -323,38 +323,38 @@ function PrayerRoute() {
                   setPrivateSuccess(false);
                   setPrivateError(null);
                 }}
-                className={`group cursor-pointer rounded-2xl p-6 text-left transition-all duration-300 relative overflow-hidden flex flex-col justify-between border-2 ${
+                className={`group cursor-pointer rounded-2xl p-3.5 sm:p-6 text-left transition-all duration-300 relative overflow-hidden flex flex-col justify-between border-2 ${
                   isSelected
-                    ? "bg-navy-deep text-white border-gold shadow-xl scale-[1.02]"
+                    ? "bg-navy-deep text-white border-gold shadow-xl scale-[1.01]"
                     : "bg-card text-navy border-gold/15 shadow-card hover:-translate-y-1 hover:border-gold/40 hover:shadow-lg"
                 }`}
               >
                 {isSelected && (
-                  <div className="absolute top-3 right-3">
-                    <span className="rounded-full bg-gold px-2.5 py-0.5 text-[10px] font-bold text-navy-deep">
+                  <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
+                    <span className="rounded-full bg-gold px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-navy-deep">
                       የተመረጠ
                     </span>
                   </div>
                 )}
                 <div>
                   <div
-                    className={`mb-4 inline-flex rounded-xl p-3.5 transition-colors ${
+                    className={`mb-2.5 sm:mb-4 inline-flex rounded-xl p-2.5 sm:p-3.5 transition-colors ${
                       isSelected
                         ? "bg-gold text-navy-deep shadow-md"
                         : "bg-navy/5 text-navy group-hover:bg-gold/20 group-hover:text-gold"
                     }`}
                   >
-                    <Icon className="h-7 w-7" strokeWidth={1.5} />
+                    <Icon className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.5} />
                   </div>
                   <h3
-                    className={`font-display text-lg font-bold mb-1 ${
+                    className={`font-display text-sm sm:text-lg font-bold mb-1 ${
                       isSelected ? "text-gold" : "text-navy"
                     }`}
                   >
                     {title}
                   </h3>
                   <p
-                    className={`text-xs leading-relaxed ${
+                    className={`text-[11px] sm:text-xs leading-relaxed line-clamp-2 ${
                       isSelected ? "text-on-navy-muted" : "text-muted-foreground"
                     }`}
                   >
@@ -696,11 +696,11 @@ function PrayerRoute() {
 
       {/* Full Prayer Modal */}
       {selectedPrayer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-card border border-gold/30 shadow-2xl p-6 md:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-card border border-gold/30 shadow-2xl p-4 sm:p-6 md:p-8">
             <button
               onClick={() => setSelectedPrayer(null)}
-              className="absolute top-4 right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 transition-all cursor-pointer"
+              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 transition-all cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -709,7 +709,7 @@ function PrayerRoute() {
               {selectedPrayer.categoryLabel}
             </span>
 
-            <h2 className="font-display text-2xl font-bold text-navy mb-3">
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-navy mb-3">
               {selectedPrayer.title}
             </h2>
 

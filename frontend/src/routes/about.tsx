@@ -111,38 +111,38 @@ function AboutRoute() {
   return (
     <div className="animate-in fade-in pb-24">
       {/* Hero Header */}
-      <div className="relative overflow-hidden bg-navy-deep px-6 py-20 text-center border-b border-gold/20">
+      <div className="relative overflow-hidden bg-navy-deep px-4 sm:px-6 py-12 sm:py-20 text-center border-b border-gold/20">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         <div className="relative mx-auto max-w-4xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1.5 text-xs font-semibold text-gold mb-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-gold mb-3 sm:mb-4">
             <Sparkles className="h-3.5 w-3.5" />
             <span>ረቢ (REBI) • የክርስቲያን እውቀትና ሥነ-ጽሑፍ ዲጂታል መድረክ</span>
           </div>
-          <h1 className="font-display text-4xl text-gold md:text-5xl lg:text-6xl font-bold tracking-tight">
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-gold">
             ስለ RABBI
           </h1>
-          <p className="mt-4 text-sm md:text-base text-on-navy-muted max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-3 sm:mt-4 text-xs sm:text-sm md:text-base text-on-navy-muted max-w-2xl mx-auto leading-relaxed">
             በኢትዮጵያ የወንጌል አማኞች ማኅበረሰብ ግንባታ፣ በሀገር ልማት፣ በሰላም ግንባታና በእውቀት ማዳረስ ላይ
             አስተዋጽኦ ለማድረግ የተቋቋመ ሁለገብ ዲጂታል መድረክ።
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-gold/80 font-medium">
-            <span className="rounded-md bg-navy-soft px-3 py-1 border border-gold/20">ማንበብ</span>
+          <div className="mt-5 sm:mt-6 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-gold/80 font-medium">
+            <span className="rounded-md bg-navy-soft px-2.5 sm:px-3 py-0.5 sm:py-1 border border-gold/20">ማንበብ</span>
             <span>•</span>
-            <span className="rounded-md bg-navy-soft px-3 py-1 border border-gold/20">መማር</span>
+            <span className="rounded-md bg-navy-soft px-2.5 sm:px-3 py-0.5 sm:py-1 border border-gold/20">መማር</span>
             <span>•</span>
-            <span className="rounded-md bg-navy-soft px-3 py-1 border border-gold/20">መጻፍ</span>
+            <span className="rounded-md bg-navy-soft px-2.5 sm:px-3 py-0.5 sm:py-1 border border-gold/20">መጻፍ</span>
             <span>•</span>
-            <span className="rounded-md bg-navy-soft px-3 py-1 border border-gold/20">ማገናኘት</span>
+            <span className="rounded-md bg-navy-soft px-2.5 sm:px-3 py-0.5 sm:py-1 border border-gold/20">ማገናኘት</span>
             <span>•</span>
-            <span className="rounded-md bg-navy-soft px-3 py-1 border border-gold/20">ማነጽ</span>
+            <span className="rounded-md bg-navy-soft px-2.5 sm:px-3 py-0.5 sm:py-1 border border-gold/20">ማነጽ</span>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-6 mt-12">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-12">
         {/* Category Cards Navigation */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-10">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-8 sm:mb-10">
           {SUB_SECTIONS.map(({ id, icon: Icon, title, desc, badge }) => {
             const isSelected = activeSection === id;
             return (
@@ -150,9 +150,9 @@ function AboutRoute() {
                 key={id}
                 type="button"
                 onClick={() => handleSelectSection(id)}
-                className={`group cursor-pointer rounded-2xl p-5 text-left transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
+                className={`group cursor-pointer rounded-2xl p-3.5 sm:p-5 text-left transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
                   isSelected
-                    ? "bg-navy-deep text-white border-2 border-gold shadow-xl scale-[1.02]"
+                    ? "bg-navy-deep text-white border-2 border-gold shadow-xl scale-[1.01]"
                     : "bg-card text-navy border border-gold/15 shadow-card hover:-translate-y-1 hover:border-gold/40 hover:shadow-lg"
                 }`}
               >

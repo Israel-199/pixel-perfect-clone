@@ -1,65 +1,84 @@
 import { prisma } from "../config/prisma";
 import bcrypt from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
+import {
+  validateEmail,
+  validatePassword,
+  validatePhone,
+  validateString,
+} from "../middlewares/validation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+// Account lockout: 5 failed attempts → lock for 30 minutes
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
 export class AuthService {
-  static async register(data: { fullName?: string; phone?: string; email: string; password: string; confirmPassword?: string }) {
-    const { fullName, phone, email, password, confirmPassword } = data;
+  static async register(data: {
+    fullName?: string;
+    phone?: string;
+    email: string;
+    password: string;
+    confirmPassword?: string;
+  }) {
+    const { confirmPassword } = data;
 
-    if (!fullName || !fullName.trim()) {
-      throw new Error("ሙሉ ስም ማስገባት ተገቢ ነው (Full Name is required).");
-    }
-
-    if (!phone || !phone.trim() || phone.trim().length < 9) {
-      throw new Error("ትክክለኛ ስልክ ቁጥር ማስገባት ተገቢ ነው (A valid Phone Number is required).");
-    }
-
-    if (!email || !email.trim()) {
-      throw new Error("ኢሜይል አድራሻ ማስገባት ተገቢ ነው (Email is required).");
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-    if (!EMAIL_REGEX.test(cleanEmail)) {
-      throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Please provide a valid email address).");
-    }
-
-    if (!password) {
-      throw new Error("የይለፍ ቃል ማስገባት ተገቢ ነው (Password is required).");
-    }
-
-    if (password.length < 6) {
-      throw new Error("የይለፍ ቃል ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት (Password must be at least 6 characters).");
-    }
+    // — Validated & sanitised fields —
+    const fullName = validateString(data.fullName, "ሙሉ ስም (Full Name)", {
+      required: true,
+      min: 2,
+      max: 100,
+    });
+    const phone = validatePhone(data.phone);
+    const cleanEmail = validateEmail(data.email);
+    const password = validatePassword(data.password);
 
     if (confirmPassword && password !== confirmPassword) {
-      throw new Error("የይለፍ ቃሎቹ አይመሳሰሉም (Passwords do not match).");
+      throw new Error(
+        "የይለፍ ቃሎቹ አይመሳሰሉም (Passwords do not match)."
+      );
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    // Block disposable/throwaway email domains
+    const disposableDomains = ["mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com", "throwam.com"];
+    const emailDomain = cleanEmail.split("@")[1];
+    if (disposableDomains.includes(emailDomain)) {
+      throw new Error("Disposable email addresses are not allowed.");
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
     if (existingUser) {
-      throw new Error("በዚህ ኢሜይል የተመዘገበ ተጠቃሚ አለ (User with this email already exists).");
+      throw new Error(
+        "በዚህ ኢሜይል የተመዘገበ ተጠቃሚ አለ (User with this email already exists)."
+      );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Use bcrypt cost factor 12 (stronger than 10)
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Only grant ADMIN if first user ever — never based on email content
     const userCount = await prisma.user.count();
-    const role = userCount === 0 || cleanEmail.includes("admin") ? "ADMIN" : "USER";
+    const role = userCount === 0 ? "ADMIN" : "USER";
 
     const user = await prisma.user.create({
       data: {
-        fullName: fullName.trim(),
-        phone: phone.trim(),
+        fullName,
+        phone,
         email: cleanEmail,
         password: hashedPassword,
-        role: role,
+        role: role as any,
       },
     });
 
-    const token = jsonwebtoken.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jsonwebtoken.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN as any }
+    );
 
     return {
       token,
@@ -74,34 +93,71 @@ export class AuthService {
   }
 
   static async login(data: { email: string; password: string }) {
-    const { email, password } = data;
+    const cleanEmail = validateEmail(data.email);
 
-    if (!email || !email.trim()) {
-      throw new Error("ኢሜይል ማስገባት ተገቢ ነው (Email is required).");
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-    if (!EMAIL_REGEX.test(cleanEmail)) {
-      throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Please enter a valid email).");
-    }
-
-    if (!password) {
+    if (!data.password || typeof data.password !== "string") {
       throw new Error("የይለፍ ቃል ማስገባት ተገቢ ነው (Password is required).");
     }
 
-    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    if (!user) {
-      throw new Error("የተሳሳተ ኢሜይል ወይም የይለፍ ቃል (Invalid email or password).");
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      throw new Error("የተሳሳተ ኢሜይል ወይም የይለፍ ቃል (Invalid email or password).");
-    }
-
-    const token = jsonwebtoken.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-      expiresIn: "7d",
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
     });
+
+    // Generic error — never reveal whether email exists
+    const genericError =
+      "የተሳሳተ ኢሜይል ወይም የይለፍ ቃል (Invalid email or password).";
+
+    if (!user) throw new Error(genericError);
+
+    // — Account lockout check —
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const mins = Math.ceil(
+        (user.lockedUntil.getTime() - Date.now()) / 60000
+      );
+      throw new Error(
+        `Account temporarily locked due to too many failed attempts. Try again in ${mins} minute(s).`
+      );
+    }
+
+    const isMatch = await bcrypt.compare(data.password, user.password);
+
+    if (!isMatch) {
+      const newAttempts = (user.loginAttempts ?? 0) + 1;
+      const shouldLock = newAttempts >= MAX_LOGIN_ATTEMPTS;
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          loginAttempts: newAttempts,
+          lockedUntil: shouldLock
+            ? new Date(Date.now() + LOCK_DURATION_MS)
+            : null,
+        },
+      });
+
+      if (shouldLock) {
+        throw new Error(
+          "Too many failed login attempts. Account locked for 30 minutes."
+        );
+      }
+
+      const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
+      throw new Error(
+        `${genericError} ${remaining} attempt(s) remaining before lockout.`
+      );
+    }
+
+    // — Successful login: reset failure counters —
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { loginAttempts: 0, lockedUntil: null },
+    });
+
+    const token = jsonwebtoken.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN as any }
+    );
 
     return {
       token,
@@ -116,73 +172,98 @@ export class AuthService {
   }
 
   static async forgotPassword(email: string) {
-    if (!email || !email.trim()) {
-      throw new Error("ኢሜይል አድራሻ ማስገባት ተገቢ ነው (Email is required).");
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-    if (!EMAIL_REGEX.test(cleanEmail)) {
-      throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Please enter a valid email).");
-    }
+    const cleanEmail = validateEmail(email);
 
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+
+    // Always return success — don't reveal whether email exists (prevents enumeration)
     if (!user) {
-      throw new Error("በዚህ ኢሜይል አድራሻ የተመዘገበ አካውንት አልተገኘም (No account found with this email).");
+      return {
+        message:
+          "If an account with that email exists, a reset code has been sent.",
+      };
     }
 
-    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 3600000);
+    // Cryptographically secure 6-digit token
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    const resetToken = String(100000 + (array[0] % 900000));
+
+    const expiry = new Date(Date.now() + 3600000); // 1 hour
 
     await prisma.user.update({
       where: { id: user.id },
       data: { resetToken, resetTokenExpiry: expiry },
     });
 
-    return { resetToken, message: "የማረጋገጫ ኮድ ተልኳል (Reset code generated successfully)." };
+    return {
+      resetToken,
+      message:
+        "If an account with that email exists, a reset code has been sent.",
+    };
   }
 
-  static async resetPassword(data: { email: string; resetToken?: string; newPassword: string }) {
-    const { email, resetToken, newPassword } = data;
+  static async resetPassword(data: {
+    email: string;
+    resetToken?: string;
+    newPassword: string;
+  }) {
+    const cleanEmail = validateEmail(data.email);
+    const newPassword = validatePassword(data.newPassword, "New password");
 
-    if (!email || !email.trim()) {
-      throw new Error("ኢሜይል ማስገባት ተገቢ ነው (Email is required).");
-    }
-
-    if (!newPassword || newPassword.length < 6) {
-      throw new Error("አዲሱ የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት (New password must be at least 6 characters).");
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    if (!user) {
-      throw new Error("ተጠቃሚው አልተገኘም (User not found).");
+    if (!user) throw new Error("ተጠቃሚው አልተገኘም (User not found).");
+
+    // Validate token and expiry
+    if (!user.resetToken || !data.resetToken) {
+      throw new Error("No password reset was requested for this account.");
     }
 
-    if (user.resetToken && resetToken && user.resetToken !== resetToken) {
+    if (user.resetToken !== data.resetToken) {
       throw new Error("የተሳሳተ የማረጋገጫ ኮድ (Invalid reset token).");
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      // Clear expired token
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken: null, resetTokenExpiry: null },
+      });
+      throw new Error("Reset token has expired. Please request a new one.");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
         resetToken: null,
         resetTokenExpiry: null,
+        loginAttempts: 0,
+        lockedUntil: null,
       },
     });
 
-    return { message: "የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል (Password updated successfully)." };
+    return {
+      message:
+        "የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል (Password updated successfully).",
+    };
   }
 
   static async getUserProfile(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, fullName: true, phone: true, email: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
     });
-    if (!user) {
-      throw new Error("ተጠቃሚ አልተገኘም (User not found).");
-    }
+    if (!user) throw new Error("ተጠቃሚ አልተገኘም (User not found).");
     return user;
   }
 }

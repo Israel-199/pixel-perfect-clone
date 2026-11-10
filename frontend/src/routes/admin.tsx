@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   ShieldAlert,
@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const Route = createFileRoute("/admin")({
   component: AdminRoute,
@@ -126,7 +128,7 @@ interface DashboardStats {
   }>;
 }
 
-type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE";
+type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE" | "MANAGE_ADMINS";
 type ContentFilterType = "ALL" | "BOOK" | "VIDEO" | "AUDIO" | "COURSE" | "ARTICLE" | "PRAYER";
 type RequestFilterType = "ALL" | "BOOK" | "MEDIA" | "COURSE";
 
@@ -144,6 +146,12 @@ function AdminRoute() {
   const [trackingSearch, setTrackingSearch] = useState("");
   const [trackingTypeFilter, setTrackingTypeFilter] = useState<string>("ALL");
   const [trackingBuyerFilter, setTrackingBuyerFilter] = useState<"ALL" | "HAS_BUYERS" | "NO_BUYERS">("ALL");
+
+  // Action Loading states for buttons (Approve / Reject / Delete / Toggle Prayer)
+  const [actionLoadingId, setActionLoadingId] = useState<{ id: string; action: "PERMITTED" | "REJECTED" | "PENDING" } | null>(null);
+  const [deletingLoading, setDeletingLoading] = useState(false);
+  const [togglingPrayerId, setTogglingPrayerId] = useState<string | null>(null);
+  const [deletingPrayerId, setDeletingPrayerId] = useState<string | null>(null);
 
   // Private Prayers state
   const [privatePrayers, setPrivatePrayers] = useState<PrivatePrayerAdminItem[]>([]);
@@ -188,6 +196,9 @@ function AdminRoute() {
     else targetType = "BOOK";
 
     setMediaType(targetType);
+    if (targetType === "ARTICLE" || targetType === "PRAYER") {
+      setPrice("0");
+    }
     setActiveTab("ADD_CONTENT");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -210,6 +221,7 @@ function AdminRoute() {
   const [editVideoUrl, setEditVideoUrl] = useState("");
   const [editAudioUrl, setEditAudioUrl] = useState("");
   const [editUploading, setEditUploading] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const [editMsg, setEditMsg] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -226,6 +238,27 @@ function AdminRoute() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Admin Management state
+  const [adminsList, setAdminsList] = useState<Array<{ id: string; email: string; fullName?: string | null; phone?: string | null; createdAt: string }>>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminFullName, setNewAdminFullName] = useState("");
+  const [newAdminPhone, setNewAdminPhone] = useState("");
+  const [newAdminLoading, setNewAdminLoading] = useState(false);
+  const [newAdminMsg, setNewAdminMsg] = useState<string | null>(null);
+  const [newAdminError, setNewAdminError] = useState<string | null>(null);
+  const [editingAdmin, setEditingAdmin] = useState<{ id: string; email: string; fullName?: string | null; phone?: string | null } | null>(null);
+  const [editAdminEmail, setEditAdminEmail] = useState("");
+  const [editAdminFullName, setEditAdminFullName] = useState("");
+  const [editAdminPhone, setEditAdminPhone] = useState("");
+  const [editAdminPassword, setEditAdminPassword] = useState("");
+  const [editAdminLoading, setEditAdminLoading] = useState(false);
+  const [editAdminMsg, setEditAdminMsg] = useState<string | null>(null);
+  const [editAdminError, setEditAdminError] = useState<string | null>(null);
+  const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null);
+  const [deletingAdminLoading, setDeletingAdminLoading] = useState(false);
 
   // Polling ref
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -292,6 +325,7 @@ function AdminRoute() {
   // Toggle Private Prayer Prayed Status
   const handleTogglePrayerStatus = async (id: string) => {
     try {
+      setTogglingPrayerId(id);
       const data = await fetchApi<{ prayer: PrivatePrayerAdminItem }>(`/private-prayers/admin/${id}/toggle`, {
         method: "PUT",
       });
@@ -300,6 +334,8 @@ function AdminRoute() {
       );
     } catch (err: any) {
       alert(err.message || "የጸሎት ሁኔታ መቀየር አልተሳካም።");
+    } finally {
+      setTogglingPrayerId(null);
     }
   };
 
@@ -307,58 +343,67 @@ function AdminRoute() {
   const handleDeletePrayer = async (id: string) => {
     if (!confirm("ይህንን የግል ጸሎት መሰረዝ ይፈልጋሉ?")) return;
     try {
+      setDeletingPrayerId(id);
       await fetchApi(`/private-prayers/admin/${id}`, {
         method: "DELETE",
       });
       setPrivatePrayers((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
       alert(err.message || "ጸሎት መሰረዝ አልተሳካም።");
+    } finally {
+      setDeletingPrayerId(null);
     }
   };
 
   // Security Auth check & Real-time polling init
   useEffect(() => {
-    if (!authLoading) {
-      if (!user || user.role !== "ADMIN") {
-        navigate({ to: "/" });
-        return;
-      }
+    if (authLoading) return;
 
-      setProfileEmail(user.email || "");
-      setProfileFullName(user.fullName || "");
-      setProfilePhone(user.phone || "");
-
-      fetchAdminRequests();
-      fetchAdminContents();
-      fetchPrivatePrayers();
-      fetchDashboardStats();
-
-      // Setup real-time polling every 4 seconds for requests, contents, prayers, and tracking stats
-      pollingRef.current = setInterval(() => {
-        fetchAdminRequests(true);
-        fetchPrivatePrayers(true);
-        fetchAdminContents(true);
-        fetchDashboardStats(true);
-      }, 4000);
-
-      return () => {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-      };
+    if (!user || user.role !== "ADMIN") {
+      navigate({ to: "/" });
+      return;
     }
+
+    setProfileEmail(user.email || "");
+    setProfileFullName(user.fullName || "");
+    setProfilePhone(user.phone || "");
+
+    fetchAdminRequests();
+    fetchAdminContents();
+    fetchPrivatePrayers();
+    fetchDashboardStats();
+    fetchAdmins();
+
+    // Setup real-time polling every 4 seconds for requests, contents, prayers, and tracking stats
+    pollingRef.current = setInterval(() => {
+      fetchAdminRequests(true);
+      fetchPrivatePrayers(true);
+      fetchAdminContents(true);
+      fetchDashboardStats(true);
+    }, 4000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   }, [user, authLoading]);
 
-  // Update Request Status (Approve / Reject) with instantaneous tracking update
+  // Update Request Status (Approve / Reject) with instantaneous tracking update and button loading state
   const handleUpdateStatus = async (id: string, status: "PERMITTED" | "REJECTED" | "PENDING") => {
     try {
+      setActionLoadingId({ id, action: status });
       await fetchApi(`/admin/requests/${id}`, {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
-      fetchAdminRequests(true);
-      fetchAdminContents(true);
-      fetchDashboardStats(true);
+      await Promise.all([
+        fetchAdminRequests(true),
+        fetchAdminContents(true),
+        fetchDashboardStats(true),
+      ]);
     } catch (err: any) {
       alert(err.message || "የጥያቄ ሁኔት መቀየር አልተሳካም።");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -405,6 +450,49 @@ function AdminRoute() {
     }
   };
 
+  // Upload Book PDF via Cloudinary
+  const handleBookPdfUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    isEdit = false
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (isEdit) {
+      setEditUploading(true);
+      setEditError(null);
+    } else {
+      setUploading(true);
+      setFormError(null);
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("resourceType", "raw");
+
+    try {
+      const data = await fetchApi<{ url: string }>("/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (isEdit) {
+        setEditFullContent(data.url);
+        setEditMsg("የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)");
+      } else {
+        setFullContent(data.url);
+        setFormMsg("የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)");
+      }
+    } catch (err: any) {
+      const msg = err.message || "PDF መጫን አልተሳካም።";
+      if (isEdit) setEditError(msg);
+      else setFormError(msg);
+    } finally {
+      if (isEdit) setEditUploading(false);
+      else setUploading(false);
+    }
+  };
+
   // Submit New Content (መጽሐፍት፣ ሚዲያ፣ ኮርስ፣ ጽሑፍ፣ ጸሎት)
   const handleCreateContent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,13 +530,18 @@ function AdminRoute() {
 
       setFormMsg("አዲስ ይዘት በተሳካ ሁኔታ ወደ ስርዓቱ ተጨምሯል!");
       setTitle("");
+      setAuthor("");
+      setPrice("0");
       setDescription("");
       setSampleContent("");
       setFullContent("");
       setVideoUrl("");
       setAudioUrl("");
       setCoverUrl("");
-      fetchAdminContents();
+      await Promise.all([
+        fetchAdminContents(true),
+        fetchDashboardStats(true),
+      ]);
     } catch (err: any) {
       setFormError(err.message || "ይዘቱን መጨመር አልተሳካም።");
     } finally {
@@ -478,15 +571,26 @@ function AdminRoute() {
     e.preventDefault();
     if (!editingItem) return;
 
+    if (!editTitle.trim()) {
+      setEditError("እባክዎ የይዘቱን ርዕስ ያስገቡ።");
+      return;
+    }
+
+    if (!editCoverUrl.trim()) {
+      setEditError("እባክዎ የከቨር ፎቶ ያስገቡ።");
+      return;
+    }
+
     setEditError(null);
     setEditMsg(null);
+    setEditSubmitting(true);
 
     try {
       await fetchApi(`/admin/books/${editingItem.id}`, {
         method: "PUT",
         body: JSON.stringify({
           title: editTitle.trim(),
-          author: editAuthor.trim(),
+          author: editAuthor.trim() || "RABBI",
           price: parseFloat(editPrice) || 0,
           mediaType: editMediaType.toUpperCase(),
           description: editDescription.trim(),
@@ -499,34 +603,150 @@ function AdminRoute() {
       });
 
       setEditMsg("ይዘቱ በተሳካ ሁኔታ ተሻሽሏል!");
-      fetchAdminContents();
+      await Promise.all([
+        fetchAdminContents(true),
+        fetchDashboardStats(true),
+      ]);
       setTimeout(() => {
         setEditingItem(null);
-      }, 1200);
+      }, 800);
     } catch (err: any) {
       setEditError(err.message || "ማስተካከል አልተሳካም።");
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
-  // Delete Content
+  // Delete Content with loading state
   const handleConfirmDelete = async () => {
     if (!deletingId) return;
 
     try {
+      setDeletingLoading(true);
       await fetchApi(`/admin/books/${deletingId}`, { method: "DELETE" });
       setDeletingId(null);
-      fetchAdminContents();
-      fetchAdminRequests(true);
+      await Promise.all([
+        fetchAdminContents(),
+        fetchAdminRequests(true),
+        fetchDashboardStats(true),
+      ]);
     } catch (err: any) {
       alert(err.message || "ይዘቱን መሰረዝ አልተሳካም።");
+    } finally {
+      setDeletingLoading(false);
     }
   };
 
-  // Admin Profile & Security Update
+  // Fetch Admins List
+  const fetchAdmins = async () => {
+    try {
+      setAdminsLoading(true);
+      const data = await fetchApi<{ admins: any[] }>("/admin/admins");
+      setAdminsList(data.admins || []);
+    } catch (err) {
+      console.error("Failed to load admins:", err);
+    } finally {
+      setAdminsLoading(false);
+    }
+  };
+
+  // Create new admin
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNewAdminError(null);
+    setNewAdminMsg(null);
+    if (!newAdminEmail.trim() || !newAdminPassword.trim()) {
+      setNewAdminError("ኢሜይልና የይለፍ ቃል ሁለቱም ያስፈልጋሉ።");
+      return;
+    }
+    setNewAdminLoading(true);
+    try {
+      await fetchApi("/admin/admins", {
+        method: "POST",
+        body: JSON.stringify({
+          email: newAdminEmail.trim(),
+          password: newAdminPassword.trim(),
+          fullName: newAdminFullName.trim() || undefined,
+          phone: newAdminPhone.trim() || undefined,
+        }),
+      });
+      setNewAdminMsg("አዲስ አስተዳዳሪ በተሳካ ሁኔታ ተፈጥሯል!");
+      setNewAdminEmail("");
+      setNewAdminPassword("");
+      setNewAdminFullName("");
+      setNewAdminPhone("");
+      fetchAdmins();
+    } catch (err: any) {
+      setNewAdminError(err.message || "አስተዳዳሪ መፍጠር አልተሳካም።");
+    } finally {
+      setNewAdminLoading(false);
+    }
+  };
+
+  // Open edit admin
+  const handleOpenEditAdmin = (admin: { id: string; email: string; fullName?: string | null; phone?: string | null; createdAt: string }) => {
+    setEditingAdmin(admin);
+    setEditAdminEmail(admin.email);
+    setEditAdminFullName(admin.fullName || "");
+    setEditAdminPhone(admin.phone || "");
+    setEditAdminPassword("");
+    setEditAdminMsg(null);
+    setEditAdminError(null);
+  };
+
+  // Save admin edit
+  const handleSaveAdminEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAdmin) return;
+    setEditAdminError(null);
+    setEditAdminMsg(null);
+    setEditAdminLoading(true);
+    try {
+      await fetchApi(`/admin/admins/${editingAdmin.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          email: editAdminEmail.trim() || undefined,
+          fullName: editAdminFullName.trim() || undefined,
+          phone: editAdminPhone.trim() || undefined,
+          password: editAdminPassword.trim() || undefined,
+        }),
+      });
+      setEditAdminMsg("አስተዳዳሪ በተሳካ ሁኔታ ተሻሽሏል!");
+      fetchAdmins();
+      setTimeout(() => setEditingAdmin(null), 800);
+    } catch (err: any) {
+      setEditAdminError(err.message || "አስተዳዳሪ ማስተካከል አልተሳካም።");
+    } finally {
+      setEditAdminLoading(false);
+    }
+  };
+
+  // Delete admin
+  const handleDeleteAdmin = async () => {
+    if (!deletingAdminId) return;
+    setDeletingAdminLoading(true);
+    try {
+      await fetchApi(`/admin/admins/${deletingAdminId}`, { method: "DELETE" });
+      setDeletingAdminId(null);
+      fetchAdmins();
+    } catch (err: any) {
+      alert(err.message || "አስተዳዳሪ መሰረዝ አልተሳካም።");
+    } finally {
+      setDeletingAdminLoading(false);
+    }
+  };
+
+  // Admin Profile & Security Update (Full Name, Email, Password)
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileError(null);
     setProfileMsg(null);
+
+    const cleanEmail = profileEmail.trim();
+    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
+      setProfileError("እባክዎ ትክክለኛ የአስተዳዳሪ ኢሜይል አድራሻ ያስገቡ (Valid email is required).");
+      return;
+    }
 
     if (newPassword && newPassword.length < 6) {
       setProfileError("አዲሱ የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት።");
@@ -546,7 +766,7 @@ function AdminRoute() {
         {
           method: "PUT",
           body: JSON.stringify({
-            email: profileEmail.trim(),
+            email: cleanEmail,
             fullName: profileFullName.trim(),
             phone: profilePhone.trim(),
             currentPassword: currentPassword || undefined,
@@ -556,7 +776,7 @@ function AdminRoute() {
       );
 
       login(data.token, data.user);
-      setProfileMsg("የአስተዳዳሪ ፕሮፋይል እና የይለፍ ቃል በተሳካ ሁኔታ ተቀይሯል!");
+      setProfileMsg("የአስተዳዳሪ ፕሮፋይል፣ ኢሜይል እና የይለፍ ቃል በተሳካ ሁኔታ ተሻሽሏል! (Admin profile & email updated successfully)");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -669,25 +889,25 @@ function AdminRoute() {
   return (
     <div className="animate-in fade-in min-h-screen bg-navy/5 pb-20">
       {/* Top Admin Header Bar */}
-      <div className="bg-navy-deep px-6 py-8 border-b border-gold/20 text-white shadow-md">
+      <div className="bg-navy-deep px-4 sm:px-6 py-6 sm:py-8 border-b border-gold/20 text-white shadow-md">
         <div className="mx-auto max-w-[1200px] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-gold text-xs font-bold uppercase tracking-wider mb-1">
-              <ShieldAlert className="h-4 w-4" />
+              <ShieldAlert className="h-4 w-4 shrink-0" />
               <span>የአስተዳዳሪ ማዕከል • Admin Control Center</span>
             </div>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-gold">
+            <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold text-gold">
               የ RABBI አስተዳዳሪ ዳሽቦርድ
             </h1>
-            <p className="text-xs text-on-navy-muted mt-1">
+            <p className="text-xs text-on-navy-muted mt-1 leading-relaxed">
               መጽሐፍትን፣ ሚዲያዎችን፣ ኮርሶችን፣ ጽሑፎችን፣ የገዢዎች ክትትልና ጸሎቶችን ሙሉ በሙሉ ይቆጣጠሩ።
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Real-time Indicator */}
-            <div className="flex items-center gap-2 rounded-full bg-navy-soft/80 px-3.5 py-1.5 border border-gold/30 text-xs">
-              <span className="relative flex h-2.5 w-2.5">
+            <div className="flex items-center gap-2 rounded-full bg-navy-soft/80 px-3 py-1.5 border border-gold/30 text-xs">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
               </span>
@@ -705,7 +925,7 @@ function AdminRoute() {
                 fetchDashboardStats();
               }}
               title="በእጅ አድስ (Manual Refresh)"
-              className="flex items-center gap-1.5 rounded-xl bg-gold/15 px-3 py-1.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-gold/25 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-gold/15 px-3 py-1.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-gold/25 transition-all cursor-pointer active:scale-95"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">አድስ</span>
@@ -714,7 +934,7 @@ function AdminRoute() {
             {/* Link to Website */}
             <Link
               to="/"
-              className="flex items-center gap-1.5 rounded-xl bg-gold/20 px-3 py-1.5 text-xs font-bold text-gold border border-gold/40 hover:bg-gold hover:text-navy-deep transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 rounded-xl bg-gold/20 px-3 py-1.5 text-xs font-bold text-gold border border-gold/40 hover:bg-gold hover:text-navy-deep transition-all cursor-pointer shadow-sm active:scale-95"
               title="ወደ ዋናው ድረ-ገጽ ተመለስ"
             >
               <Home className="h-3.5 w-3.5" />
@@ -722,9 +942,9 @@ function AdminRoute() {
             </Link>
 
             {/* Admin Profile Pill */}
-            <div className="flex items-center gap-2 rounded-xl bg-navy-soft px-3 py-1.5 border border-white/10 text-xs">
-              <UserCheck className="h-4 w-4 text-gold" />
-              <span className="font-bold text-white text-[11px]">{user?.email}</span>
+            <div className="flex items-center gap-1.5 rounded-xl bg-navy-soft px-3 py-1.5 border border-white/10 text-xs max-w-[160px] sm:max-w-[220px]">
+              <UserCheck className="h-3.5 w-3.5 text-gold shrink-0" />
+              <span className="font-bold text-white text-[11px] truncate">{user?.email}</span>
             </div>
 
             {/* Logout Button */}
@@ -734,7 +954,7 @@ function AdminRoute() {
                 navigate({ to: "/" });
               }}
               title="ከአስተዳዳሪ ውጣ"
-              className="flex items-center gap-1.5 rounded-xl bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-all cursor-pointer active:scale-95"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">ውጣ (Logout)</span>
@@ -743,22 +963,22 @@ function AdminRoute() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1200px] px-4 md:px-6 mt-8">
+      <div className="mx-auto max-w-[1200px] px-3 sm:px-6 mt-6 sm:mt-8">
         {/* ================= REAL-TIME TRACKING DASHBOARD STATS ================= */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-gold" />
-              <h2 className="font-display text-lg font-bold text-navy">
+              <TrendingUp className="h-5 w-5 text-gold shrink-0" />
+              <h2 className="font-display text-base sm:text-lg font-bold text-navy">
                 የቀጥታ ሽያጭና የገዢዎች ክትትል (Live Sales & Buyers Tracking)
               </h2>
             </div>
-            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+            <span className="text-[11px] text-muted-foreground">
               በየ 4 ሴኮንዱ በቀጥታ የሚታደስ
             </span>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Card 1: Total Approved Sales */}
             <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
               <div className="flex items-center justify-between">
@@ -854,7 +1074,7 @@ function AdminRoute() {
                 <Sparkles className="h-4 w-4 text-gold" />
                 <span>በብዛት የተገዙ ይዘቶች (Top Sellers)፦</span>
               </div>
-              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0">
+              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0 touch-pan-x">
                 {stats.topSellingBooks.slice(0, 4).map((b, idx) => (
                   <div
                     key={b.id}
@@ -874,18 +1094,22 @@ function AdminRoute() {
           )}
         </div>
 
-        {/* Navigation Tabs Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 border-b border-navy/15 scrollbar-none">
+        {/* Navigation Tabs Bar with Edge-to-Edge Mobile Scroll */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 border-b border-navy/15 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0 touch-pan-x">
           <button
             onClick={() => setActiveTab("REQUESTS")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === "REQUESTS"
                 ? "bg-navy-deep text-gold shadow-md border border-gold/40"
                 : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
             }`}
           >
-            <Clock className="h-4 w-4" />
-            <span>የይዘት ጥያቄዎች (Requests)</span>
+            {reqLoading && activeTab === "REQUESTS" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <Clock className="h-4 w-4" />
+            )}
+            <span>የይዘት ጥያቄዎች</span>
             {pendingCount > 0 && (
               <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-navy-deep animate-pulse">
                 {pendingCount}
@@ -895,49 +1119,61 @@ function AdminRoute() {
 
           <button
             onClick={() => setActiveTab("MANAGE_CONTENTS")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === "MANAGE_CONTENTS"
                 ? "bg-navy-deep text-gold shadow-md border border-gold/40"
                 : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
             }`}
           >
-            <BookOpen className="h-4 w-4" />
+            {contentLoading && activeTab === "MANAGE_CONTENTS" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <BookOpen className="h-4 w-4" />
+            )}
             <span>ይዘቶችን አስተዳድር ({contents.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("TRACKING")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === "TRACKING"
                 ? "bg-navy-deep text-gold shadow-md border border-gold/40"
                 : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
             }`}
           >
-            <TrendingUp className="h-4 w-4 text-gold" />
-            <span>የሽያጭና የገዢዎች ክትትል (Sales & Tracking)</span>
+            {contentLoading && activeTab === "TRACKING" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <TrendingUp className="h-4 w-4 text-gold" />
+            )}
+            <span>የሽያጭና የገዢዎች ክትትል</span>
           </button>
 
           <button
             onClick={() => handleAddNewContentWithCategory()}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === "ADD_CONTENT"
                 ? "bg-navy-deep text-gold shadow-md border border-gold/40"
                 : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
             }`}
           >
             <Plus className="h-4 w-4 text-gold" />
-            <span>አዲስ ይዘት ጨምር (Add Content)</span>
+            <span>አዲስ ይዘት ጨምር</span>
           </button>
 
           <button
             onClick={() => setActiveTab("PRIVATE_PRAYERS")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === "PRIVATE_PRAYERS"
                 ? "bg-navy-deep text-gold shadow-md border border-gold/40"
                 : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
             }`}
           >
-            <Lock className="h-4 w-4" />
+            {prayerLoading && activeTab === "PRIVATE_PRAYERS" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4" />
+            )}
             <span>የግል ጸሎቶች ({privatePrayers.length})</span>
             {unprayedCount > 0 ? (
               <span className="rounded-full bg-rose-500 text-white px-2 py-0.5 text-[10px] font-bold animate-pulse">
@@ -958,8 +1194,28 @@ function AdminRoute() {
                 : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
             }`}
           >
-            <KeyRound className="h-4 w-4" />
+            {profileLoading && activeTab === "PROFILE" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <KeyRound className="h-4 w-4" />
+            )}
             <span>የይለፍ ቃልና ፕሮፋይል (Security)</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab("MANAGE_ADMINS"); fetchAdmins(); }}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === "MANAGE_ADMINS"
+                ? "bg-navy-deep text-gold shadow-md border border-gold/40"
+                : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
+            }`}
+          >
+            {adminsLoading && activeTab === "MANAGE_ADMINS" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <Users className="h-4 w-4" />
+            )}
+            <span>አስተዳዳሪዎች ({adminsList.length})</span>
           </button>
         </div>
 
@@ -1023,7 +1279,7 @@ function AdminRoute() {
                   return (
                     <div
                       key={req.id}
-                      className={`rounded-2xl bg-card border p-5 shadow-card transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                      className={`rounded-2xl bg-card border p-4 sm:p-5 shadow-card transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                         isPending
                           ? "border-amber-400/80 bg-amber-50/20"
                           : isPermitted
@@ -1032,14 +1288,14 @@ function AdminRoute() {
                       }`}
                     >
                       {/* Left: User & Content details */}
-                      <div className="flex items-start gap-4">
+                      <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 flex-1">
                         <img
                           src={req.book?.coverUrl || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop"}
                           alt={req.book?.title}
                           className="h-20 w-16 rounded-xl object-cover border border-gold/30 shrink-0 shadow-sm"
                         />
 
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <span className="rounded-md bg-navy-deep px-2 py-0.5 text-[10px] font-bold text-gold">
                               {req.book?.mediaType || "ይዘት"}
@@ -1061,7 +1317,7 @@ function AdminRoute() {
                             <span>
                               <strong className="text-navy">ተጠቃሚ:</strong> {req.user?.fullName || "ስም አልተመዘገበም"}
                             </span>
-                            <span>
+                            <span className="break-all">
                               <strong className="text-navy">ኢሜይል:</strong> {req.user?.email}
                             </span>
                             {req.user?.phone && (
@@ -1074,8 +1330,8 @@ function AdminRoute() {
                           {/* Real Tracking Info on Request Item */}
                           <div className="mt-2.5 flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 rounded-lg bg-gold/15 px-2.5 py-1 text-xs font-bold text-navy-deep border border-gold/30">
-                              <Users className="h-3.5 w-3.5 text-gold" />
-                              <span>ይህንን ይዘት እስካሁን የገዙ ተጠቃሚዎች፦ <strong className="text-gold font-extrabold">{req.book?.approvedBuyersCount ?? 0}</strong></span>
+                              <Users className="h-3.5 w-3.5 text-gold shrink-0" />
+                              <span>ይህንን ይዘት እስካሁን የገዙ፦ <strong className="text-gold font-extrabold">{req.book?.approvedBuyersCount ?? 0}</strong></span>
                             </span>
 
                             {req.paymentProofUrl && (
@@ -1093,23 +1349,41 @@ function AdminRoute() {
                       </div>
 
                       {/* Right: Status badge & Actions */}
-                      <div className="flex items-center gap-3 self-end md:self-center shrink-0">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 self-stretch md:self-center justify-end shrink-0">
                         {isPending && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
                             <button
+                              disabled={actionLoadingId?.id === req.id}
                               onClick={() => handleUpdateStatus(req.id, "PERMITTED")}
-                              className="flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-green-700 transition-all cursor-pointer active:scale-95"
+                              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl bg-green-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-green-700 transition-all cursor-pointer active:scale-95 disabled:opacity-60"
                             >
-                              <CheckCircle2 className="h-4 w-4" />
-                              <span>ፍቀድ (Approve)</span>
+                              {actionLoadingId?.id === req.id && actionLoadingId?.action === "PERMITTED" ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                              )}
+                              <span>
+                                {actionLoadingId?.id === req.id && actionLoadingId?.action === "PERMITTED"
+                                  ? "በማጽደቅ ላይ..."
+                                  : "ፍቀድ (Approve)"}
+                              </span>
                             </button>
 
                             <button
+                              disabled={actionLoadingId?.id === req.id}
                               onClick={() => handleUpdateStatus(req.id, "REJECTED")}
-                              className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer active:scale-95"
+                              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer active:scale-95 disabled:opacity-60"
                             >
-                              <XCircle className="h-4 w-4" />
-                              <span>ከልክል (Reject)</span>
+                              {actionLoadingId?.id === req.id && actionLoadingId?.action === "REJECTED" ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <XCircle className="h-4 w-4" />
+                              )}
+                              <span>
+                                {actionLoadingId?.id === req.id && actionLoadingId?.action === "REJECTED"
+                                  ? "በመከልከል ላይ..."
+                                  : "ከልክል (Reject)"}
+                              </span>
                             </button>
                           </div>
                         )}
@@ -1121,10 +1395,14 @@ function AdminRoute() {
                               ተፈቅዷል (Approved)
                             </span>
                             <button
+                              disabled={actionLoadingId?.id === req.id}
                               onClick={() => handleUpdateStatus(req.id, "PENDING")}
-                              className="text-[11px] text-muted-foreground hover:text-navy underline cursor-pointer"
+                              className="text-[11px] text-muted-foreground hover:text-navy underline cursor-pointer disabled:opacity-50 flex items-center gap-1"
                             >
-                              መልስ (Reset)
+                              {actionLoadingId?.id === req.id && actionLoadingId?.action === "PENDING" && (
+                                <RefreshCw className="h-3 w-3 animate-spin text-amber-600" />
+                              )}
+                              <span>መልስ (Reset)</span>
                             </button>
                           </div>
                         )}
@@ -1136,10 +1414,14 @@ function AdminRoute() {
                               ተከልክሏል (Rejected)
                             </span>
                             <button
+                              disabled={actionLoadingId?.id === req.id}
                               onClick={() => handleUpdateStatus(req.id, "PENDING")}
-                              className="text-[11px] text-muted-foreground hover:text-navy underline cursor-pointer"
+                              className="text-[11px] text-muted-foreground hover:text-navy underline cursor-pointer disabled:opacity-50 flex items-center gap-1"
                             >
-                              መልስ (Reset)
+                              {actionLoadingId?.id === req.id && actionLoadingId?.action === "PENDING" && (
+                                <RefreshCw className="h-3 w-3 animate-spin text-amber-600" />
+                              )}
+                              <span>መልስ (Reset)</span>
                             </button>
                           </div>
                         )}
@@ -1157,9 +1439,9 @@ function AdminRoute() {
           <div className="space-y-6">
             {/* Filter & Search Bar */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-card p-4 rounded-2xl border border-gold/20 shadow-sm">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-bold text-navy mr-1 flex items-center gap-1">
-                  <Filter className="h-3.5 w-3.5 text-gold" />
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto scrollbar-none pb-1 md:pb-0 touch-pan-x">
+                <span className="text-xs font-bold text-navy mr-1 flex items-center gap-1 shrink-0">
+                  <Filter className="h-3.5 w-3.5 text-gold shrink-0" />
                   የይዘት ምድብ፦
                 </span>
                 {[
@@ -1174,7 +1456,7 @@ function AdminRoute() {
                   <button
                     key={id}
                     onClick={() => setContentFilter(id as ContentFilterType)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                       contentFilter === id
                         ? "bg-navy-deep text-gold font-bold shadow"
                         : "bg-navy/5 text-navy hover:bg-gold/15"
@@ -1185,7 +1467,7 @@ function AdminRoute() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2.5 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
                 <div className="relative min-w-[200px] flex-1 md:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <input
@@ -1200,7 +1482,7 @@ function AdminRoute() {
                 <button
                   type="button"
                   onClick={() => handleAddNewContentWithCategory()}
-                  className="flex items-center gap-1.5 rounded-xl bg-gold px-3.5 py-1.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer shrink-0"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gold px-3.5 py-2 sm:py-1.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer shrink-0"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>
@@ -1386,7 +1668,7 @@ function AdminRoute() {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
                 <div className="relative min-w-[180px] flex-1 md:w-56">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <input
@@ -1437,8 +1719,8 @@ function AdminRoute() {
               </div>
             ) : (
               <div className="rounded-2xl bg-card border border-gold/20 shadow-card overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto -mx-1 sm:mx-0">
+                  <table className="w-full text-left text-xs min-w-[700px]">
                     <thead className="bg-navy-deep text-gold font-bold uppercase tracking-wider text-[11px] border-b border-gold/20">
                       <tr>
                         <th className="px-4 py-3.5">ይዘት / መጽሐፍ</th>
@@ -1574,6 +1856,7 @@ function AdminRoute() {
             )}
 
             <form onSubmit={handleCreateContent} className="space-y-5">
+              {/* Row 1: Category + Price */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
@@ -1581,21 +1864,29 @@ function AdminRoute() {
                   </label>
                   <select
                     value={mediaType}
-                    onChange={(e) => setMediaType(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setMediaType(v);
+                      if (v === "ARTICLE" || v === "PRAYER") setPrice("0");
+                    }}
                     className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-semibold"
                   >
-                    <option value="BOOK">መጽሐፍ (Book)</option>
-                    <option value="VIDEO">ቪዲዮ ሚዲያ (Video Media)</option>
-                    <option value="AUDIO">ኦዲዮ ሚዲያ (Audio Media)</option>
-                    <option value="COURSE">ኮርስ / ዶርቃ ኮሌጅ & ስልጠና (Course / PDF)</option>
-                    <option value="ARTICLE">መንፈሳዊ ጽሑፍ (Article)</option>
-                    <option value="PRAYER">የጸሎት መመሪያና ርዕስ (Prayer)</option>
+                    <option value="BOOK">📖 መጽሐፍ (Book)</option>
+                    <option value="VIDEO">🎬 ቪዲዮ ሚዲያ (Video Media)</option>
+                    <option value="AUDIO">🎵 ኦዲዮ ሚዲያ (Audio Media)</option>
+                    <option value="COURSE">🎓 ኮርስ / ዶርቃ ኮሌጅ &amp; ስልጠና (Course / PDF)</option>
+                    <option value="ARTICLE">📝 መንፈሳዊ ጽሑፍ (Article)</option>
+                    <option value="PRAYER">🙏 የጸሎት መመሪያና ርዕስ (Prayer)</option>
                   </select>
                 </div>
 
+                {/* Price — locked to 0 for ARTICLE & PRAYER */}
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
                     ዋጋ በብር (Price in ETB) — 0 ለነፃ <span className="text-red-500">*</span>
+                    {(mediaType === "ARTICLE" || mediaType === "PRAYER") && (
+                      <span className="ml-2 text-[11px] text-green-700 font-normal">(ሁልጊዜ ነፃ)</span>
+                    )}
                   </label>
                   <input
                     type="number"
@@ -1604,11 +1895,17 @@ function AdminRoute() {
                     onChange={(e) => setPrice(e.target.value)}
                     min="0"
                     placeholder="250"
-                    className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-mono"
+                    readOnly={mediaType === "ARTICLE" || mediaType === "PRAYER"}
+                    className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none font-mono ${
+                      mediaType === "ARTICLE" || mediaType === "PRAYER"
+                        ? "bg-green-50 border-green-300 cursor-not-allowed opacity-70"
+                        : "bg-background border-navy/20"
+                    }`}
                   />
                 </div>
               </div>
 
+              {/* Row 2: Title + Author (Author hidden for PRAYER) */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
@@ -1619,133 +1916,376 @@ function AdminRoute() {
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="የይዘቱን ርዕስ ያስገቡ"
+                    placeholder={
+                      mediaType === "PRAYER"  ? "የጸሎቱ ርዕስ ያስገቡ..." :
+                      mediaType === "BOOK"    ? "የመጽሐፉ ስም..." :
+                      mediaType === "VIDEO"   ? "የቪዲዮ ትምህርት ርዕስ..." :
+                      mediaType === "AUDIO"   ? "የኦዲዮ ርዕስ..." :
+                      mediaType === "COURSE"  ? "የኮርሱ ስም..." :
+                                               "የጽሑፉ ርዕስ..."
+                    }
                     className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background"
                   />
                 </div>
 
+                {mediaType !== "PRAYER" && (
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5">
+                      {mediaType === "BOOK"   ? "ደራሲ (Author)" :
+                       mediaType === "VIDEO" || mediaType === "AUDIO" ? "አቅራቢ (Speaker / Provider)" :
+                       mediaType === "COURSE" ? "አስተማሪ (Instructor)" :
+                                               "ጸሐፊ (Writer)"}
+                    </label>
+                    <input
+                      type="text"
+                      value={author}
+                      onChange={(e) => setAuthor(e.target.value)}
+                      placeholder="RABBI / ዶርቃ ኮሌጅ"
+                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Cover Image — hidden for PRAYER */}
+              {mediaType !== "PRAYER" && (
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
-                    ደራሲ / መምህር / አቅራቢ (Author / Provider)
+                    የሽፋን ፎቶ (Cover Image) <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={author}
-                    onChange={(e) => setAuthor(e.target.value)}
-                    placeholder="RABBI / ዶርቃ ኮሌጅ"
+                  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                    <input
+                      type="url"
+                      required
+                      value={coverUrl}
+                      onChange={(e) => setCoverUrl(e.target.value)}
+                      placeholder="https://images.unsplash.com/photo-..."
+                      className="flex-1 rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-mono"
+                    />
+                    <label className="rounded-xl bg-gold/15 border border-gold/40 px-4 py-2.5 text-xs font-bold text-navy hover:bg-gold hover:text-navy-deep transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0">
+                      <Upload className="h-4 w-4" />
+                      <span>{uploading ? "በመጫን ላይ..." : "ፎቶ ስቀል"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploading}
+                        onChange={(e) => handleFileUpload(e, false)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Description — hidden for PRAYER */}
+              {mediaType !== "PRAYER" && (
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1.5">
+                    አጭር ማጠቃለያ መግለጫ (Description)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="የይዘቱ አጭር መግለጫ..."
                     className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background"
                   />
                 </div>
-              </div>
+              )}
 
-              {/* Cover Image Upload & Direct URL */}
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1.5">
-                  የሽፋን ፎቶ (Cover Image) <span className="text-red-500">*</span>
-                </label>
-                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                  <input
-                    type="url"
-                    required
-                    value={coverUrl}
-                    onChange={(e) => setCoverUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/photo-..."
-                    className="flex-1 rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-mono"
-                  />
-
-                  <label className="rounded-xl bg-gold/15 border border-gold/40 px-4 py-2.5 text-xs font-bold text-navy hover:bg-gold hover:text-navy-deep transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0">
-                    <Upload className="h-4 w-4" />
-                    <span>{uploading ? "በመጫን ላይ..." : "ፎቶ ስቀል"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploading}
-                      onChange={(e) => handleFileUpload(e, false)}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1.5">
-                  አጭር ማጠቃለያ መግለጫ (Description)
-                </label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="የይዘቱ አጭር መግለጫ..."
-                  className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background"
-                />
-              </div>
-
-              {/* Media URLs if VIDEO or AUDIO */}
-              {(mediaType === "VIDEO" || mediaType === "AUDIO" || mediaType === "COURSE") && (
-                <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-xl bg-gold/10 border border-gold/30">
+              {/* ===== VIDEO-specific fields ===== */}
+              {mediaType === "VIDEO" && (
+                <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200 space-y-3">
+                  <p className="text-[11px] font-bold text-blue-800 flex items-center gap-1.5">
+                    🎬 <span>YouTube Embed URL ያስገቡ</span>
+                  </p>
                   <div>
                     <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
                       <Video className="h-3.5 w-3.5 text-gold" />
-                      የቪዲዮ ሊንክ (YouTube/Vimeo Embed URL)
+                      የቪዲዮ Embed ሊንክ <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="url"
+                      required
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
-                      placeholder="https://www.youtube.com/embed/..."
+                      placeholder="https://www.youtube.com/embed/VIDEO_ID"
                       className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
                     />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {"💡 YouTube → Share → Embed → ሊንኩን ቅዱ (https://www.youtube.com/embed/...)"}
+                    </p>
                   </div>
-
                   <div>
                     <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
                       <Music className="h-3.5 w-3.5 text-gold" />
-                      የኦዲዮ ሊንክ (Audio MP3 Stream URL)
+                      የኦዲዮ ሊንክ (Audio MP3 — አማራጭ)
                     </label>
                     <input
                       type="url"
+                      value={audioUrl}
+                      onChange={(e) => setAudioUrl(e.target.value)}
+                      placeholder="https://example.com/sermon.mp3 (አማራጭ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      የናሙና / ማጠቃለያ (Sample Notes — አማራጭ)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sampleContent}
+                      onChange={(e) => setSampleContent(e.target.value)}
+                      placeholder="ተጠቃሚዎች ሳይገዙ የሚያዩት ማጠቃለያ..."
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ===== AUDIO-specific fields ===== */}
+              {mediaType === "AUDIO" && (
+                <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 space-y-3">
+                  <p className="text-[11px] font-bold text-purple-800 flex items-center gap-1.5">
+                    🎵 <span>MP3 Audio URL ያስገቡ</span>
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
+                      <Music className="h-3.5 w-3.5 text-gold" />
+                      የኦዲዮ ሊንክ (MP3 Stream URL) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="url"
+                      required
                       value={audioUrl}
                       onChange={(e) => setAudioUrl(e.target.value)}
                       placeholder="https://example.com/audio.mp3"
                       className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
+                      <Video className="h-3.5 w-3.5 text-gold" />
+                      የቪዲዮ ሊንክ (YouTube Embed — አማራጭ)
+                    </label>
+                    <input
+                      type="url"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/embed/... (አማራጭ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      የናሙና ቅንጭብ (Sample — አማራጭ)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sampleContent}
+                      onChange={(e) => setSampleContent(e.target.value)}
+                      placeholder="የኦዲዮ ናሙና ወይም ማጠቃለያ..."
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
+                    />
+                  </div>
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1.5">
-                  የነፃ ናሙና ንባብ (Sample Content / Outline)
-                </label>
-                <textarea
-                  rows={3}
-                  value={sampleContent}
-                  onChange={(e) => setSampleContent(e.target.value)}
-                  placeholder="ተጠቃሚዎች ሳይገዙ የሚያነቡት የነፃ ናሙና ክፍል..."
-                  className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background leading-relaxed font-sans"
-                />
-              </div>
+              {/* ===== BOOK-specific fields ===== */}
+              {mediaType === "BOOK" && (
+                <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-3">
+                  <p className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                    📖 <span>የመጽሐፍ ናሙናና ሙሉ ይዘት ያስገቡ</span>
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      የነፃ ናሙና ንባብ (Free Sample Preview)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={sampleContent}
+                      onChange={(e) => setSampleContent(e.target.value)}
+                      placeholder="ተጠቃሚዎች ሳይገዙ የሚያነቡት የነፃ ናሙና ምዕራፍ..."
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background leading-relaxed"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-navy">
+                        ሙሉ የመጽሐፍ ይዘት (Full Book Content)
+                      </label>
+                      <label className="rounded-lg bg-navy-deep px-3 py-1 text-[11px] font-bold text-gold hover:bg-navy transition-all cursor-pointer flex items-center gap-1.5 shadow-xs">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>{uploading ? "PDF በመጫን ላይ..." : "PDF ስቀል"}</span>
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          disabled={uploading}
+                          onChange={(e) => handleBookPdfUpload(e, false)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    <textarea
+                      rows={5}
+                      value={fullContent}
+                      onChange={(e) => setFullContent(e.target.value)}
+                      placeholder="ሙሉ ጽሑፍ እዚህ ይጻፉ ወይም ከላይ PDF ስቀሉ..."
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background leading-relaxed"
+                    />
+                  </div>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1.5">
-                  ሙሉ የተጠበቀ ይዘት (Full Content / Complete Text)
-                </label>
-                <textarea
-                  rows={6}
-                  value={fullContent}
-                  onChange={(e) => setFullContent(e.target.value)}
-                  placeholder="ክፍያ ተፈቅዶ ሲከፈት የሚነበብ ሙሉ የመጽሐፍ፣ የኮርስ፣ የጽሑፍ ወይም የጸሎት ይዘት..."
-                  className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background leading-relaxed font-sans"
-                />
-              </div>
+              {/* ===== COURSE-specific fields ===== */}
+              {mediaType === "COURSE" && (
+                <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-200 space-y-3">
+                  <p className="text-[11px] font-bold text-teal-800 flex items-center gap-1.5">
+                    🎓 <span>ኮርስ / ዶርቃ ኮሌጅ — ቪዲዮ ሊንክ ወይም PDF ያስገቡ</span>
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
+                      <Video className="h-3.5 w-3.5 text-gold" />
+                      ዋና ቪዲዮ Embed URL (አማራጭ)
+                    </label>
+                    <input
+                      type="url"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/embed/... (አማራጭ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      የኮርሱ አወቃቀር / ዝርዝር (Outline — አማራጭ)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={sampleContent}
+                      onChange={(e) => setSampleContent(e.target.value)}
+                      placeholder={"ምዕራፍ 1፡ መግቢያ\nምዕራፍ 2፡ ..."}
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background leading-relaxed"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-navy">
+                        ሙሉ ይዘት / PDF ሊንክ (Full Content)
+                      </label>
+                      <label className="rounded-lg bg-navy-deep px-3 py-1 text-[11px] font-bold text-gold hover:bg-navy transition-all cursor-pointer flex items-center gap-1.5 shadow-xs">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>{uploading ? "PDF በመጫን ላይ..." : "PDF ስቀል"}</span>
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          disabled={uploading}
+                          onChange={(e) => handleBookPdfUpload(e, false)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    <textarea
+                      rows={4}
+                      value={fullContent}
+                      onChange={(e) => setFullContent(e.target.value)}
+                      placeholder="ሙሉ ይዘት እዚህ ይጻፉ ወይም PDF ሊንክ ያስገቡ..."
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background leading-relaxed"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ===== ARTICLE-specific fields ===== */}
+              {mediaType === "ARTICLE" && (
+                <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-3">
+                  <p className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
+                    📝 <span>ጽሑፍ — ዋጋ ሁልጊዜ ነፃ (0 ብር)</span>
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-gold" />
+                      <span>{"የመጽሐፍ ቅዱስ ጥቅስና ቃል (Scripture Verse & Citation)"}</span>
+                      <span className="text-gold font-bold text-[11px]">{"(በመነሻ ገጽ 'የዛሬ ቃል' ሆኖ ይወጣል)"}</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={sampleContent}
+                      onChange={(e) => setSampleContent(e.target.value)}
+                      placeholder={"ለምሳሌ፡ ኢሳይያስ 30:15 — 'በመመለስና በማረፍ ትድናላችሁ፤'"}
+                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-serif shadow-xs"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+                      {"💡 ጥቅሱን (ኢሳ 30:15) እና ቃሉን እዚህ ያስገቡ።"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      ሙሉ የጽሑፉ ይዘት (Full Article Content) <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      rows={8}
+                      required
+                      value={fullContent}
+                      onChange={(e) => setFullContent(e.target.value)}
+                      placeholder="የጽሑፉን ሙሉ ይዘትና ትምህርት እዚህ ይጻፉ..."
+                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background leading-relaxed"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ===== PRAYER-specific fields ===== */}
+              {mediaType === "PRAYER" && (
+                <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-200 space-y-3">
+                  <p className="text-[11px] font-bold text-rose-800 flex items-center gap-1.5">
+                    🙏 <span>ጸሎት — ዋጋ ሁልጊዜ ነፃ፣ ደራሲ አይጠፈልግም</span>
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      የጸሎቱ ሙሉ ጽሑፍ (Prayer Text) <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      rows={8}
+                      required
+                      value={fullContent}
+                      onChange={(e) => setFullContent(e.target.value)}
+                      placeholder={"የጸሎቱን ሙሉ ጽሑፍ እዚህ ያስገቡ...\n\nጌታ ሆይ፣ ..."}
+                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background leading-relaxed font-serif"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      የጸሎት ናሙና (Short Preview — አማራጭ)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sampleContent}
+                      onChange={(e) => setSampleContent(e.target.value)}
+                      placeholder="አጭር የጸሎት ቅንጭብ..."
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
+                    />
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={submitting}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3.5 text-sm font-bold text-navy-deep shadow-md hover:bg-gold/90 transition-all cursor-pointer active:scale-[0.99] disabled:opacity-50"
               >
-                <Plus className="h-4 w-4" />
-                <span>{submitting ? "በማስቀመጥ ላይ..." : "ይዘቱን ፍጠርና አስቀምጥ (Publish Content)"}</span>
+                {submitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin text-navy-deep" />
+                    <span>ይዘቱን በማስቀመጥ ላይ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    <span>ይዘቱን ፍጠርና አስቀምጥ (Publish Content)</span>
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -1914,28 +2454,40 @@ function AdminRoute() {
                       <div className="mt-5 pt-4 border-t border-navy/10 flex items-center justify-between gap-3">
                         <button
                           type="button"
+                          disabled={togglingPrayerId === prayer.id}
                           onClick={() => handleTogglePrayerStatus(prayer.id)}
-                          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 ${
+                          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-60 ${
                             !prayer.isPrayed
                               ? "bg-gold text-navy-deep hover:bg-gold/90"
                               : "bg-green-600 text-white hover:bg-green-700"
                           }`}
                         >
-                          <Check className="h-3.5 w-3.5" />
+                          {togglingPrayerId === prayer.id ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
                           <span>
-                            {!prayer.isPrayed
-                              ? "በጸሎት ደግፌያለሁ (Mark as Prayed)"
-                              : "ተጸልዮበታል ✓ (ወደ አዲስ መልስ)"}
+                            {togglingPrayerId === prayer.id
+                              ? "በማዘመን ላይ..."
+                              : !prayer.isPrayed
+                                ? "በጸሎት ደግፌያለሁ (Mark as Prayed)"
+                                : "ተጸልዮበታል ✓ (ወደ አዲስ መልስ)"}
                           </span>
                         </button>
 
                         <button
                           type="button"
+                          disabled={deletingPrayerId === prayer.id}
                           onClick={() => handleDeletePrayer(prayer.id)}
                           title="ይህንን ጸሎት ሰርዝ"
-                          className="rounded-xl border border-red-200 p-2 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                          className="rounded-xl border border-red-200 p-2 text-red-500 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {deletingPrayerId === prayer.id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -1949,66 +2501,110 @@ function AdminRoute() {
         {/* ================= TAB 4: ADMIN PROFILE & SECURITY ================= */}
         {activeTab === "PROFILE" && (
           <div className="max-w-xl mx-auto rounded-3xl bg-card border border-gold/30 p-6 md:p-10 shadow-card">
-            <div className="flex items-center gap-2 border-b border-gold/20 pb-4 mb-6">
-              <KeyRound className="h-6 w-6 text-gold" />
+            <div className="flex items-center gap-3 border-b border-gold/20 pb-4 mb-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold border border-gold/30 shadow-xs">
+                <KeyRound className="h-6 w-6" />
+              </div>
               <div>
                 <h2 className="font-display text-2xl font-bold text-navy">
-                  የአስተዳዳሪ ፕሮፋይል እና የይለፍ ቃል
+                  የአስተዳዳሪ ፕሮፋይል፣ ኢሜይል እና የይለፍ ቃል
                 </h2>
-                <p className="text-xs text-muted-foreground">
-                  የአስተዳዳሪ ኢሜይል አድራሻዎን እና የይለፍ ቃልዎን እዚህ ይቀይሩ።
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  የአስተዳዳሪ ኢሜይል አድራሻዎን፣ ስምዎን፣ ስልክዎን ወይም የይለፍ ቃልዎን እዚህ ይቀይሩ።
                 </p>
               </div>
             </div>
 
             {profileMsg && (
-              <div className="mb-5 rounded-xl bg-green-50 p-3.5 border border-green-200 text-xs text-green-800 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              <div className="mb-5 rounded-xl bg-green-50 p-4 border border-green-200 text-xs text-green-800 flex items-start gap-2.5 animate-in fade-in">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
                 <span>{profileMsg}</span>
               </div>
             )}
 
             {profileError && (
-              <div className="mb-5 rounded-xl bg-red-50 p-3.5 border border-red-200 text-xs text-red-700 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+              <div className="mb-5 rounded-xl bg-red-50 p-4 border border-red-200 text-xs text-red-700 flex items-start gap-2.5 animate-in fade-in">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
                 <span>{profileError}</span>
               </div>
             )}
 
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1.5 flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5 text-gold" />
-                  የአስተዳዳሪ ኢሜይል አድራሻ (Admin Email)
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={profileEmail}
-                  onChange={(e) => setProfileEmail(e.target.value)}
-                  placeholder="admin@rabbi.com"
-                  className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-mono"
-                />
+            <form onSubmit={handleUpdateProfile} className="space-y-5">
+              {/* SECTION 1: ADMIN INFO & EMAIL */}
+              <div className="rounded-2xl bg-navy/5 border border-gold/20 p-4 space-y-4">
+                <div className="flex items-center justify-between border-b border-navy/10 pb-2">
+                  <h3 className="text-xs font-bold text-navy uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="h-4 w-4 text-gold" />
+                    <span>የአስተዳዳሪ መረጃ እና ኢሜይል (Admin Info & Email)</span>
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground">ቀጥታ ይሻሻላል</span>
+                </div>
+
+                {/* Email Change Notice */}
+                <div className="rounded-xl bg-amber-50 border border-amber-200/80 p-3 text-[11px] text-amber-900 leading-relaxed">
+                  <strong>💡 ማሳሰቢያ፦</strong> የአስተዳዳሪ ኢሜይልዎን ሲቀይሩ አዲሱ ኢሜይል በቀጥታ ተቀባይነት የሚያገኝ ሲሆን በሚቀጥለው ጊዜ ወደ ዳሽቦርድ ለመግባት በአዲሱ ኢሜይል መግባት አለብዎት።
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1.5 flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 text-gold" />
+                    <span>የአስተዳዳሪ ኢሜይል አድራሻ (Admin Email)</span>
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    placeholder="admin@rabbi.com"
+                    className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-mono shadow-xs"
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5 flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-gold" />
+                      <span>የአስተዳዳሪ ስም (Admin Full Name)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileFullName}
+                      onChange={(e) => setProfileFullName(e.target.value)}
+                      placeholder="RABBI Admin"
+                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5 flex items-center gap-1.5">
+                      <span className="text-gold font-bold">📱</span>
+                      <span>ስልክ ቁጥር (Phone Number)</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      placeholder="+251..."
+                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background shadow-xs"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1.5 flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-gold" />
-                  የአስተዳዳሪ ስም (Admin Full Name)
-                </label>
-                <input
-                  type="text"
-                  value={profileFullName}
-                  onChange={(e) => setProfileFullName(e.target.value)}
-                  placeholder="RABBI Admin"
-                  className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background"
-                />
-              </div>
+              {/* SECTION 2: CHANGE PASSWORD (OPTIONAL) */}
+              <div className="rounded-2xl bg-navy/5 border border-gold/20 p-4 space-y-4">
+                <div className="flex items-center justify-between border-b border-navy/10 pb-2">
+                  <h3 className="text-xs font-bold text-navy uppercase tracking-wider flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4 text-gold" />
+                    <span>የይለፍ ቃል መቀየሪያ (Change Password — አማራጭ)</span>
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground">ካስፈለገ ብቻ</span>
+                </div>
 
-              <div className="pt-3 border-t border-navy/10">
-                <h4 className="text-xs font-bold text-navy uppercase tracking-wider mb-3">
-                  የይለፍ ቃል መቀየሪያ (Change Password)
-                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  የይለፍ ቃልዎን መቀየር ካልፈለጉ እነዚህን ሳጥኖች ክፍት ይተዉዋቸው።
+                </p>
 
                 <div className="space-y-3">
                   <div>
@@ -2024,51 +2620,351 @@ function AdminRoute() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-navy mb-1">
-                      አዲስ የይለፍ ቃል (New Password — ቢያንስ 6 ፊደላት)
-                    </label>
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2 text-xs focus:border-gold focus:outline-none bg-background"
-                    />
-                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-navy mb-1">
+                        አዲስ የይለፍ ቃል (New Password — ቢያንስ 6 ፊደላት)
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full rounded-xl border border-navy/20 px-3.5 py-2 text-xs focus:border-gold focus:outline-none bg-background"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-navy mb-1">
-                      አዲሱን የይለፍ ቃል ያረጋግጡ (Confirm New Password)
-                    </label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-navy/20 px-3.5 py-2 text-xs focus:border-gold focus:outline-none bg-background"
-                    />
+                    <div>
+                      <label className="block text-xs font-semibold text-navy mb-1">
+                        አዲሱን የይለፍ ቃል ያረጋግጡ (Confirm New Password)
+                      </label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full rounded-xl border border-navy/20 px-3.5 py-2 text-xs focus:border-gold focus:outline-none bg-background"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* Submit Button with Loading Spinner */}
               <button
                 type="submit"
                 disabled={profileLoading}
-                className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3.5 text-xs font-bold text-navy-deep shadow-md hover:bg-gold/90 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
               >
-                <KeyRound className="h-4 w-4" />
-                <span>{profileLoading ? "በማስቀመጥ ላይ..." : "ለውጦችን አስቀምጥ (Save Profile Changes)"}</span>
+                {profileLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin text-navy-deep" />
+                    <span>የአስተዳዳሪ መረጃና ኢሜይል በማስቀመጥ ላይ...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="h-4 w-4" />
+                    <span>ለውጦችን አስቀምጥ (Save Profile & Email Changes)</span>
+                  </>
+                )}
               </button>
             </form>
           </div>
         )}
+
+        {/* ================= TAB: MANAGE ADMINS ================= */}
+        {activeTab === "MANAGE_ADMINS" && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center gap-3 bg-card p-5 rounded-2xl border border-gold/30 shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gold/15 text-gold border border-gold/30 shrink-0">
+                <Users className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="font-display text-xl font-bold text-navy">አስተዳዳሪዎችን አስተዳድር (Manage Admins)</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">አዲስ አስተዳዳሪ ፍጠር፣ ያሉትን አስተዳዳሪዎች አስተካክል ወይም ሰርዝ።</p>
+              </div>
+            </div>
+
+            {/* Add New Admin Form */}
+            <div className="rounded-2xl bg-card border border-gold/20 p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-navy flex items-center gap-2 mb-4 pb-2 border-b border-navy/10">
+                <Plus className="h-4 w-4 text-gold" />
+                አዲስ አስተዳዳሪ ጨምር (Add New Admin)
+              </h3>
+
+              {newAdminMsg && (
+                <div className="mb-4 rounded-xl bg-green-50 p-3 border border-green-200 text-xs text-green-800 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  <span>{newAdminMsg}</span>
+                </div>
+              )}
+              {newAdminError && (
+                <div className="mb-4 rounded-xl bg-red-50 p-3 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                  <span>{newAdminError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateAdmin} className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5 text-gold" />
+                    ኢሜይል (Email) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    placeholder="newadmin@rabbi.com"
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs focus:border-gold focus:outline-none bg-background font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
+                    <KeyRound className="h-3.5 w-3.5 text-gold" />
+                    የይለፍ ቃል (Password) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={newAdminPassword}
+                    onChange={(e) => setNewAdminPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs focus:border-gold focus:outline-none bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-gold" />
+                    ሙሉ ስም (Full Name)
+                  </label>
+                  <input
+                    type="text"
+                    value={newAdminFullName}
+                    onChange={(e) => setNewAdminFullName(e.target.value)}
+                    placeholder="Admin Name"
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs focus:border-gold focus:outline-none bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">📱 ስልክ (Phone)</label>
+                  <input
+                    type="tel"
+                    value={newAdminPhone}
+                    onChange={(e) => setNewAdminPhone(e.target.value)}
+                    placeholder="+251..."
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs focus:border-gold focus:outline-none bg-background"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={newAdminLoading}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {newAdminLoading ? (
+                      <><RefreshCw className="h-4 w-4 animate-spin" /><span>በመፍጠር ላይ...</span></>
+                    ) : (
+                      <><Plus className="h-4 w-4" /><span>አዲስ አስተዳዳሪ ፍጠር (Create Admin)</span></>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Admins List */}
+            <div className="rounded-2xl bg-card border border-gold/20 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-navy/10">
+                <h3 className="text-sm font-bold text-navy flex items-center gap-2">
+                  <Users className="h-4 w-4 text-gold" />
+                  ያሉ አስተዳዳሪዎች ({adminsList.length})
+                </h3>
+                <button
+                  onClick={fetchAdmins}
+                  className="flex items-center gap-1 rounded-lg bg-navy/5 px-2.5 py-1 text-xs text-navy hover:bg-gold/10 cursor-pointer"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${adminsLoading ? "animate-spin text-gold" : ""}`} />
+                  አድስ
+                </button>
+              </div>
+
+              {adminsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-gold border-t-transparent" />
+                </div>
+              ) : adminsList.length === 0 ? (
+                <div className="rounded-xl border border-navy/10 bg-background/50 p-8 text-center">
+                  <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">ሌሎች አስተዳዳሪዎች አልተገኙም። ከላይ ያለውን ቅጽ ተጠቅመው አዲስ ይፍጠሩ።</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {adminsList.map((admin) => (
+                    <div key={admin.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-background border border-gold/20 hover:border-gold/40 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold font-bold text-sm shrink-0 border border-gold/30">
+                          <UserCheck className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-navy text-sm">{admin.fullName || "ስም አልተመዘገበም"}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
+                          {admin.phone && <div className="text-xs text-muted-foreground">📱 {admin.phone}</div>}
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            የተፈጠረበት: {new Date(admin.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button
+                          onClick={() => handleOpenEditAdmin(admin)}
+                          className="flex items-center gap-1 rounded-lg bg-navy/5 px-3 py-1.5 text-xs font-semibold text-navy hover:bg-gold/20 hover:text-navy-deep transition-all cursor-pointer"
+                        >
+                          <Edit3 className="h-3.5 w-3.5 text-gold" />
+                          አስተካክል
+                        </button>
+                        <button
+                          onClick={() => setDeletingAdminId(admin.id)}
+                          className="flex items-center gap-1 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-500/20 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          ሰርዝ
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
+
+      {/* ================= EDIT ADMIN MODAL ================= */}
+      {editingAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl bg-card border border-gold/30 shadow-2xl p-5 sm:p-7">
+            <button
+              onClick={() => setEditingAdmin(null)}
+              className="absolute top-4 right-4 rounded-full bg-navy/10 p-1.5 text-navy hover:bg-gold/20 transition-all"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2 border-b border-gold/20 pb-3 mb-5">
+              <Edit3 className="h-5 w-5 text-gold" />
+              <h3 className="font-display text-lg font-bold text-navy">አስተዳዳሪ አስተካክል</h3>
+            </div>
+            {editAdminMsg && (
+              <div className="mb-4 rounded-xl bg-green-50 p-3 border border-green-200 text-xs text-green-800">{editAdminMsg}</div>
+            )}
+            {editAdminError && (
+              <div className="mb-4 rounded-xl bg-red-50 p-3 border border-red-200 text-xs text-red-700">{editAdminError}</div>
+            )}
+            <form onSubmit={handleSaveAdminEdit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-navy mb-1">ኢሜይል (Email)</label>
+                <input
+                  type="email"
+                  value={editAdminEmail}
+                  onChange={(e) => setEditAdminEmail(e.target.value)}
+                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono focus:border-gold focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy mb-1">ሙሉ ስም</label>
+                <input
+                  type="text"
+                  value={editAdminFullName}
+                  onChange={(e) => setEditAdminFullName(e.target.value)}
+                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background focus:border-gold focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy mb-1">ስልክ</label>
+                <input
+                  type="tel"
+                  value={editAdminPhone}
+                  onChange={(e) => setEditAdminPhone(e.target.value)}
+                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background focus:border-gold focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-navy mb-1">አዲስ የይለፍ ቃል (ካስፈለገ ብቻ)</label>
+                <input
+                  type="password"
+                  value={editAdminPassword}
+                  onChange={(e) => setEditAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background focus:border-gold focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={editAdminLoading}
+                  onClick={() => setEditingAdmin(null)}
+                  className="flex-1 rounded-xl border border-navy/20 py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer disabled:opacity-50"
+                >
+                  ተመለስ
+                </button>
+                <button
+                  type="submit"
+                  disabled={editAdminLoading}
+                  className="flex-1 rounded-xl bg-gold py-2.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {editAdminLoading ? (
+                    <><RefreshCw className="h-4 w-4 animate-spin" /><span>በማስቀመጥ ላይ...</span></>
+                  ) : (
+                    <><Edit3 className="h-3.5 w-3.5" /><span>አስቀምጥ</span></>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= DELETE ADMIN CONFIRMATION ================= */}
+      {deletingAdminId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-red-400/40 p-5 sm:p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 className="font-display text-lg font-bold text-navy mb-1">አስተዳዳሪውን ሰርዝ?</h3>
+            <p className="text-xs text-muted-foreground mb-5">ይህ አስተዳዳሪ ቋሚ ሆኖ ይሰረዛል። ወደ ኋላ መመለስ አይቻልም።</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={deletingAdminLoading}
+                onClick={() => setDeletingAdminId(null)}
+                className="flex-1 rounded-xl border border-navy/20 bg-background py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer disabled:opacity-50"
+              >
+                ተመለስ
+              </button>
+              <button
+                type="button"
+                disabled={deletingAdminLoading}
+                onClick={handleDeleteAdmin}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletingAdminLoading ? (
+                  <><RefreshCw className="h-4 w-4 animate-spin" /><span>በመሰረዝ...</span></>
+                ) : (
+                  <><Trash2 className="h-4 w-4" /><span>አዎ፣ ሰርዝ</span></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= EDIT CONTENT MODAL ================= */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-card border border-gold/30 shadow-2xl p-6 md:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-card border border-gold/30 shadow-2xl p-4 sm:p-6 md:p-8">
             <button
               onClick={() => setEditingItem(null)}
               className="absolute top-4 right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 transition-all"
@@ -2204,39 +3100,87 @@ function AdminRoute() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1">የነፃ ናሙና ንባብ</label>
-                <textarea
-                  rows={3}
-                  value={editSampleContent}
-                  onChange={(e) => setEditSampleContent(e.target.value)}
-                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
-                />
-              </div>
+              {editMediaType === "ARTICLE" ? (
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-gold" />
+                    <span>የመጽሐፍ ቅዱስ ጥቅስና ቃል (Scripture Verse & Citation)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editSampleContent}
+                    onChange={(e) => setEditSampleContent(e.target.value)}
+                    placeholder="ለምሳሌ፡ ኢሳይያስ 30:15 — 'በመመለስና በማረፍ ትድናላችሁ፤ በጸጥታና በመታመን ኃይል ይሆንላችኋል፤'"
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-serif"
+                  />
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    ጥቅሱንና ቃሉን እዚህ ያስገቡ (መነሻ ገጽ ላይ 'የዛሬ ቃል' ሆኖ ይወጣል)
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">የነፃ ናሙና ንባብ</label>
+                  <textarea
+                    rows={3}
+                    value={editSampleContent}
+                    onChange={(e) => setEditSampleContent(e.target.value)}
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
+                  />
+                </div>
+              )}
 
               <div>
-                <label className="block text-xs font-bold text-navy mb-1">ሙሉ ይዘት</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-navy">
+                    {editMediaType === "ARTICLE" ? "ሙሉ የጽሑፉ ይዘት (Full Article)" : "ሙሉ ይዘት"}
+                  </label>
+                  {(editMediaType === "BOOK" || editMediaType === "COURSE") && (
+                    <label className="rounded-lg bg-navy-deep px-2.5 py-0.5 text-[10px] font-bold text-gold hover:bg-navy transition-all cursor-pointer flex items-center gap-1 shadow-xs">
+                      <Upload className="h-3 w-3" />
+                      <span>{editUploading ? "..." : "PDF ስቀል"}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        disabled={editUploading}
+                        onChange={(e) => handleBookPdfUpload(e, true)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
                 <textarea
                   rows={5}
                   value={editFullContent}
                   onChange={(e) => setEditFullContent(e.target.value)}
-                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
+                  className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-sans"
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
+                  disabled={editSubmitting}
                   onClick={() => setEditingItem(null)}
-                  className="flex-1 rounded-xl border border-navy/20 bg-background py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer"
+                  className="flex-1 rounded-xl border border-navy/20 bg-background py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer disabled:opacity-50"
                 >
                   ተመለስ (Cancel)
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-gold py-2.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer"
+                  disabled={editSubmitting || editUploading}
+                  className="flex-1 rounded-xl bg-gold py-2.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  አስተካክልና አስቀምጥ (Save Changes)
+                  {editSubmitting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin text-navy-deep" />
+                      <span>በማስቀመጥ ላይ...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="h-3.5 w-3.5" />
+                      <span>አስተካክልና አስቀምጥ (Save Changes)</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -2246,8 +3190,8 @@ function AdminRoute() {
 
       {/* ================= DELETE CONFIRMATION MODAL ================= */}
       {deletingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-sm rounded-2xl bg-card border border-red-400/40 p-6 text-center shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-red-400/40 p-5 sm:p-6 text-center shadow-2xl">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
               <Trash2 className="h-6 w-6" />
             </div>
@@ -2259,16 +3203,30 @@ function AdminRoute() {
             </p>
             <div className="flex gap-3">
               <button
+                type="button"
+                disabled={deletingLoading}
                 onClick={() => setDeletingId(null)}
-                className="flex-1 rounded-xl border border-navy/20 bg-background py-2 text-xs font-bold text-navy hover:bg-card cursor-pointer"
+                className="flex-1 rounded-xl border border-navy/20 bg-background py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer disabled:opacity-50"
               >
                 ተመለስ
               </button>
               <button
+                type="button"
+                disabled={deletingLoading}
                 onClick={handleConfirmDelete}
-                className="flex-1 rounded-xl bg-red-600 py-2 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer"
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                አዎ፣ ሰርዝ
+                {deletingLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>በመሰረዝ ላይ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    <span>አዎ፣ ሰርዝ</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -2277,8 +3235,8 @@ function AdminRoute() {
 
       {/* ================= BUYERS LIST MODAL ================= */}
       {selectedBookForBuyers && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-card border border-gold/40 p-6 md:p-8 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-card border border-gold/40 p-4 sm:p-6 md:p-8 shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-gold/20 pb-4 mb-5">
               <div className="flex items-center gap-3">
                 <img
@@ -2429,8 +3387,8 @@ function AdminRoute() {
 
       {/* ================= PAYMENT RECEIPT PREVIEW MODAL ================= */}
       {previewReceiptUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative max-w-2xl w-full rounded-2xl bg-card border border-gold/40 p-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative max-w-2xl w-full rounded-2xl bg-card border border-gold/40 p-3.5 sm:p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-navy/10">
               <h4 className="font-display text-sm font-bold text-navy flex items-center gap-1.5">
                 <Eye className="h-4 w-4 text-gold" />

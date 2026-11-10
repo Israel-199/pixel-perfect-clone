@@ -16,6 +16,8 @@ model User {
   role             Role              @default(USER)
   resetToken       String?
   resetTokenExpiry DateTime?
+  loginAttempts    Int               @default(0)   // brute-force protection
+  lockedUntil      DateTime?                        // account lockout expiry
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   requests         PurchaseRequest[]

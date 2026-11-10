@@ -1,6 +1,15 @@
 import { prisma } from "../config/prisma";
 import bcrypt from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
+import {
+  validateEmail,
+  validatePassword,
+  validateString,
+  validateUrl,
+  validatePositiveNumber,
+  validateId,
+  stripHtml,
+} from "../middlewares/validation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -181,37 +190,35 @@ export class AdminService {
     audioUrl?: string;
     mediaType?: string;
   }) {
-    if (!data.title || !data.title.trim()) {
-      throw new Error("የመጽሐፉ ርዕስ ማስገባት ተገቢ ነው (Title is required).");
-    }
-
-    if (!data.coverUrl || !data.coverUrl.trim()) {
-      throw new Error("የከቨር ፎቶ URL ማስገባት ተገቢ ነው (Cover image URL is required).");
-    }
-
-    const numPrice = data.price !== undefined ? parseFloat(data.price.toString()) : 0;
-    if (isNaN(numPrice) || numPrice < 0) {
-      throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
-    }
+    const title = validateString(data.title, "Title", { required: true, max: 200 });
+    const author = validateString(data.author, "Author", { max: 150 }) || "RABBI";
+    const description = stripHtml(validateString(data.description, "Description", { max: 2000 }));
+    const numPrice = validatePositiveNumber(data.price ?? 0, "Price");
+    const coverUrl = validateUrl(data.coverUrl, "Cover Image URL");
+    if (!coverUrl) throw new Error("Cover image URL is required.");
+    const sampleContent = validateString(data.sampleContent, "Sample Content", { max: 50000 });
+    const fullContent = validateString(data.fullContent, "Full Content", { max: 500000 });
+    const videoUrl = validateUrl(data.videoUrl, "Video URL");
+    const audioUrl = validateUrl(data.audioUrl, "Audio URL");
 
     const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE", "COURSE", "ARTICLE", "PRAYER"];
-    const mediaType = (data.mediaType || "BOOK").toUpperCase();
+    const mediaType = (data.mediaType || "BOOK").toUpperCase().trim();
     if (!validMediaTypes.includes(mediaType)) {
-      throw new Error("የተሳሳተ የይዘት ዓይነት (Invalid content/media type).");
+      throw new Error("Invalid content/media type.");
     }
 
     return prisma.book.create({
       data: {
-        title: data.title.trim(),
-        author: data.author ? data.author.trim() : "RABBI",
-        description: data.description ? data.description.trim() : "",
+        title,
+        author,
+        description,
         price: numPrice,
-        coverUrl: data.coverUrl.trim(),
-        sampleContent: data.sampleContent ? data.sampleContent.trim() : "",
-        fullContent: data.fullContent ? data.fullContent.trim() : "",
-        videoUrl: data.videoUrl ? data.videoUrl.trim() : null,
-        audioUrl: data.audioUrl ? data.audioUrl.trim() : null,
-        mediaType: mediaType,
+        coverUrl,
+        sampleContent,
+        fullContent,
+        videoUrl: videoUrl || null,
+        audioUrl: audioUrl || null,
+        mediaType,
       },
     });
   }
@@ -235,20 +242,38 @@ export class AdminService {
       throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
     }
 
+    let parsedPrice: number | undefined = undefined;
+    if (data.price !== undefined && data.price !== null && data.price !== "") {
+      const num = parseFloat(data.price.toString());
+      if (isNaN(num) || num < 0) {
+        throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
+      }
+      parsedPrice = num;
+    } else if (data.price === 0 || data.price === "0") {
+      parsedPrice = 0;
+    }
+
+    const updatePayload: any = {};
+    if (data.title !== undefined) updatePayload.title = data.title.trim();
+    if (data.author !== undefined) updatePayload.author = data.author.trim() || "RABBI";
+    if (data.description !== undefined) updatePayload.description = data.description.trim();
+    if (parsedPrice !== undefined) updatePayload.price = parsedPrice;
+    if (data.coverUrl !== undefined) updatePayload.coverUrl = data.coverUrl.trim();
+    if (data.sampleContent !== undefined) updatePayload.sampleContent = data.sampleContent.trim();
+    if (data.fullContent !== undefined) updatePayload.fullContent = data.fullContent.trim();
+    if (data.videoUrl !== undefined) updatePayload.videoUrl = data.videoUrl ? data.videoUrl.trim() : null;
+    if (data.audioUrl !== undefined) updatePayload.audioUrl = data.audioUrl ? data.audioUrl.trim() : null;
+    if (data.mediaType !== undefined && data.mediaType.trim()) {
+      const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE", "COURSE", "ARTICLE", "PRAYER"];
+      const mt = data.mediaType.toUpperCase().trim();
+      if (validMediaTypes.includes(mt)) {
+        updatePayload.mediaType = mt;
+      }
+    }
+
     return prisma.book.update({
       where: { id },
-      data: {
-        title: data.title?.trim(),
-        author: data.author?.trim(),
-        description: data.description?.trim(),
-        price: data.price !== undefined ? parseFloat(data.price.toString()) : undefined,
-        coverUrl: data.coverUrl?.trim(),
-        sampleContent: data.sampleContent?.trim(),
-        fullContent: data.fullContent?.trim(),
-        videoUrl: data.videoUrl?.trim(),
-        audioUrl: data.audioUrl?.trim(),
-        mediaType: data.mediaType?.toUpperCase(),
-      },
+      data: updatePayload,
     });
   }
 
@@ -259,6 +284,93 @@ export class AdminService {
 
     return prisma.book.delete({ where: { id } });
   }
+
+  // ---- Admin Management CRUD ----
+
+  static async getAllAdmins(excludeUserId: string) {
+    const admins = await prisma.user.findMany({
+      where: { role: "ADMIN", NOT: { id: excludeUserId } },
+      select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return admins;
+  }
+
+  static async createAdmin(data: {
+    email: string;
+    password: string;
+    fullName?: string;
+    phone?: string;
+  }) {
+    const cleanEmail = validateEmail(data.email);
+    const password = validatePassword(data.password);
+    const fullName = validateString(data.fullName, "Full Name", { max: 100 });
+    const phone = validateString(data.phone, "Phone", { max: 30 });
+
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (existing) {
+      throw new Error("ይህ ኢሜይል አስቀድሞ ተጠቃሚ አለው (Email already in use).");
+    }
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const admin = await prisma.user.create({
+      data: {
+        email: cleanEmail,
+        password: hashedPassword,
+        fullName: fullName || null,
+        phone: phone || null,
+        role: "ADMIN",
+      },
+      select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+    });
+    return admin;
+  }
+
+  static async updateAdmin(
+    id: string,
+    data: { email?: string; password?: string; fullName?: string; phone?: string },
+    requestingAdminId: string
+  ) {
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target || target.role !== "ADMIN") {
+      throw new Error("አስተዳዳሪ ተጠቃሚ አልተገኘም (Admin not found).");
+    }
+    const updateData: any = {};
+    if (data.fullName !== undefined) updateData.fullName = data.fullName.trim() || null;
+    if (data.phone !== undefined) updateData.phone = data.phone.trim() || null;
+    if (data.email && data.email.trim()) {
+      const cleanEmail = data.email.toLowerCase().trim();
+      if (!EMAIL_REGEX.test(cleanEmail)) throw new Error("ትክክለኛ ኢሜይል ያስገቡ.");
+      if (cleanEmail !== target.email) {
+        const conflict = await prisma.user.findUnique({ where: { email: cleanEmail } });
+        if (conflict) throw new Error("ይህ ኢሜይል አስቀድሞ ጥቅም ላይ ውሏል (Email already in use).");
+        updateData.email = cleanEmail;
+      }
+    }
+    if (data.password && data.password.trim()) {
+      if (data.password.length < 6) throw new Error("የይለፍ ቃሉ ቢያንስ 6 ፊደላት መሆን አለበት.");
+      updateData.password = await bcrypt.hash(data.password.trim(), 12);
+    }
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+    });
+    return updated;
+  }
+
+  static async deleteAdmin(id: string, requestingAdminId: string) {
+    if (id === requestingAdminId) {
+      throw new Error("ራስዎን መሰረዝ አይቻልም (Cannot delete yourself).");
+    }
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target || target.role !== "ADMIN") {
+      throw new Error("አስተዳዳሪ ተጠቃሚ አልተገኘም (Admin not found).");
+    }
+    await prisma.user.delete({ where: { id } });
+    return { success: true };
+  }
+
+  // ---- End Admin Management ----
 
   static async updateProfile(
     adminUserId: string,
@@ -323,6 +435,7 @@ export class AdminService {
 
     const token = jsonwebtoken.sign(
       {
+        userId: updatedUser.id,
         id: updatedUser.id,
         email: updatedUser.email,
         role: updatedUser.role,

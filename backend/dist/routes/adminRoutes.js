@@ -15,4 +15,8 @@ router.post("/books", adminController_1.AdminController.createBook);
 router.put("/books/:id", adminController_1.AdminController.updateBook);
 router.delete("/books/:id", adminController_1.AdminController.deleteBook);
 router.post("/upload", cloudinary_1.upload.single("file"), adminController_1.AdminController.uploadFile);
+router.get("/admins", adminController_1.AdminController.getAllAdmins);
+router.post("/admins", adminController_1.AdminController.createAdmin);
+router.put("/admins/:id", adminController_1.AdminController.updateAdmin);
+router.delete("/admins/:id", adminController_1.AdminController.deleteAdmin);
 exports.default = router;

@@ -32,6 +32,8 @@ import bookCover from "@/assets/book-cover.jpg";
 import academyImg from "@/assets/academy-cap.jpg";
 import appScreen from "@/assets/app-screen.jpg";
 import { fetchApi } from "@/lib/api";
+import { parseScripture } from "@/lib/scripture";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,28 +56,10 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const PILLARS = [
-  {
-    icon: BookOpen,
-    title: "ንባቦች",
-    body: "መጽሐፍ ቅዱስን አንብብ፤\nመጽሐፍትን አግኝ፤",
-    link: "የበለጠ ይመልከቱ",
-    to: "/books",
-  },
-  {
-    icon: Brain,
-    title: "ትምህርት",
-    body: "ተረዳ፣ ጥናት አድርግ፤\nእውቀትን አሳድግ፤",
-    link: "የበለጠ ይመልከቱ",
-    to: "/courses",
-  },
-  {
-    icon: HandHeart,
-    title: "ጸሎት",
-    body: "በጸሎት ተገናኝ፤\nበእምነት ኑር፤",
-    link: "የበለጠ ይመልከቱ",
-    to: "/prayer",
-  },
+const PILLAR_KEYS = [
+  { icon: BookOpen, titleKey: "pillarReadTitle", bodyKey: "pillarReadBody", link: "viewMore", to: "/books" },
+  { icon: Brain, titleKey: "pillarLearnTitle", bodyKey: "pillarLearnBody", link: "viewMore", to: "/courses" },
+  { icon: HandHeart, titleKey: "pillarPrayerTitle", bodyKey: "pillarPrayerBody", link: "viewMore", to: "/prayer" },
 ];
 
 const SECTIONS = [
@@ -89,11 +73,16 @@ const SECTIONS = [
 
 function Index() {
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
 
   // Dynamic recent posted items by admin
   const [recentBook, setRecentBook] = useState<any>(null);
   const [recentMedia, setRecentMedia] = useState<any>(null);
   const [recentCourse, setRecentCourse] = useState<any>(null);
+  const [todaysWord, setTodaysWord] = useState({
+    verse: "ኢሳይያስ 30:15",
+    text: "በመመለስና በማረፍ ትድናላችሁ፤ በጸጥታና በመታመን ኃይል ይሆንላችኋል፤",
+  });
 
   useEffect(() => {
     fetchApi<{ books: any[] }>("/books")
@@ -116,6 +105,28 @@ function Index() {
             b.title.includes("ዶርቃ")
         );
         if (course) setRecentCourse(course);
+
+        // Recent Article - Fetch and display scripture for "የዛሬ ቃል"
+        const recentArticles = all.filter((b) => b.mediaType === "ARTICLE");
+        if (recentArticles.length > 0) {
+          const latestArticle = recentArticles[0];
+          // Scripture can be in sampleContent, videoUrl, description, fullContent, or title
+          const rawScripture =
+            latestArticle.sampleContent ||
+            latestArticle.videoUrl ||
+            latestArticle.description ||
+            latestArticle.fullContent ||
+            latestArticle.title;
+          const parsed = parseScripture(rawScripture);
+          setTodaysWord(parsed);
+        } else {
+          // If no custom article in database, use default daily devotional scripture
+          setTodaysWord(
+            parseScripture(
+              "ኢሳይያስ 30:15 — 'በመመለስና በማረፍ ትድናላችሁ፤ በጸጥታና በመታመን ኃይል ይሆንላችኋል፤'"
+            )
+          );
+        }
       })
       .catch(() => {});
   }, []);
@@ -132,70 +143,70 @@ function Index() {
           className="absolute inset-0 h-full w-full object-cover opacity-70"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,oklch(0.175_0.048_265/0.92)_0%,oklch(0.175_0.048_265/0.55)_45%,oklch(0.175_0.048_265/0.85)_100%)]" />
-        <div className="relative mx-auto grid max-w-[1180px] gap-10 px-6 py-16 md:grid-cols-[1.6fr_1fr] md:items-center md:py-20">
+        <div className="relative mx-auto grid max-w-[1180px] gap-8 md:gap-10 px-4 sm:px-6 py-12 md:grid-cols-[1.6fr_1fr] md:items-center md:py-20">
           <div className="text-center md:text-left">
-            <h1 className="font-display text-5xl tracking-[0.22em] text-on-navy md:text-7xl font-bold">
+            <h1 className="font-display text-4xl sm:text-5xl md:text-7xl tracking-[0.12em] sm:tracking-[0.22em] text-on-navy font-bold">
               RABBI
             </h1>
-            <div className="gold-rule mt-4 text-sm tracking-[0.3em] text-gold-soft font-semibold">
+            <div className="gold-rule mt-3 sm:mt-4 text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.3em] text-gold-soft font-semibold">
               ጌታና መምህር
             </div>
-            <p className="mt-8 text-xl font-semibold text-on-navy md:text-2xl">
-              ዛሬ ከመምህር ምን ትማራለህ?
+            <p className="mt-6 sm:mt-8 text-lg sm:text-xl md:text-2xl font-semibold text-on-navy">
+              {t("learnFromMaster")}
             </p>
-            <p className="mt-3 text-sm text-on-navy-muted">
-              ቃሉን አንብብ ፤ እምነትን ተረዳ ፤ በሕይወትህ ኑር
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-on-navy-muted">
+              {t("motto")}
             </p>
             <Link
               to="/books"
-              className="mt-8 inline-flex items-center gap-2 rounded-xl bg-gold px-7 py-3 text-sm font-bold text-navy-deep transition-opacity hover:opacity-90 shadow-lg"
+              className="mt-6 sm:mt-8 inline-flex items-center gap-2 rounded-xl bg-gold px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-navy-deep transition-opacity hover:opacity-90 shadow-lg active:scale-95"
             >
-              ዛሬ አንብብ <ArrowRight className="h-4 w-4" />
+              {t("readNow")} <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <aside className="rounded-2xl border border-gold/25 bg-navy-deep/85 p-6 backdrop-blur-sm shadow-xl">
+          <aside className="rounded-2xl border border-gold/25 bg-navy-deep/85 p-5 sm:p-6 backdrop-blur-sm shadow-xl">
             <div className="flex items-center gap-2 text-sm font-semibold text-gold">
               <Quote className="h-4 w-4" />
-              <span>የዛሬ ቃል</span>
+              <span>{t("todaysWord")}</span>
             </div>
             <p className="mt-4 text-[0.9rem] leading-7 text-on-navy font-serif italic">
-              &ldquo;እናንተ መምህር ጌታም ትሉኛላችሁ፤ እንዲሁም ነኝና መልካም ትላላችሁ።&rdquo;
+              &ldquo;{todaysWord.text}&rdquo;
             </p>
-            <p className="mt-3 text-xs text-gold font-semibold">ዮሐንስ 13:13</p>
+            <p className="mt-3 text-xs text-gold font-semibold">{todaysWord.verse}</p>
             <Link
               to="/articles"
               className="mt-5 inline-flex rounded-xl border border-gold/60 px-4 py-2 text-xs font-semibold text-gold transition-colors hover:bg-gold/15"
             >
-              ሙሉ ጥቅስ አንብብ →
+              {t("readMore")}
             </Link>
           </aside>
         </div>
       </section>
 
       {/* Pillars */}
-      <section className="mx-auto max-w-[1180px] px-6 py-10">
+      <section className="mx-auto max-w-[1180px] px-4 sm:px-6 py-8 sm:py-10">
         <div className="grid rounded-2xl bg-card shadow-card md:grid-cols-3 border border-gold/15">
-          {PILLARS.map(({ icon: Icon, title, body, link, to }, i) => (
+          {PILLAR_KEYS.map(({ icon: Icon, titleKey, bodyKey, link, to }, i) => (
             <article
-              key={title}
-              className={`flex items-center gap-5 p-8 ${
-                i > 0 ? "md:border-l md:border-border" : ""
+              key={titleKey}
+              className={`flex items-start sm:items-center gap-4 sm:gap-5 p-5 sm:p-8 ${
+                i > 0 ? "border-t md:border-t-0 md:border-l md:border-border" : ""
               }`}
             >
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-navy-deep shadow">
-                <Icon className="h-7 w-7 text-gold" strokeWidth={1.5} />
+              <div className="flex h-12 w-12 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl bg-navy-deep shadow">
+                <Icon className="h-6 w-6 sm:h-7 sm:w-7 text-gold" strokeWidth={1.5} />
               </div>
               <div>
-                <h2 className="font-display text-xl text-navy font-bold">{title}</h2>
-                <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">
-                  {body}
+                <h2 className="font-display text-lg sm:text-xl text-navy font-bold">{t(titleKey)}</h2>
+                <p className="mt-1 sm:mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">
+                  {t(bodyKey)}
                 </p>
                 <Link
                   to={to}
-                  className="mt-3 inline-block text-xs font-semibold text-gold hover:underline"
+                  className="mt-2.5 sm:mt-3 inline-block text-xs font-semibold text-gold hover:underline"
                 >
-                  {link} →
+                  {t(link)} →
                 </Link>
               </div>
             </article>
@@ -204,7 +215,7 @@ function Index() {
       </section>
 
       {/* Three panels: Exact Recently Posted Content by Admin (Media, Book, Course) */}
-      <section className="mx-auto grid max-w-[1180px] gap-6 px-6 pb-14 lg:grid-cols-3">
+      <section className="mx-auto grid max-w-[1180px] gap-6 px-4 sm:px-6 pb-12 sm:pb-14 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {/* Panel 1 (Left): Recent Media posted by admin */}
         <div
           onClick={() => navigate({ to: "/media" })}
@@ -214,10 +225,10 @@ function Index() {
             <div className="flex items-center justify-between mb-4">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1 text-[11px] font-bold text-gold border border-gold/30">
                 <Video className="h-3 w-3" />
-                የቅርብ ጊዜ ሚዲያ
+                {t("recentMedia")}
               </span>
               <span className="text-[11px] text-on-navy-muted group-hover:text-gold transition-colors">
-                ሁሉንም ሚዲያዎች →
+                {t("allMedia")}
               </span>
             </div>
 
@@ -244,7 +255,7 @@ function Index() {
               {recentMedia?.title || "የእሁድ ትምህርት - ቪዲዮና ኦዲዮ"}
             </h3>
             <p className="text-xs text-on-navy-muted font-semibold mt-1">
-              አቅራቢ: {recentMedia?.author || "RABBI Academy"}
+              {t("provider")}: {recentMedia?.author || "RABBI Academy"}
             </p>
             <p className="text-xs text-on-navy-muted line-clamp-2 mt-2 leading-relaxed">
               {recentMedia?.description || "የእሁድ መንፈሳዊ ትምህርት ሙሉ ቪዲዮ እና ድምፅ ክምችት።"}
@@ -252,7 +263,7 @@ function Index() {
           </div>
 
           <div className="mt-5 pt-3 border-t border-gold/20 flex items-center justify-between text-xs font-bold text-gold">
-            <span>ወደ ሚዲያ ገጽ ክፈት</span>
+            <span>{t("openMediaPage")}</span>
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
@@ -266,10 +277,10 @@ function Index() {
             <div className="flex items-center justify-between mb-4">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-navy/5 px-3 py-1 text-[11px] font-bold text-navy border border-gold/30">
                 <BookOpen className="h-3 w-3 text-gold" />
-                የቅርብ ጊዜ መጽሐፍ
+                {t("recentBook")}
               </span>
               <span className="text-[11px] text-muted-foreground group-hover:text-gold transition-colors">
-                ሁሉንም መጽሐፍት →
+                {t("allBooks")}
               </span>
             </div>
 
@@ -297,7 +308,7 @@ function Index() {
           </div>
 
           <div className="mt-4 pt-3 border-t border-navy/10 flex items-center justify-between text-xs font-bold text-navy group-hover:text-gold transition-colors">
-            <span>መጽሐፉን አንብብ / ናሙና ክፈት</span>
+            <span>{t("readBook")}</span>
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
@@ -311,10 +322,10 @@ function Index() {
             <div className="flex items-center justify-between mb-4">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1 text-[11px] font-bold text-gold border border-gold/30">
                 <GraduationCap className="h-3.5 w-3.5" />
-                RABBI ACADEMY & ኮርሶች
+                {t("recentCourseLabel")}
               </span>
               <span className="text-[11px] text-on-navy-muted group-hover:text-gold transition-colors">
-                ኮርሶችን ይመልከቱ →
+                {t("allCourses")}
               </span>
             </div>
 
@@ -333,7 +344,7 @@ function Index() {
               {recentCourse?.title || "መሠረታዊ የሥነ-መለኮት ጥናት (Theology 101)"}
             </h3>
             <p className="text-xs text-on-navy-muted font-semibold mt-1">
-              አቅራቢ: {recentCourse?.author || "ዶርቃ ኮሌጅ & አጫጭር ስልጠናዎች"}
+              {t("provider")}: {recentCourse?.author || "ዶርቃ ኮሌጅ & አጫጭር ስልጠናዎች"}
             </p>
             <p className="text-xs text-on-navy-muted line-clamp-2 mt-2 leading-relaxed">
               {recentCourse?.description || "በዶርቃ ኮሌጅ የስርዓተ-ትምህርት የተዘጋጁ ኮርሶች እና የፒዲኤፍ ስልጠናዎች።"}
@@ -341,34 +352,34 @@ function Index() {
           </div>
 
           <div className="mt-5 pt-3 border-t border-gold/20 flex items-center justify-between text-xs font-bold text-gold">
-            <span>ወደ ኮርስ ገጽ ሂድ</span>
+            <span>{t("goToCourse")}</span>
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
       </section>
 
       {/* Sections strip */}
-      <section className="mx-auto max-w-[1180px] px-6 pb-16">
-        <h3 className="mb-4 text-sm font-bold text-navy flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-gold" />
+      <section className="mx-auto max-w-[1180px] px-4 sm:px-6 pb-12 sm:pb-16">
+        <h3 className="mb-4 text-xs sm:text-sm font-bold text-navy flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-gold shrink-0" />
           <span>ተመራጭ የአገልግሎት ክፍሎች</span>
         </h3>
-        <div className="grid rounded-2xl bg-card shadow-card border border-gold/15 sm:grid-cols-3 lg:grid-cols-6 overflow-hidden">
+        <div className="grid rounded-2xl bg-card shadow-card border border-gold/15 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 overflow-hidden">
           {SECTIONS.map(({ icon: Icon, title, sub, to }, i) => (
             <Link
               key={title}
               to={to}
-              className={`flex flex-col items-center gap-2 px-4 py-7 text-center transition-all hover:bg-gold/10 group ${
-                i > 0 ? "lg:border-l lg:border-border" : ""
+              className={`flex flex-col items-center gap-2 px-3 sm:px-4 py-5 sm:py-7 text-center transition-all hover:bg-gold/10 group ${
+                i > 0 ? "border-t sm:border-t-0 sm:border-l border-border/60" : ""
               }`}
             >
-              <div className="rounded-xl bg-navy/5 p-3 group-hover:bg-navy-deep group-hover:text-gold transition-colors">
-                <Icon className="h-6 w-6 text-navy group-hover:text-gold" strokeWidth={1.5} />
+              <div className="rounded-xl bg-navy/5 p-2.5 sm:p-3 group-hover:bg-navy-deep group-hover:text-gold transition-colors">
+                <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-navy group-hover:text-gold" strokeWidth={1.5} />
               </div>
               <span className="text-xs font-bold text-navy group-hover:text-gold transition-colors">
                 {title}
               </span>
-              <span className="text-[0.68rem] text-muted-foreground">{sub}</span>
+              <span className="text-[0.65rem] sm:text-[0.68rem] text-muted-foreground line-clamp-1">{sub}</span>
             </Link>
           ))}
         </div>
@@ -376,9 +387,9 @@ function Index() {
 
       {/* Newsletter band */}
       <section className="bg-navy-deep border-t border-gold/20">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-8 px-6 py-7">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-gold/40 bg-gold/10">
+        <div className="mx-auto flex max-w-[1180px] flex-col sm:flex-row flex-wrap items-center justify-between gap-6 px-4 sm:px-6 py-6 sm:py-7">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold/40 bg-gold/10">
               <Mail className="h-4 w-4 text-gold" />
             </span>
             <p className="text-[0.72rem] leading-5 text-on-navy-muted">
@@ -388,20 +399,20 @@ function Index() {
             </p>
           </div>
           <form
-            className="flex flex-1 min-w-[260px] overflow-hidden rounded-xl border border-gold/30"
+            className="flex w-full sm:flex-1 sm:max-w-md overflow-hidden rounded-xl border border-gold/30"
             onSubmit={(e) => e.preventDefault()}
           >
             <input
               type="email"
               placeholder="ደህንነቱ የተጠበቀ ኢሜይል ያስገቡ"
               aria-label="ኢሜይል"
-              className="flex-1 bg-cream px-4 py-2.5 text-xs text-foreground outline-none"
+              className="flex-1 min-w-0 bg-cream px-3.5 py-2.5 text-xs text-foreground outline-none"
             />
-            <button className="bg-gold px-5 text-xs font-bold text-navy-deep hover:bg-gold/90 transition-colors">
+            <button className="bg-gold px-4 sm:px-5 text-xs font-bold text-navy-deep hover:bg-gold/90 transition-colors shrink-0">
               ይመዝገቡ
             </button>
           </form>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-center sm:self-auto">
             <span className="text-[0.72rem] text-on-navy-muted">በእኛ ይከተሉን</span>
             {[Facebook, Send, Youtube, Instagram].map((Icon, i) => (
               <a

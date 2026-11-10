@@ -151,12 +151,12 @@ class AdminService {
         if (!data.coverUrl || !data.coverUrl.trim()) {
             throw new Error("የከቨር ፎቶ URL ማስገባት ተገቢ ነው (Cover image URL is required).");
         }
-        const numPrice = data.price !== undefined ? parseFloat(data.price.toString()) : 0;
+        const numPrice = data.price !== undefined && data.price !== "" ? parseFloat(data.price.toString()) : 0;
         if (isNaN(numPrice) || numPrice < 0) {
             throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
         }
         const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE", "COURSE", "ARTICLE", "PRAYER"];
-        const mediaType = (data.mediaType || "BOOK").toUpperCase();
+        const mediaType = (data.mediaType || "BOOK").toUpperCase().trim();
         if (!validMediaTypes.includes(mediaType)) {
             throw new Error("የተሳሳተ የይዘት ዓይነት (Invalid content/media type).");
         }
@@ -179,20 +179,46 @@ class AdminService {
         if (!id || !id.trim()) {
             throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
         }
+        let parsedPrice = undefined;
+        if (data.price !== undefined && data.price !== null && data.price !== "") {
+            const num = parseFloat(data.price.toString());
+            if (isNaN(num) || num < 0) {
+                throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
+            }
+            parsedPrice = num;
+        }
+        else if (data.price === 0 || data.price === "0") {
+            parsedPrice = 0;
+        }
+        const updatePayload = {};
+        if (data.title !== undefined)
+            updatePayload.title = data.title.trim();
+        if (data.author !== undefined)
+            updatePayload.author = data.author.trim() || "RABBI";
+        if (data.description !== undefined)
+            updatePayload.description = data.description.trim();
+        if (parsedPrice !== undefined)
+            updatePayload.price = parsedPrice;
+        if (data.coverUrl !== undefined)
+            updatePayload.coverUrl = data.coverUrl.trim();
+        if (data.sampleContent !== undefined)
+            updatePayload.sampleContent = data.sampleContent.trim();
+        if (data.fullContent !== undefined)
+            updatePayload.fullContent = data.fullContent.trim();
+        if (data.videoUrl !== undefined)
+            updatePayload.videoUrl = data.videoUrl ? data.videoUrl.trim() : null;
+        if (data.audioUrl !== undefined)
+            updatePayload.audioUrl = data.audioUrl ? data.audioUrl.trim() : null;
+        if (data.mediaType !== undefined && data.mediaType.trim()) {
+            const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE", "COURSE", "ARTICLE", "PRAYER"];
+            const mt = data.mediaType.toUpperCase().trim();
+            if (validMediaTypes.includes(mt)) {
+                updatePayload.mediaType = mt;
+            }
+        }
         return prisma_1.prisma.book.update({
             where: { id },
-            data: {
-                title: data.title?.trim(),
-                author: data.author?.trim(),
-                description: data.description?.trim(),
-                price: data.price !== undefined ? parseFloat(data.price.toString()) : undefined,
-                coverUrl: data.coverUrl?.trim(),
-                sampleContent: data.sampleContent?.trim(),
-                fullContent: data.fullContent?.trim(),
-                videoUrl: data.videoUrl?.trim(),
-                audioUrl: data.audioUrl?.trim(),
-                mediaType: data.mediaType?.toUpperCase(),
-            },
+            data: updatePayload,
         });
     }
     static async deleteBook(id) {
@@ -201,6 +227,88 @@ class AdminService {
         }
         return prisma_1.prisma.book.delete({ where: { id } });
     }
+    // ---- Admin Management CRUD ----
+    static async getAllAdmins(excludeUserId) {
+        const admins = await prisma_1.prisma.user.findMany({
+            where: { role: "ADMIN", NOT: { id: excludeUserId } },
+            select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+            orderBy: { createdAt: "asc" },
+        });
+        return admins;
+    }
+    static async createAdmin(data) {
+        if (!data.email || !data.email.trim()) {
+            throw new Error("የኢሜይል አድራሻ ማስገባት ተገቢ ነው (Email is required).");
+        }
+        const cleanEmail = data.email.toLowerCase().trim();
+        if (!EMAIL_REGEX.test(cleanEmail)) {
+            throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid email is required).");
+        }
+        if (!data.password || data.password.length < 6) {
+            throw new Error("የይለፍ ቃሉ ቢያንስ 6 ፊደላት መሆን አለበት (Password must be at least 6 characters).");
+        }
+        const existing = await prisma_1.prisma.user.findUnique({ where: { email: cleanEmail } });
+        if (existing) {
+            throw new Error("ይህ ኢሜይል አስቀድሞ ተጠቃሚ አለው (Email already in use).");
+        }
+        const hashedPassword = await bcryptjs_1.default.hash(data.password, 10);
+        const admin = await prisma_1.prisma.user.create({
+            data: {
+                email: cleanEmail,
+                password: hashedPassword,
+                fullName: data.fullName?.trim() || null,
+                phone: data.phone?.trim() || null,
+                role: "ADMIN",
+            },
+            select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+        });
+        return admin;
+    }
+    static async updateAdmin(id, data, requestingAdminId) {
+        const target = await prisma_1.prisma.user.findUnique({ where: { id } });
+        if (!target || target.role !== "ADMIN") {
+            throw new Error("አስተዳዳሪ ተጠቃሚ አልተገኘም (Admin not found).");
+        }
+        const updateData = {};
+        if (data.fullName !== undefined)
+            updateData.fullName = data.fullName.trim() || null;
+        if (data.phone !== undefined)
+            updateData.phone = data.phone.trim() || null;
+        if (data.email && data.email.trim()) {
+            const cleanEmail = data.email.toLowerCase().trim();
+            if (!EMAIL_REGEX.test(cleanEmail))
+                throw new Error("ትክክለኛ ኢሜይል ያስገቡ.");
+            if (cleanEmail !== target.email) {
+                const conflict = await prisma_1.prisma.user.findUnique({ where: { email: cleanEmail } });
+                if (conflict)
+                    throw new Error("ይህ ኢሜይል አስቀድሞ ጥቅም ላይ ውሏል (Email already in use).");
+                updateData.email = cleanEmail;
+            }
+        }
+        if (data.password && data.password.trim()) {
+            if (data.password.length < 6)
+                throw new Error("የይለፍ ቃሉ ቢያንስ 6 ፊደላት መሆን አለበት.");
+            updateData.password = await bcryptjs_1.default.hash(data.password.trim(), 10);
+        }
+        const updated = await prisma_1.prisma.user.update({
+            where: { id },
+            data: updateData,
+            select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+        });
+        return updated;
+    }
+    static async deleteAdmin(id, requestingAdminId) {
+        if (id === requestingAdminId) {
+            throw new Error("ራስዎን መሰረዝ አይቻልም (Cannot delete yourself).");
+        }
+        const target = await prisma_1.prisma.user.findUnique({ where: { id } });
+        if (!target || target.role !== "ADMIN") {
+            throw new Error("አስተዳዳሪ ተጠቃሚ አልተገኘም (Admin not found).");
+        }
+        await prisma_1.prisma.user.delete({ where: { id } });
+        return { success: true };
+    }
+    // ---- End Admin Management ----
     static async updateProfile(adminUserId, data) {
         const adminUser = await prisma_1.prisma.user.findUnique({ where: { id: adminUserId } });
         if (!adminUser || adminUser.role !== "ADMIN") {
@@ -245,6 +353,7 @@ class AdminService {
             data: updateData,
         });
         const token = jsonwebtoken_1.default.sign({
+            userId: updatedUser.id,
             id: updatedUser.id,
             email: updatedUser.email,
             role: updatedUser.role,

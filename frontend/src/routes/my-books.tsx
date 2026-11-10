@@ -70,18 +70,18 @@ function MyBooksRoute() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 md:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 md:px-6">
       {/* Top Banner */}
-      <div className="mb-8 rounded-2xl bg-gradient-to-r from-navy-deep via-navy to-navy-deep p-6 md:p-8 text-white shadow-xl border border-gold/30 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="mb-6 sm:mb-8 rounded-2xl bg-gradient-to-r from-navy-deep via-navy to-navy-deep p-5 sm:p-8 text-white shadow-xl border border-gold/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-gold">የእኔ መጽሃፎችና ሚዲያዎች</h1>
-          <p className="mt-1 text-sm text-on-navy-muted">
+          <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold text-gold">የእኔ መጽሃፎችና ሚዲያዎች</h1>
+          <p className="mt-1 text-xs sm:text-sm text-on-navy-muted leading-relaxed">
             እንኳን ደህና መጡ {user?.fullName || user?.email}! የጠየቋቸውንና የገዟቸውን መንፈሳዊ መጽሐፍት እዚህ ያገኛሉ።
           </p>
         </div>
         <Link
           to="/books"
-          className="flex items-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-xs md:text-sm font-bold text-navy-deep hover:bg-gold/90 shadow transition-all shrink-0"
+          className="flex items-center gap-2 rounded-xl bg-gold px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold text-navy-deep hover:bg-gold/90 shadow transition-all shrink-0 active:scale-95"
         >
           <PlusCircle className="h-4 w-4" />
           <span>ተጨማሪ መጽሐፍት ይመልከቱ</span>
@@ -96,12 +96,12 @@ function MyBooksRoute() {
 
       {/* Requests List */}
       {requests.length === 0 ? (
-        <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center shadow-card">
+        <div className="rounded-2xl border border-gold/20 bg-card p-8 sm:p-12 text-center shadow-card">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold/10 text-gold mb-4">
             <BookOpen className="h-8 w-8" />
           </div>
-          <h3 className="text-lg font-bold text-navy font-display mb-1">እስካሁን ምንም የጠየቁት መጽሐፍ የለም</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+          <h3 className="text-base sm:text-lg font-bold text-navy font-display mb-1">እስካሁን ምንም የጠየቁት መጽሐፍ የለም</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto mb-6">
             የሚፈልጉትን መንፈሳዊ መጽሐፍ ወይም ትምህርት ከመጽሐፍት ዝርዝር ውስጥ መርጠው መጠየቅ ይችላሉ።
           </p>
           <Link
@@ -113,7 +113,7 @@ function MyBooksRoute() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {requests.map((item) => {
             const isPermitted = item.status === "PERMITTED";
             const isPending = item.status === "PENDING";

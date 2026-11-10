@@ -76,7 +76,7 @@ function RegisterRoute() {
   };
 
   return (
-    <div className="animate-in fade-in flex min-h-[80vh] flex-col justify-center py-10 sm:px-6 lg:px-8">
+    <div className="animate-in fade-in flex min-h-[80vh] flex-col justify-center px-4 py-8 sm:py-10 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <Logo size="lg" variant="badge" />

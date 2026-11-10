@@ -15,6 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/lib/auth";
+import { LanguageProvider } from "@/lib/language";
 
 function NotFoundComponent() {
   return (
@@ -128,13 +129,15 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <div className="min-h-screen bg-cream font-body flex gap-0 flex-col">
-          {!isAdmin && <Header />}
-          <main className="flex-1">
-            <Outlet />
-          </main>
-          {!isAdmin && <Footer />}
-        </div>
+        <LanguageProvider>
+          <div className="min-h-screen bg-cream font-body flex gap-0 flex-col">
+            {!isAdmin && <Header />}
+            <main className="flex-1">
+              <Outlet />
+            </main>
+            {!isAdmin && <Footer />}
+          </div>
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

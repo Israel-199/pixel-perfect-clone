@@ -21,6 +21,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 import { BookItem } from "@/components/rabbi/BookModal";
@@ -453,10 +454,22 @@ Engaging in poverty alleviation, peacebuilding, and human dignity.
 function CoursesRoute() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language, t } = useLanguage();
 
   const [activeCategory, setActiveCategory] = useState<CourseCategory>("dorcas");
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync selected language filter with global language chosen in top nav dropdown
+  useEffect(() => {
+    if (language === "or") {
+      setSelectedLanguage("oromo");
+    } else if (language === "en") {
+      setSelectedLanguage("english");
+    } else if (language === "am") {
+      setSelectedLanguage("amharic");
+    }
+  }, [language]);
 
   // Modals
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
@@ -546,26 +559,26 @@ function CoursesRoute() {
   return (
     <div className="animate-in fade-in pb-24">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden bg-navy-deep px-6 py-16 text-center border-b border-gold/20">
+      <div className="relative overflow-hidden bg-navy-deep px-4 sm:px-6 py-10 sm:py-16 text-center border-b border-gold/20">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         <div className="relative mx-auto max-w-4xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1.5 text-xs font-semibold text-gold mb-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-gold mb-3">
             <School className="h-4 w-4" />
             <span>RABBI የትምህርትና ስልጠና ማዕከል • Dorcas College & Practical Trainings</span>
           </div>
-          <h1 className="font-display text-3xl md:text-5xl font-bold text-gold tracking-tight">
+          <h1 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold text-gold tracking-tight">
             ኮርሶች እና ተግባራዊ ስልጠናዎች
           </h1>
-          <p className="mt-3 text-xs md:text-sm text-on-navy-muted max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-2xl mx-auto leading-relaxed">
             በዶርቃ ኮሌጅ የተዘጋጁ ጥልቅ የሥነ-መለኮት ኮርሶች እና ለማኅበረሰብ ግንባታ፣ ለሰላም፣ ለአመራርና
             ለአገልግሎት የተዘጋጁ የፒዲኤፍ ስልጠናዎችን እዚህ ያግኙ።
           </p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-6 mt-10">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* Top 2 Main Cards: "ዶርቃ ኮሌጅ" and "ስልጠናዎች" */}
-        <div className="grid gap-6 md:grid-cols-2 mb-10">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 mb-8 sm:mb-10">
           {/* Card 1: ዶርቃ ኮሌጅ */}
           <button
             type="button"
@@ -874,26 +887,26 @@ function CoursesRoute() {
 
       {/* Course & Training Modal (Exact Book Section Style + PDF info + Login Protection) */}
       {selectedCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-gold/30 shadow-2xl p-6 md:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-card border border-gold/30 shadow-2xl p-4 sm:p-6 md:p-8">
             {/* Close Button */}
             <button
               onClick={() => setSelectedCourse(null)}
-              className="absolute top-4 right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 hover:text-navy-deep transition-all"
+              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 hover:text-navy-deep transition-all cursor-pointer z-10"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
               {/* Cover Column */}
               <div className="md:col-span-5 flex flex-col items-center">
-                <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5">
+                <div className="relative w-full max-w-[220px] md:max-w-none aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5">
                   <img
                     src={selectedCourse.coverUrl}
                     alt={selectedCourse.title}
                     className="h-full w-full object-cover"
                   />
-                  <div className="absolute top-3 right-3 rounded-full bg-navy-deep/85 px-3 py-1 text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5">
+                  <div className="absolute top-3 right-3 rounded-full bg-navy-deep/85 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5">
                     {selectedCourse.isPdf ? (
                       <>
                         <FileText className="h-3.5 w-3.5 text-red-400" />
@@ -908,8 +921,8 @@ function CoursesRoute() {
                   </div>
                 </div>
 
-                <div className="mt-4 w-full text-center">
-                  <span className="text-2xl font-bold text-navy-deep font-display">
+                <div className="mt-3 sm:mt-4 w-full text-center">
+                  <span className="text-xl sm:text-2xl font-bold text-navy-deep font-display">
                     {selectedCourse.price > 0 ? `${selectedCourse.price} ETB` : "ነፃ (Free)"}
                   </span>
                   {selectedCourse.isPdf && (
@@ -925,12 +938,12 @@ function CoursesRoute() {
               {/* Details Column */}
               <div className="md:col-span-7 flex flex-col justify-between">
                 <div>
-                  <div className="inline-block rounded-md bg-gold/15 px-2.5 py-0.5 text-[11px] font-bold text-navy-deep border border-gold/30 mb-2">
+                  <div className="inline-block rounded-md bg-gold/15 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-navy-deep border border-gold/30 mb-2">
                     {selectedCourse.languageLabel} •{" "}
                     {selectedCourse.category === "dorcas" ? "ዶርቃ ኮሌጅ" : "ተግባራዊ ስልጠና"}
                   </div>
 
-                  <h2 className="text-2xl font-bold text-navy font-display mb-1">
+                  <h2 className="text-xl sm:text-2xl font-bold text-navy font-display mb-1">
                     {selectedCourse.title}
                   </h2>
                   <p className="text-sm text-gold font-medium mb-3">

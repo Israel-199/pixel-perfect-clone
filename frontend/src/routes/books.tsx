@@ -41,33 +41,33 @@ function BooksRoute() {
   return (
     <div className="animate-in fade-in pb-20">
       {/* Banner */}
-      <div className="bg-navy-deep px-6 py-16 text-center border-b border-gold/20">
-        <h1 className="font-display text-4xl text-gold md:text-5xl font-bold">መንፈሳዊ መጽሐፍትና ሚዲያዎች</h1>
-        <p className="mt-3 text-sm text-on-navy-muted max-w-xl mx-auto">
+      <div className="bg-navy-deep px-4 sm:px-6 py-10 sm:py-16 text-center border-b border-gold/20">
+        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">መንፈሳዊ መጽሐፍትና ሚዲያዎች</h1>
+        <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
           የተመረጡ መንፈሳዊ መጽሐፍትን፣ የቪዲዮና ኦዲዮ ትምህርቶችን ናሙና ያንብቡ፤ በስርዓቱ ላይ ብቻ በሚሰራው ጥበቃ ይማሩ።
         </p>
       </div>
 
-      <div className="mx-auto max-w-[1180px] px-6 mt-10">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* Categories / Filters */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-12">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 mb-8 sm:mb-12">
           {SUB_SECTIONS.map(({ icon: Icon, title, desc }) => (
             <div
               key={title}
-              className="group cursor-pointer rounded-xl bg-card p-5 shadow-card transition-all hover:-translate-y-1 hover:shadow-lg border border-gold/10 hover:border-gold/30"
+              className="group cursor-pointer rounded-xl bg-card p-3.5 sm:p-5 shadow-card transition-all hover:-translate-y-1 hover:shadow-lg border border-gold/10 hover:border-gold/30"
             >
-              <div className="mb-3 inline-flex rounded-full bg-navy/5 p-3 text-navy transition-colors group-hover:bg-navy-deep group-hover:text-gold">
-                <Icon className="h-6 w-6" strokeWidth={1.5} />
+              <div className="mb-2 sm:mb-3 inline-flex rounded-full bg-navy/5 p-2.5 sm:p-3 text-navy transition-colors group-hover:bg-navy-deep group-hover:text-gold">
+                <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />
               </div>
-              <h3 className="font-display text-base font-bold text-navy">{title}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{desc}</p>
+              <h3 className="font-display text-sm sm:text-base font-bold text-navy">{title}</h3>
+              <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground line-clamp-1">{desc}</p>
             </div>
           ))}
         </div>
 
         {/* Books List Grid */}
-        <h2 className="font-display text-2xl font-bold text-navy mb-6 flex items-center gap-2">
-          <BookOpen className="h-6 w-6 text-gold" />
+        <h2 className="font-display text-xl sm:text-2xl font-bold text-navy mb-5 sm:mb-6 flex items-center gap-2">
+          <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-gold shrink-0" />
           <span>ያሉ መጽሐፍት ({books.length})</span>
         </h2>
 
@@ -76,7 +76,7 @@ function BooksRoute() {
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-gold border-t-transparent"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {books.map((book) => {
               const isPermitted = book.isPermitted || book.requestStatus === "PERMITTED";
               const isPending = book.requestStatus === "PENDING";

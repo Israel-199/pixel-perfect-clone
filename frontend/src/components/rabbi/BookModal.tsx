@@ -80,26 +80,26 @@ export const BookModal: React.FC<BookModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-gold/30 shadow-2xl p-6 md:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+      <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-card border border-gold/30 shadow-2xl p-4 sm:p-6 md:p-8">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 hover:text-navy-deep transition-all"
+          className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 rounded-full bg-navy/10 p-2 text-navy hover:bg-gold/20 hover:text-navy-deep transition-all cursor-pointer z-10"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
           {/* Cover Column */}
           <div className="md:col-span-5 flex flex-col items-center">
-            <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5">
+            <div className="relative w-full max-w-[220px] md:max-w-none aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5">
               <img
                 src={book.coverUrl}
                 alt={book.title}
                 className="h-full w-full object-cover"
               />
-              <div className="absolute top-3 right-3 rounded-full bg-navy-deep/80 px-3 py-1 text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5">
+              <div className="absolute top-3 right-3 rounded-full bg-navy-deep/80 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5">
                 {book.mediaType === "VIDEO" ? (
                   <PlayCircle className="h-3.5 w-3.5" />
                 ) : book.mediaType === "AUDIO" ? (
@@ -111,8 +111,8 @@ export const BookModal: React.FC<BookModalProps> = ({
               </div>
             </div>
 
-            <div className="mt-4 w-full text-center">
-              <span className="text-2xl font-bold text-navy-deep font-display">
+            <div className="mt-3 sm:mt-4 w-full text-center">
+              <span className="text-xl sm:text-2xl font-bold text-navy-deep font-display">
                 {book.price > 0 ? `${book.price} ETB` : "ነፃ (Free)"}
               </span>
             </div>
@@ -121,7 +121,7 @@ export const BookModal: React.FC<BookModalProps> = ({
           {/* Details Column */}
           <div className="md:col-span-7 flex flex-col justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-navy font-display mb-1">{book.title}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-navy font-display mb-1">{book.title}</h2>
               <p className="text-sm text-gold font-medium mb-3">ደራሲ / መጋቢ: {book.author || "RABBI"}</p>
               <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{book.description}</p>
 
@@ -132,7 +132,9 @@ export const BookModal: React.FC<BookModalProps> = ({
                   የነፃ ናሙና ንባብ (4-5 Sample Pages)
                 </h4>
                 <div className="max-h-36 overflow-y-auto pr-2 text-xs text-navy/80 whitespace-pre-line leading-relaxed font-sans scrollbar-thin">
-                  {book.sampleContent || "የነፃ ናሙና ይዘት አልተዘጋጀም።"}
+                  {book.sampleContent && !book.sampleContent.startsWith("http")
+                    ? book.sampleContent
+                    : "የተዘጋጀ የተጠበቀ የዲጂታል ፒዲኤፍ መጽሐፍ (PDF Book)። ክፍያውን ፈጽመው አስተዳዳሪው ሲያጸድቅልዎ ሙሉውን መጽሐፍ በከፍተኛ ጥራት በዲጂታል አንባቢው ማንበብ ይችላሉ።"}
                 </div>
               </div>
 
