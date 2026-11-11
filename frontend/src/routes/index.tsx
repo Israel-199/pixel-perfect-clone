@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { formatEtbWithUsd } from "@/lib/bookUtils";
 import {
   Search,
   ArrowRight,
@@ -77,6 +78,11 @@ function Index() {
 
   // Dynamic recent posted items by admin
   const [recentBook, setRecentBook] = useState<any>(null);
+  // Slidable recent books & media
+  const [recentBooksList, setRecentBooksList] = useState<any[]>([]);
+  const [currentBookIndex, setCurrentBookIndex] = useState<number>(0);
+  const [recentMediaList, setRecentMediaList] = useState<any[]>([]);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState<number>(0);
   const [recentMedia, setRecentMedia] = useState<any>(null);
   const [recentCourse, setRecentCourse] = useState<any>(null);
   const [todaysWord, setTodaysWord] = useState({
@@ -91,10 +97,14 @@ function Index() {
         // Recent Book
         const book = all.find((b) => b.mediaType === "BOOK" && !b.title.includes("ኮርስ"));
         if (book) setRecentBook(book);
+        const booksList = all.filter((b) => b.mediaType === "BOOK" && !b.title.includes("ኮርስ"));
+        if (booksList.length > 0) setRecentBooksList(booksList);
 
         // Recent Media
         const media = all.find((b) => b.mediaType === "VIDEO" || b.mediaType === "AUDIO");
         if (media) setRecentMedia(media);
+        const mediaList = all.filter((b) => b.mediaType === "VIDEO" || b.mediaType === "AUDIO");
+        if (mediaList.length > 0) setRecentMediaList(mediaList);
 
         // Recent Course
         const course = all.find(
@@ -130,6 +140,27 @@ function Index() {
       })
       .catch(() => {});
   }, []);
+
+  // Auto-slide recent books every 10 seconds
+  useEffect(() => {
+    if (recentBooksList.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentBookIndex((prev) => (prev + 1) % recentBooksList.length);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [recentBooksList]);
+
+  // Auto-slide recent media every 10 seconds
+  useEffect(() => {
+    if (recentMediaList.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentMediaIndex((prev) => (prev + 1) % recentMediaList.length);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [recentMediaList]);
+
+  const activeBook = recentBooksList[currentBookIndex] || recentBook;
+  const activeMedia = recentMediaList[currentMediaIndex] || recentMedia;
 
   return (
     <>
@@ -216,7 +247,7 @@ function Index() {
 
       {/* Three panels: Exact Recently Posted Content by Admin (Media, Book, Course) */}
       <section className="mx-auto grid max-w-[1180px] gap-6 px-4 sm:px-6 pb-12 sm:pb-14 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {/* Panel 1 (Left): Recent Media posted by admin */}
+        {/* Panel 1 (Left): Slidable Recent Media posted by admin */}
         <div
           onClick={() => navigate({ to: "/media" })}
           className="group cursor-pointer rounded-2xl bg-navy-deep p-6 text-white border border-gold/30 shadow-card hover:shadow-2xl hover:border-gold transition-all flex flex-col justify-between"
@@ -226,6 +257,11 @@ function Index() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1 text-[11px] font-bold text-gold border border-gold/30">
                 <Video className="h-3 w-3" />
                 {t("recentMedia")}
+                {recentMediaList.length > 1 && (
+                  <span className="ml-1 text-[10px] text-gold-soft font-normal">
+                    ({currentMediaIndex + 1}/{recentMediaList.length})
+                  </span>
+                )}
               </span>
               <span className="text-[11px] text-on-navy-muted group-hover:text-gold transition-colors">
                 {t("allMedia")}
@@ -235,11 +271,11 @@ function Index() {
             <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-navy-soft mb-4 border border-gold/20">
               <img
                 src={
-                  recentMedia?.coverUrl ||
+                  activeMedia?.coverUrl ||
                   "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=600&auto=format&fit=crop"
                 }
-                alt={recentMedia?.title || "የእሁድ ትምህርት"}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                alt={activeMedia?.title || "የእሁድ ትምህርት"}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-navy-deep shadow-lg group-hover:scale-110 transition-transform">
@@ -247,18 +283,31 @@ function Index() {
                 </div>
               </div>
               <div className="absolute top-2.5 right-2.5 rounded-md bg-navy-deep/90 px-2 py-0.5 text-[10px] font-bold text-gold border border-gold/30">
-                {recentMedia?.mediaType || "VIDEO"}
+                {activeMedia?.mediaType || "VIDEO"}
               </div>
+              {/* Pagination Dots */}
+              {recentMediaList.length > 1 && (
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                  {recentMediaList.slice(0, 6).map((_, idx) => (
+                    <span
+                      key={idx}
+                      className={`h-1.5 rounded-full transition-all ${
+                        idx === currentMediaIndex ? "w-5 bg-gold" : "w-1.5 bg-white/40"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             <h3 className="font-display text-lg font-bold text-gold line-clamp-1 group-hover:text-white transition-colors">
-              {recentMedia?.title || "የእሁድ ትምህርት - ቪዲዮና ኦዲዮ"}
+              {activeMedia?.title || "የእሁድ ትምህርት - ቪዲዮና ኦዲዮ"}
             </h3>
             <p className="text-xs text-on-navy-muted font-semibold mt-1">
-              {t("provider")}: {recentMedia?.author || "RABBI Academy"}
+              {t("provider")}: {activeMedia?.author || "RABBI Academy"}
             </p>
             <p className="text-xs text-on-navy-muted line-clamp-2 mt-2 leading-relaxed">
-              {recentMedia?.description || "የእሁድ መንፈሳዊ ትምህርት ሙሉ ቪዲዮ እና ድምፅ ክምችት።"}
+              {activeMedia?.description || "የእሁድ መንፈሳዊ ትምህርት ሙሉ ቪዲዮ እና ድምፅ ክምችት።"}
             </p>
           </div>
 
@@ -267,8 +316,7 @@ function Index() {
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
-
-        {/* Panel 2 (Middle): Recent Book posted by admin */}
+        {/* Panel 2 (Middle): Slidable Recent Books posted by admin */}
         <div
           onClick={() => navigate({ to: "/books" })}
           className="group cursor-pointer rounded-2xl bg-card p-6 shadow-card hover:shadow-2xl border border-gold/20 hover:border-gold/50 transition-all flex flex-col justify-between"
@@ -278,33 +326,62 @@ function Index() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-navy/5 px-3 py-1 text-[11px] font-bold text-navy border border-gold/30">
                 <BookOpen className="h-3 w-3 text-gold" />
                 {t("recentBook")}
+                {recentBooksList.length > 1 && (
+                  <span className="ml-1 text-[10px] text-gold font-normal">
+                    ({currentBookIndex + 1}/{recentBooksList.length})
+                  </span>
+                )}
               </span>
               <span className="text-[11px] text-muted-foreground group-hover:text-gold transition-colors">
                 {t("allBooks")}
               </span>
             </div>
 
-            <div className="flex items-center gap-4 mb-4">
+            {/* Book Cover Container — full card view with proper aspect-[3/4] & object-contain */}
+            <div className="relative aspect-[3/4] max-h-[260px] w-full overflow-hidden rounded-xl bg-navy/5 mb-4 border border-gold/20 flex items-center justify-center p-2">
               <img
-                src={recentBook?.coverUrl || bookCover}
-                alt={recentBook?.title || "ከእምነት ወደ እምነት"}
-                className="h-[155px] w-[110px] shrink-0 rounded-xl object-cover shadow-md border border-gold/20 group-hover:scale-105 transition-transform"
+                src={activeBook?.coverUrl || bookCover}
+                alt={activeBook?.title || "ከእምነት ወደ እምነት"}
+                className="h-full w-full object-contain rounded-lg transition-transform duration-500 group-hover:scale-102"
               />
-              <div>
-                <span className="rounded-md bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-navy-deep border border-gold/30">
-                  {recentBook?.price > 0 ? `${recentBook.price} ETB` : "ነፃ (Free)"}
-                </span>
-                <h4 className="font-display text-base font-bold text-navy mt-1.5 line-clamp-2 group-hover:text-gold transition-colors">
-                  {recentBook?.title || "ከእምነት ወደ እምነት"}
-                </h4>
-                <p className="text-xs text-gold font-semibold mt-1">
-                  {recentBook?.author || "መጋቢ ካስሁብ መሰሎን"}
-                </p>
-                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
-                  {recentBook?.description || "ከእምነት ወደ እምነት የሚያደርስ መንፈሳዊ ጉዞ እና የእግዚአብሔር ቃል ጥናት መመሪያ።"}
-                </p>
+              <div className="absolute top-2.5 right-2.5 rounded-md bg-navy-deep/85 px-2 py-0.5 text-[10px] font-bold text-gold border border-gold/30">
+                {activeBook?.mediaType || "BOOK"}
               </div>
+              {/* Pagination Dots indicator for sliding */}
+              {recentBooksList.length > 1 && (
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                  {recentBooksList.slice(0, 6).map((_, idx) => (
+                    <span
+                      key={idx}
+                      className={`h-1.5 rounded-full transition-all ${
+                        idx === currentBookIndex ? "w-5 bg-gold" : "w-1.5 bg-navy/40"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
+
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="rounded-md bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-navy-deep border border-gold/30">
+                {activeBook?.price > 0 ? `${activeBook.price} ETB` : "ነፃ (Free)"}
+              </span>
+              {activeBook?.price > 0 && (
+                <span className="text-[11px] font-bold text-gold">
+                  {formatEtbWithUsd(activeBook.price).usdText}
+                </span>
+              )}
+            </div>
+
+            <h4 className="font-display text-base font-bold text-navy mt-2 line-clamp-1 group-hover:text-gold transition-colors">
+              {activeBook?.title || "ከእምነት ወደ እምነት"}
+            </h4>
+            <p className="text-xs text-gold font-semibold mt-1">
+              {activeBook?.author || "መጋቢ ካስሁብ መሰሎን"}
+            </p>
+            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
+              {activeBook?.description || "ከእምነት ወደ እምነት የሚያደርስ መንፈሳዊ ጉዞ እና የእግዚአብሔር ቃል ጥናት መመሪያ።"}
+            </p>
           </div>
 
           <div className="mt-4 pt-3 border-t border-navy/10 flex items-center justify-between text-xs font-bold text-navy group-hover:text-gold transition-colors">
@@ -312,7 +389,6 @@ function Index() {
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
-
         {/* Panel 3 (Right): Recent Course / Academy posted by admin */}
         <div
           onClick={() => navigate({ to: "/courses" })}

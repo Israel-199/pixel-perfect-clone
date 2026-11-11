@@ -4,6 +4,7 @@ import { Book, Library, GraduationCap, LayoutList, Lock, CheckCircle2, PlayCircl
 import { fetchApi } from "@/lib/api";
 import { BookItem, BookModal } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
+import { formatEtbWithUsd } from "@/lib/bookUtils";
 
 export const Route = createFileRoute("/books")({
   component: BooksRoute,
@@ -88,14 +89,14 @@ function BooksRoute() {
                   className="group cursor-pointer flex flex-col justify-between rounded-2xl bg-card border border-gold/20 shadow-card hover:shadow-2xl hover:-translate-y-1 transition-all overflow-hidden"
                 >
                   <div>
-                    {/* Cover Image */}
-                    <div className="relative aspect-[3/2] overflow-hidden bg-navy/5">
+                    {/* Cover Image — aspect-[3/4] so book cover is perfectly preserved and not cut */}
+                    <div className="relative aspect-[3/4] overflow-hidden bg-navy/5 flex items-center justify-center p-2">
                       <img
                         src={book.coverUrl}
                         alt={book.title}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="h-full w-full object-contain rounded-lg transition-transform duration-300 group-hover:scale-102"
                       />
-                      <div className="absolute top-3 right-3 rounded-full bg-navy-deep/80 px-2.5 py-1 text-[0.7rem] font-bold text-gold border border-gold/30 flex items-center gap-1">
+                      <div className="absolute top-3 right-3 rounded-full bg-navy-deep/85 px-2.5 py-1 text-[0.7rem] font-bold text-gold border border-gold/30 flex items-center gap-1 shadow-md">
                         {book.mediaType === "VIDEO" ? (
                           <PlayCircle className="h-3 w-3" />
                         ) : book.mediaType === "AUDIO" ? (
@@ -133,11 +134,18 @@ function BooksRoute() {
                     </div>
                   </div>
 
-                  {/* Card Footer */}
+                  {/* Card Footer with ETB and USD */}
                   <div className="p-5 pt-0 flex items-center justify-between border-t border-gold/10 mt-3 pt-3">
-                    <span className="text-base font-bold text-navy-deep">
-                      {book.price > 0 ? `${book.price} ETB` : "ነፃ"}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-base font-bold text-navy-deep leading-tight">
+                        {formatEtbWithUsd(book.price).etbText}
+                      </span>
+                      {book.price > 0 && (
+                        <span className="text-[11px] font-bold text-gold">
+                          {formatEtbWithUsd(book.price).usdText}
+                        </span>
+                      )}
+                    </div>
                     <button className="flex items-center gap-1.5 rounded-lg bg-gold/10 px-3.5 py-2 text-xs font-bold text-navy border border-gold/30 group-hover:bg-gold group-hover:text-navy-deep transition-all">
                       {isPermitted ? (
                         <>

@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
+import { formatEtbWithUsd } from "@/lib/bookUtils";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1011,7 +1012,7 @@ function AdminRoute() {
               </div>
               <div className="mt-3">
                 <div className="font-display text-2xl md:text-3xl font-extrabold text-navy-deep">
-                  {totalRevenue.toLocaleString()} <span className="text-sm font-bold text-gold">ETB</span>
+                  <span>{totalRevenue.toLocaleString()} <span className="text-sm font-bold text-gold">ETB</span></span><span className="text-xs font-bold text-gold bg-gold/15 px-2 py-0.5 rounded-full border border-gold/30 ml-2">{formatEtbWithUsd(totalRevenue).usdText}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   ከተፈቀዱ ግዢዎች የተሰበሰበ
@@ -1902,6 +1903,14 @@ function AdminRoute() {
                         : "bg-background border-navy/20"
                     }`}
                   />
+                  {price && Number(price) > 0 && (
+                    <p className="mt-1.5 text-[11px] font-bold text-gold flex items-center gap-1.5">
+                      <span>የዶላር ዋጋ (USD Equivalent):</span>
+                      <span className="bg-gold/15 px-2 py-0.5 rounded-md border border-gold/30 text-navy-deep font-mono">
+                        {formatEtbWithUsd(price).usdText}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -3017,6 +3026,11 @@ function AdminRoute() {
                     min="0"
                     className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
                   />
+                  {editPrice && Number(editPrice) > 0 && (
+                    <p className="mt-1 text-[11px] font-bold text-gold">
+                      ≈ {formatEtbWithUsd(editPrice).usdText}
+                    </p>
+                  )}
                 </div>
               </div>
 

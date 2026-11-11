@@ -788,11 +788,12 @@ function CoursesRoute() {
                 >
                   <div>
                     {/* Cover Image Container */}
-                    <div className="relative aspect-[3/2] overflow-hidden bg-navy/5">
+                    {/* Course / Book cover with full visibility */}
+                    <div className="relative aspect-[3/4] overflow-hidden bg-navy/5 flex items-center justify-center p-2">
                       <img
                         src={course.coverUrl}
                         alt={course.title}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="h-full w-full object-contain rounded-lg transition-transform duration-300 group-hover:scale-102"
                       />
 
                       {/* Top Badges */}
@@ -900,11 +901,11 @@ function CoursesRoute() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
               {/* Cover Column */}
               <div className="md:col-span-5 flex flex-col items-center">
-                <div className="relative w-full max-w-[220px] md:max-w-none aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5">
+                <div className="relative w-full max-w-[260px] md:max-w-none rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5 flex items-center justify-center p-2">
                   <img
                     src={selectedCourse.coverUrl}
                     alt={selectedCourse.title}
-                    className="h-full w-full object-cover"
+                    className="w-full h-auto max-h-[380px] object-contain rounded-lg"
                   />
                   <div className="absolute top-3 right-3 rounded-full bg-navy-deep/85 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5">
                     {selectedCourse.isPdf ? (

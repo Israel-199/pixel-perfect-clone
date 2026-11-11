@@ -126,11 +126,12 @@ function MyBooksRoute() {
               >
                 <div>
                   {/* Image & Status Badge */}
-                  <div className="relative aspect-[3/2] overflow-hidden bg-navy/5">
+                  {/* Cover Image — aspect-[3/4] & object-contain so cover is never cut */}
+                  <div className="relative aspect-[3/4] overflow-hidden bg-navy/5 flex items-center justify-center p-2">
                     <img
                       src={item.book.coverUrl}
                       alt={item.book.title}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain rounded-lg"
                     />
                     <div className="absolute top-3 right-3">
                       {isPermitted && (

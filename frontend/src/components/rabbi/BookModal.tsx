@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { X, Lock, CheckCircle2, Send, CreditCard, BookOpen, PlayCircle, Music } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Lock, CheckCircle2, Send, CreditCard, BookOpen, PlayCircle, Music, FileText } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
 import { useNavigate } from "@tanstack/react-router";
+import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount } from "@/lib/bookUtils";
 
 export interface BookItem {
   id: string;
@@ -40,6 +41,20 @@ export const BookModal: React.FC<BookModalProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string>(book?.requestStatus || "NONE");
+  const [pageCount, setPageCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!book) return;
+    const content = book.fullContent || book.sampleContent || "";
+    if (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf")) {
+      getPdfPageCount(content).then((cnt) => {
+        if (cnt > 0) setPageCount(cnt);
+      });
+    } else {
+      const cnt = estimateTextPageCount(content);
+      setPageCount(cnt);
+    }
+  }, [book]);
 
   if (!book) return null;
 
@@ -91,32 +106,48 @@ export const BookModal: React.FC<BookModalProps> = ({
         </button>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
-          {/* Cover Column */}
-          <div className="md:col-span-5 flex flex-col items-center">
-            <div className="relative w-full max-w-[220px] md:max-w-none aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-gold/20 bg-navy/5">
-              <img
-                src={book.coverUrl}
-                alt={book.title}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute top-3 right-3 rounded-full bg-navy-deep/80 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5">
-                {book.mediaType === "VIDEO" ? (
-                  <PlayCircle className="h-3.5 w-3.5" />
-                ) : book.mediaType === "AUDIO" ? (
-                  <Music className="h-3.5 w-3.5" />
-                ) : (
-                  <BookOpen className="h-3.5 w-3.5" />
+            {/* Cover Column */}
+            <div className="md:col-span-5 flex flex-col items-center">
+              <div className="relative w-full max-w-[260px] md:max-w-none rounded-xl overflow-hidden shadow-xl border border-gold/25 bg-navy/5 flex items-center justify-center p-1.5">
+                <img
+                  src={book.coverUrl}
+                  alt={book.title}
+                  className="w-full h-auto max-h-[380px] object-contain rounded-lg shadow-sm"
+                />
+                <div className="absolute top-3 right-3 rounded-full bg-navy-deep/85 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold text-gold border border-gold/40 flex items-center gap-1.5 shadow-md">
+                  {book.mediaType === "VIDEO" ? (
+                    <PlayCircle className="h-3.5 w-3.5" />
+                  ) : book.mediaType === "AUDIO" ? (
+                    <Music className="h-3.5 w-3.5" />
+                  ) : (
+                    <BookOpen className="h-3.5 w-3.5" />
+                  )}
+                  <span>{book.mediaType}</span>
+                </div>
+              </div>
+
+              {/* Page Number & Price Conversion */}
+              <div className="mt-3.5 sm:mt-4 w-full flex flex-col items-center text-center gap-1.5 bg-navy-deep/5 border border-gold/20 rounded-xl p-3">
+                {/* Accurate Page Count Badge above price */}
+                {pageCount > 0 && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-0.5 text-xs font-bold text-navy border border-gold/30">
+                    <FileText className="h-3.5 w-3.5 text-gold" />
+                    <span>{pageCount} ገጾች ({pageCount} Pages)</span>
+                  </div>
                 )}
-                <span>{book.mediaType}</span>
+
+                <div className="flex flex-col items-center">
+                  <span className="text-xl sm:text-2xl font-extrabold text-navy-deep font-display">
+                    {formatEtbWithUsd(book.price).etbText}
+                  </span>
+                  {book.price > 0 && (
+                    <span className="text-xs sm:text-sm font-bold text-gold bg-gold/10 px-2.5 py-0.5 rounded-full border border-gold/30 mt-0.5">
+                      {formatEtbWithUsd(book.price).usdText}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-
-            <div className="mt-3 sm:mt-4 w-full text-center">
-              <span className="text-xl sm:text-2xl font-bold text-navy-deep font-display">
-                {book.price > 0 ? `${book.price} ETB` : "ነፃ (Free)"}
-              </span>
-            </div>
-          </div>
 
           {/* Details Column */}
           <div className="md:col-span-7 flex flex-col justify-between">
