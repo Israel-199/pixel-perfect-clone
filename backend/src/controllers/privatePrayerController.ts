@@ -30,7 +30,9 @@ export class PrivatePrayerController {
   // Admin: View all submitted private prayers
   static async getAllPrayers(req: Request, res: Response) {
     try {
-      const prayers = await PrivatePrayerService.getAllPrayers();
+      const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {}) as Record<string, any>;
+      const filter = typeof query.filter === "string" ? query.filter : undefined;
+      const prayers = await PrivatePrayerService.getAllPrayers(filter);
       res.json({ prayers });
     } catch (error: any) {
       console.error("Get Private Prayers Error:", error);

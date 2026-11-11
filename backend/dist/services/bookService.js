@@ -3,8 +3,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookService = void 0;
 const prisma_1 = require("../config/prisma");
 class BookService {
-    static async getAllBooks(currentUserId) {
+    static async getAllBooks(currentUserId, options) {
+        const where = {};
+        if (options?.mediaType && options.mediaType !== "ALL") {
+            where.mediaType = options.mediaType;
+        }
+        if (options?.search && options.search.trim()) {
+            const q = options.search.trim();
+            where.OR = [
+                { title: { contains: q, mode: "insensitive" } },
+                { author: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+            ];
+        }
         const books = await prisma_1.prisma.book.findMany({
+            where: Object.keys(where).length > 0 ? where : undefined,
             orderBy: { createdAt: "desc" },
         });
         let userRequests = {};

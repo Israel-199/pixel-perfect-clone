@@ -9,6 +9,8 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.securityLogger = exports.corsOptions = exports.addSecurityHeaders = exports.blockInjectionAttempts = exports.guardRequestSize = exports.blockPathTraversal = exports.preventParamPollution = exports.sanitizeInputs = exports.speedLimiter = exports.adminRateLimiter = exports.passwordResetLimiter = exports.authRateLimiter = exports.globalRateLimiter = void 0;
+exports.normalizeQueryParams = normalizeQueryParams;
+exports.getNormalizedQuery = getNormalizedQuery;
 class RateLimiter {
     store = new Map();
     windowMs;
@@ -119,7 +121,62 @@ const speedLimiter = (req, _res, next) => {
     }
 };
 exports.speedLimiter = speedLimiter;
-// ─── 3. INPUT SANITIZATION (SQL/NoSQL Injection, XSS) ───────────────────────
+function normalizeQueryParams(raw) {
+    const normalized = { ...raw };
+    // Pagination normalization
+    if (raw.page !== undefined) {
+        const p = parseInt(String(raw.page), 10);
+        normalized.page = !isNaN(p) && p > 0 ? p : 1;
+    }
+    if (raw.limit !== undefined) {
+        const l = parseInt(String(raw.limit), 10);
+        normalized.limit = !isNaN(l) && l > 0 ? Math.min(l, 100) : 20;
+    }
+    if (normalized.page && normalized.limit) {
+        normalized.skip = (normalized.page - 1) * normalized.limit;
+    }
+    // Sorting normalization
+    if (raw.sort !== undefined && typeof raw.sort === "string") {
+        normalized.sort = raw.sort.trim();
+    }
+    if (raw.order !== undefined && typeof raw.order === "string") {
+        const o = raw.order.trim().toLowerCase();
+        normalized.order = o === "asc" ? "asc" : "desc";
+    }
+    // Search query normalization
+    if (raw.search !== undefined && typeof raw.search === "string") {
+        normalized.search = raw.search.trim();
+    }
+    else if (raw.q !== undefined && typeof raw.q === "string") {
+        normalized.search = raw.q.trim();
+    }
+    // Filter & status normalization
+    if (raw.filter !== undefined && typeof raw.filter === "string") {
+        normalized.filter = raw.filter.trim();
+    }
+    if (raw.status !== undefined && typeof raw.status === "string") {
+        normalized.status = raw.status.trim().toUpperCase();
+    }
+    if (raw.mediaType !== undefined && typeof raw.mediaType === "string") {
+        normalized.mediaType = raw.mediaType.trim().toUpperCase();
+    }
+    return normalized;
+}
+/**
+ * Express 5 safe query helper:
+ * Express 5 defines req.query as a getter with no setter.
+ * This helper retrieves normalized query parameters from res.locals,
+ * falling back to req.query safely without mutating it.
+ */
+function getNormalizedQuery(req, res) {
+    if (res?.locals?.normalizedQuery) {
+        return res.locals.normalizedQuery;
+    }
+    if (res?.locals?.query) {
+        return res.locals.query;
+    }
+    return normalizeQueryParams((req.query || {}));
+}
 function sanitizeValue(value) {
     if (typeof value === "string") {
         if (value.trim().startsWith("$"))
@@ -141,35 +198,45 @@ function sanitizeValue(value) {
     }
     return value;
 }
-const sanitizeInputs = (req, _res, next) => {
+const sanitizeInputs = (req, res, next) => {
     if (req.body)
         req.body = sanitizeValue(req.body);
-    if (req.params)
-        req.params = sanitizeValue(req.params);
-    if (req.query)
-        req.query = sanitizeValue(req.query);
+    if (req.params && typeof req.params === "object") {
+        for (const key of Object.keys(req.params)) {
+            req.params[key] = sanitizeValue(req.params[key]);
+        }
+    }
+    // Express 5: req.query is a getter only. Never assign directly to req.query.
+    // Store sanitized query in res.locals for downstream middleware and controllers.
+    const currentQuery = (res.locals?.query || req.query || {});
+    const sanitized = sanitizeValue(currentQuery);
+    res.locals.query = sanitized;
+    res.locals.normalizedQuery = normalizeQueryParams(sanitized);
     next();
 };
 exports.sanitizeInputs = sanitizeInputs;
 // ─── 4. PARAMETER POLLUTION PROTECTION ───────────────────────────────────────
-const preventParamPollution = (req, _res, next) => {
-    if (req.query) {
-        const cleaned = {};
-        for (const [key, val] of Object.entries(req.query)) {
-            cleaned[key] = Array.isArray(val)
-                ? val[val.length - 1]
-                : val;
-        }
-        req.query = cleaned;
+const preventParamPollution = (req, res, next) => {
+    // Express 5: req.query is a getter only. Never assign directly to req.query.
+    // Resolve array pollution and store normalized query in res.locals.
+    const rawQuery = (req.query || {});
+    const cleaned = {};
+    for (const [key, val] of Object.entries(rawQuery)) {
+        cleaned[key] = Array.isArray(val)
+            ? val[val.length - 1]
+            : val;
     }
+    res.locals.query = cleaned;
+    res.locals.normalizedQuery = normalizeQueryParams(cleaned);
     next();
 };
 exports.preventParamPollution = preventParamPollution;
 // ─── 5. PATH TRAVERSAL PROTECTION ───────────────────────────────────────────
 const blockPathTraversal = (req, res, next) => {
     const suspicious = /\.\.(\/|\\)/;
+    const queryToCheck = res.locals?.query || req.query || {};
     if (suspicious.test(req.url) ||
-        suspicious.test(JSON.stringify(req.query))) {
+        suspicious.test(JSON.stringify(queryToCheck))) {
         res.status(400).json({ error: "Invalid request path." });
         return;
     }
@@ -242,8 +309,9 @@ function checkObj(obj) {
     return false;
 }
 const blockInjectionAttempts = (req, res, next) => {
+    const queryToCheck = res.locals?.query || req.query;
     if (checkObj(req.body) ||
-        checkObj(req.query) ||
+        checkObj(queryToCheck) ||
         checkObj(req.params)) {
         res.status(400).json({ error: "Invalid input detected. Request rejected." });
         return;

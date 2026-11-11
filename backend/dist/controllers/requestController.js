@@ -17,7 +17,9 @@ class RequestController {
     static async getMyRequests(req, res) {
         try {
             const userId = req.user.userId;
-            const requests = await requestService_1.RequestService.getUserRequests(userId);
+            const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {});
+            const status = typeof query.status === "string" ? query.status : undefined;
+            const requests = await requestService_1.RequestService.getUserRequests(userId, status);
             res.json({ requests });
         }
         catch (error) {

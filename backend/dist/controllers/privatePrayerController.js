@@ -29,7 +29,9 @@ class PrivatePrayerController {
     // Admin: View all submitted private prayers
     static async getAllPrayers(req, res) {
         try {
-            const prayers = await privatePrayerService_1.PrivatePrayerService.getAllPrayers();
+            const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {});
+            const filter = typeof query.filter === "string" ? query.filter : undefined;
+            const prayers = await privatePrayerService_1.PrivatePrayerService.getAllPrayers(filter);
             res.json({ prayers });
         }
         catch (error) {

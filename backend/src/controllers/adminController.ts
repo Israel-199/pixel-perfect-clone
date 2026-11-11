@@ -24,7 +24,10 @@ export class AdminController {
 
   static async getAllRequests(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const requests = await AdminService.getAllRequests();
+      // Safe query parameter handling via res.locals and local variables for Express 5
+      const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {}) as Record<string, any>;
+      const status = typeof query.status === "string" ? query.status : undefined;
+      const requests = await AdminService.getAllRequests(status);
       res.json({ requests });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch admin requests." });

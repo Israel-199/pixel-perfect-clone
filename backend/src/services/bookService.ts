@@ -1,8 +1,25 @@
 import { prisma } from "../config/prisma";
 
 export class BookService {
-  static async getAllBooks(currentUserId?: string | null) {
+  static async getAllBooks(
+    currentUserId?: string | null,
+    options?: { mediaType?: string; search?: string }
+  ) {
+    const where: any = {};
+    if (options?.mediaType && options.mediaType !== "ALL") {
+      where.mediaType = options.mediaType;
+    }
+    if (options?.search && options.search.trim()) {
+      const q = options.search.trim();
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { author: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
     const books = await prisma.book.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: { createdAt: "desc" },
     });
 

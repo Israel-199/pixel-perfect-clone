@@ -15,8 +15,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class AdminService {
-  static async getAllRequests() {
+  static async getAllRequests(statusFilter?: string) {
+    const where: any = {};
+    if (statusFilter && ["PENDING", "PERMITTED", "REJECTED"].includes(statusFilter)) {
+      where.status = statusFilter;
+    }
+
     const requests = await prisma.purchaseRequest.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: {
         user: { select: { id: true, fullName: true, phone: true, email: true } },
         book: {

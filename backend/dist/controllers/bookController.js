@@ -20,7 +20,15 @@ class BookController {
                 }
                 catch (e) { }
             }
-            const books = await bookService_1.BookService.getAllBooks(currentUserId);
+            // Safe query extraction using res.locals / local variables (Express 5 compatible)
+            const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {});
+            const mediaType = typeof query.mediaType === "string" ? query.mediaType : undefined;
+            const search = typeof query.search === "string"
+                ? query.search
+                : typeof query.q === "string"
+                    ? query.q
+                    : undefined;
+            const books = await bookService_1.BookService.getAllBooks(currentUserId, { mediaType, search });
             res.json({ books });
         }
         catch (error) {

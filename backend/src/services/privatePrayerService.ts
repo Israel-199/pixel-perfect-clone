@@ -17,8 +17,13 @@ export class PrivatePrayerService {
     });
   }
 
-  static async getAllPrayers() {
+  static async getAllPrayers(filter?: string) {
+    const where: any = {};
+    if (filter === "prayed") where.isPrayed = true;
+    if (filter === "unprayed") where.isPrayed = false;
+
     return await prisma.privatePrayer.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: { createdAt: "desc" },
     });
   }

@@ -32,9 +32,14 @@ export class RequestService {
     return { request: newRequest, message: "Access request submitted successfully." };
   }
 
-  static async getUserRequests(userId: string) {
+  static async getUserRequests(userId: string, statusFilter?: string) {
+    const where: any = { userId };
+    if (statusFilter && ["PENDING", "PERMITTED", "REJECTED"].includes(statusFilter)) {
+      where.status = statusFilter;
+    }
+
     const requests = await prisma.purchaseRequest.findMany({
-      where: { userId },
+      where,
       include: { book: true },
       orderBy: { createdAt: "desc" },
     });

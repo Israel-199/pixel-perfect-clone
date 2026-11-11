@@ -24,7 +24,10 @@ class AdminController {
     }
     static async getAllRequests(req, res) {
         try {
-            const requests = await adminService_1.AdminService.getAllRequests();
+            // Safe query parameter handling via res.locals and local variables for Express 5
+            const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {});
+            const status = typeof query.status === "string" ? query.status : undefined;
+            const requests = await adminService_1.AdminService.getAllRequests(status);
             res.json({ requests });
         }
         catch (error) {

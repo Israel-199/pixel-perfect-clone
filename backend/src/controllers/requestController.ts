@@ -18,7 +18,9 @@ export class RequestController {
   static async getMyRequests(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
-      const requests = await RequestService.getUserRequests(userId);
+      const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {}) as Record<string, any>;
+      const status = typeof query.status === "string" ? query.status : undefined;
+      const requests = await RequestService.getUserRequests(userId, status);
       res.json({ requests });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch requests." });
