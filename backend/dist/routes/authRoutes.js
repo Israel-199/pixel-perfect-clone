@@ -4,6 +4,7 @@ const express_1 = require("express");
 const authController_1 = require("../controllers/authController");
 const authMiddleware_1 = require("../middlewares/authMiddleware");
 const router = (0, express_1.Router)();
+// Rate limiting applied at app.ts level per route prefix
 router.post("/register", authController_1.AuthController.register);
 router.post("/login", authController_1.AuthController.login);
 router.post("/forgot-password", authController_1.AuthController.forgotPassword);

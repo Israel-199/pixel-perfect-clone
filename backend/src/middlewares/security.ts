@@ -1,6 +1,6 @@
 /**
  * ============================================================
- *  COMPREHENSIVE SECURITY MIDDLEWARE
+ *  COMPREHENSIVE SECURITY MIDDLEWARE — Zero external deps
  *  Covers: DoS/DDoS, Brute-Force, SQL Injection, XSS,
  *          Header Injection, Parameter Pollution, CORS,
  *          Payload Flooding, Path Traversal, NoSQL Injection
@@ -8,108 +8,183 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import rateLimit from "express-rate-limit";
-import slowDown from "express-slow-down";
 
-// ─── 1. RATE LIMITERS (DDoS / Brute-Force Protection) ───────────────────────
+// ─── 1. IN-MEMORY RATE LIMITER (DDoS / Brute-Force) ─────────────────────────
+// Pure implementation — no external packages needed.
 
-/**
- * Global API rate limiter — 100 requests per IP per 15 minutes.
- * Prevents basic DDoS floods.
- */
-export const globalRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: "Too many requests from this IP. Please try again later.",
-  },
-  skip: (req) => req.path === "/api/health", // Health check always passes
-});
+interface RateBucket {
+  count: number;
+  resetAt: number;
+  blocked?: boolean;
+  blockedUntil?: number;
+}
 
-/**
- * Auth endpoint limiter — strict: 10 attempts per 15 minutes.
- * Prevents brute-force login attacks.
- */
-export const authRateLimiter = rateLimit({
+class RateLimiter {
+  private store = new Map<string, RateBucket>();
+  private windowMs: number;
+  private max: number;
+  private message: string;
+  private hardBlockMs: number; // extra cooldown after limit hit
+
+  constructor(opts: {
+    windowMs: number;
+    max: number;
+    message?: string;
+    hardBlockMs?: number;
+  }) {
+    this.windowMs = opts.windowMs;
+    this.max = opts.max;
+    this.message =
+      opts.message || "Too many requests. Please try again later.";
+    this.hardBlockMs = opts.hardBlockMs ?? 0;
+
+    // Cleanup old entries every minute
+    setInterval(() => {
+      const now = Date.now();
+      for (const [key, bucket] of this.store.entries()) {
+        if (now > bucket.resetAt + 60_000) this.store.delete(key);
+      }
+    }, 60_000).unref();
+  }
+
+  middleware() {
+    return (req: Request, res: Response, next: NextFunction): void => {
+      const ip =
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
+      const key = `${ip}:${req.path}`;
+      const now = Date.now();
+
+      let bucket = this.store.get(key);
+
+      // Check hard block first
+      if (bucket?.blocked && bucket.blockedUntil && now < bucket.blockedUntil) {
+        const retryAfter = Math.ceil((bucket.blockedUntil - now) / 1000);
+        res.setHeader("Retry-After", String(retryAfter));
+        res.setHeader("X-RateLimit-Limit", String(this.max));
+        res.setHeader("X-RateLimit-Remaining", "0");
+        res.status(429).json({ error: this.message });
+        return;
+      }
+
+      // Reset window if expired
+      if (!bucket || now > bucket.resetAt) {
+        bucket = { count: 0, resetAt: now + this.windowMs };
+        this.store.set(key, bucket);
+      }
+
+      bucket.count++;
+
+      res.setHeader("X-RateLimit-Limit", String(this.max));
+      res.setHeader(
+        "X-RateLimit-Remaining",
+        String(Math.max(0, this.max - bucket.count))
+      );
+      res.setHeader(
+        "X-RateLimit-Reset",
+        new Date(bucket.resetAt).toISOString()
+      );
+
+      if (bucket.count > this.max) {
+        bucket.blocked = true;
+        bucket.blockedUntil = now + (this.hardBlockMs || this.windowMs);
+        const retryAfter = Math.ceil(
+          ((bucket.blockedUntil ?? 0) - now) / 1000
+        );
+        res.setHeader("Retry-After", String(retryAfter));
+        res.status(429).json({ error: this.message });
+        return;
+      }
+
+      next();
+    };
+  }
+}
+
+// ─── INSTANTIATE RATE LIMITERS ───────────────────────────────────────────────
+
+/** Global: 120 req / 15 min — covers all routes */
+export const globalRateLimiter = new RateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  hardBlockMs: 5 * 60 * 1000, // 5 min hard block after exceeded
+}).middleware();
+
+/** Auth: 10 req / 15 min — login / register */
+export const authRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error:
-      "Too many authentication attempts. Please wait 15 minutes before trying again.",
-  },
-});
+  hardBlockMs: 30 * 60 * 1000, // 30 min hard block after brute-force
+  message:
+    "Too many authentication attempts. Please wait before trying again.",
+}).middleware();
 
-/**
- * Password reset limiter — 5 per hour per IP.
- */
-export const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+/** Password reset: 5 req / 1 hour */
+export const passwordResetLimiter = new RateLimiter({
+  windowMs: 60 * 60 * 1000,
   max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: "Too many password reset requests. Please try again after 1 hour.",
-  },
-});
+  hardBlockMs: 60 * 60 * 1000,
+  message: "Too many password reset requests. Try again after 1 hour.",
+}).middleware();
 
-/**
- * Admin API limiter — 200 per 15 minutes (admins do more ops).
- */
-export const adminRateLimiter = rateLimit({
+/** Admin API: 300 req / 15 min */
+export const adminRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Admin API rate limit exceeded. Please slow down." },
-});
+  max: 300,
+}).middleware();
 
-/**
- * Speed limiter — slows down responses progressively after 20 requests
- * (adds 500ms delay per request beyond threshold, up to 20 seconds).
- * This discourages automated scanners/bots.
- */
-export const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000,
-  delayAfter: 20,
-  delayMs: (used) => (used - 20) * 500,
-  maxDelayMs: 20000,
-});
+// ─── 2. SPEED LIMITER (progressive delay against bots) ───────────────────────
 
-// ─── 2. INPUT SANITIZATION (SQL/NoSQL Injection, XSS) ───────────────────────
+interface SpeedBucket {
+  count: number;
+  resetAt: number;
+}
 
-/**
- * Recursively sanitizes a value — strips dangerous characters used in
- * SQL injection, NoSQL injection, and XSS attempts.
- */
+const speedStore = new Map<string, SpeedBucket>();
+
+/** Adds up to 10 s delay per request after 25 requests in 15 min */
+export const speedLimiter = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void => {
+  const ip =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    req.socket.remoteAddress ||
+    "anon";
+  const now = Date.now();
+  let b = speedStore.get(ip);
+  if (!b || now > b.resetAt) {
+    b = { count: 0, resetAt: now + 15 * 60 * 1000 };
+    speedStore.set(ip, b);
+  }
+  b.count++;
+  const excess = Math.max(0, b.count - 25);
+  const delay = Math.min(excess * 300, 10_000); // 300ms per extra req, cap 10s
+  if (delay > 0) {
+    setTimeout(() => {
+      next();
+    }, delay);
+  } else {
+    next();
+  }
+};
+
+// ─── 3. INPUT SANITIZATION (SQL/NoSQL Injection, XSS) ───────────────────────
+
 function sanitizeValue(value: unknown): unknown {
   if (typeof value === "string") {
-    // Block MongoDB/NoSQL operator injection via JSON keys like $where, $gt
-    if (value.trim().startsWith("$")) {
-      return "";
-    }
-    // Strip null bytes (used to bypass filters)
-    value = value.replace(/\0/g, "");
-    // Strip script injection patterns
-    value = (value as string).replace(
-      /<script[\s\S]*?>[\s\S]*?<\/script>/gi,
-      ""
-    );
-    // Encode common XSS characters in string values
-    // (React already escapes output — this is a defence-in-depth layer)
-    return value;
+    if (value.trim().startsWith("$")) return ""; // Block NoSQL operators
+    return value
+      .replace(/\0/g, "") // null bytes
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ""); // script tags
   }
-  if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
-  }
+  if (Array.isArray(value)) return value.map(sanitizeValue);
   if (value !== null && typeof value === "object") {
-    // Block NoSQL operator keys (e.g., { "$where": "..." })
     const sanitized: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (k.startsWith("$")) continue; // Drop MongoDB operators
+      if (k.startsWith("$")) continue; // Drop MongoDB operator keys
       sanitized[k] = sanitizeValue(v);
     }
     return sanitized;
@@ -117,28 +192,21 @@ function sanitizeValue(value: unknown): unknown {
   return value;
 }
 
-/**
- * Middleware: sanitize req.body, req.params, req.query.
- * Applies to every request automatically.
- */
 export const sanitizeInputs = (
   req: Request,
   _res: Response,
   next: NextFunction
 ): void => {
   if (req.body) req.body = sanitizeValue(req.body);
-  if (req.params) req.params = sanitizeValue(req.params) as typeof req.params;
-  if (req.query) req.query = sanitizeValue(req.query) as typeof req.query;
+  if (req.params)
+    req.params = sanitizeValue(req.params) as typeof req.params;
+  if (req.query)
+    req.query = sanitizeValue(req.query) as typeof req.query;
   next();
 };
 
-// ─── 3. PARAMETER POLLUTION PROTECTION ──────────────────────────────────────
+// ─── 4. PARAMETER POLLUTION PROTECTION ───────────────────────────────────────
 
-/**
- * Flatten array query params to their last value.
- * Prevents HPP (HTTP Parameter Pollution) attacks like
- * ?sort=asc&sort=desc&sort=DROP TABLE
- */
 export const preventParamPollution = (
   req: Request,
   _res: Response,
@@ -147,55 +215,47 @@ export const preventParamPollution = (
   if (req.query) {
     const cleaned: Record<string, string> = {};
     for (const [key, val] of Object.entries(req.query)) {
-      if (Array.isArray(val)) {
-        // Take only the last value
-        cleaned[key] = val[val.length - 1] as string;
-      } else {
-        cleaned[key] = val as string;
-      }
+      cleaned[key] = Array.isArray(val)
+        ? (val[val.length - 1] as string)
+        : (val as string);
     }
     req.query = cleaned;
   }
   next();
 };
 
-// ─── 4. PATH TRAVERSAL PROTECTION ───────────────────────────────────────────
+// ─── 5. PATH TRAVERSAL PROTECTION ───────────────────────────────────────────
 
-/**
- * Blocks requests with path traversal sequences like ../../etc/passwd
- */
 export const blockPathTraversal = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
   const suspicious = /\.\.(\/|\\)/;
-  const urlStr = req.url + JSON.stringify(req.query);
-  if (suspicious.test(urlStr)) {
+  if (
+    suspicious.test(req.url) ||
+    suspicious.test(JSON.stringify(req.query))
+  ) {
     res.status(400).json({ error: "Invalid request path." });
     return;
   }
   next();
 };
 
-// ─── 5. REQUEST SIZE GUARD ───────────────────────────────────────────────────
+// ─── 6. PAYLOAD SIZE GUARD ───────────────────────────────────────────────────
 
-/**
- * Hard-rejects any single field string value over 100,000 chars.
- * Protects against payload-flooding / ReDoS.
- */
 export const guardRequestSize = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  const MAX_FIELD_LEN = 100_000;
+  const MAX = 100_000;
   if (req.body && typeof req.body === "object") {
-    for (const [, val] of Object.entries(req.body)) {
-      if (typeof val === "string" && val.length > MAX_FIELD_LEN) {
+    for (const val of Object.values(req.body)) {
+      if (typeof val === "string" && val.length > MAX) {
         res
           .status(413)
-          .json({ error: "Request field too large. Maximum 100,000 characters per field." });
+          .json({ error: "Request field too large. Max 100,000 characters." });
         return;
       }
     }
@@ -203,114 +263,108 @@ export const guardRequestSize = (
   next();
 };
 
-// ─── 6. SUSPICIOUS PATTERN DETECTOR ─────────────────────────────────────────
+// ─── 7. SQL INJECTION + XSS PATTERN BLOCKER ─────────────────────────────────
 
-/** SQL injection keywords / patterns to block */
-const SQL_INJECTION_PATTERNS = [
+const SQL_PATTERNS = [
   /(\bUNION\b.*\bSELECT\b)/i,
   /(\bDROP\b.*\bTABLE\b)/i,
   /(\bDELETE\b.*\bFROM\b)/i,
   /(\bINSERT\b.*\bINTO\b)/i,
   /(\bEXEC\b.*\()/i,
   /(\bEXECUTE\b.*\()/i,
-  /(--\s*$)/m,
-  /(\/\*[\s\S]*?\*\/)/,
-  /(\bOR\b\s+['"]?\d+['"]?\s*=\s*['"]?\d+['"]?)/i, // OR 1=1
-  /(\bAND\b\s+['"]?\d+['"]?\s*=\s*['"]?\d+['"]?)/i, // AND 1=1
+  /xp_cmdshell/i,
+  /INFORMATION_SCHEMA/i,
+  /(;.*DROP|;.*DELETE|;.*INSERT|;.*UPDATE)/i,
   /(\bSLEEP\s*\()/i,
   /(\bWAITFOR\s+DELAY\b)/i,
   /(\bBENCHMARK\s*\()/i,
-  /(;.*DROP|;.*DELETE|;.*INSERT|;.*UPDATE)/i,
-  /xp_cmdshell/i,
-  /INFORMATION_SCHEMA/i,
-  /sys\.tables/i,
+  /(\bOR\b\s+['"]?\d+['"]?\s*=\s*['"]?\d+)/i,
+  /(\bAND\b\s+['"]?\d+['"]?\s*=\s*['"]?\d+)/i,
+  /(--\s*$)/m,
 ];
 
-/** XSS patterns */
 const XSS_PATTERNS = [
   /<script[\s>]/i,
   /javascript:/i,
-  /on\w+\s*=/i,         // onerror=, onclick=, etc.
+  /on\w+\s*=/i,
   /data:text\/html/i,
   /vbscript:/i,
   /<iframe/i,
   /<object/i,
   /<embed/i,
   /document\.cookie/i,
-  /document\.write/i,
-  /window\.location/i,
   /eval\s*\(/i,
   /expression\s*\(/i,
-  /\balert\s*\(/i,
 ];
 
-function containsInjection(val: string): boolean {
-  for (const p of SQL_INJECTION_PATTERNS) {
-    if (p.test(val)) return true;
-  }
-  for (const p of XSS_PATTERNS) {
-    if (p.test(val)) return true;
-  }
+function hasInjection(val: string): boolean {
+  for (const p of SQL_PATTERNS) if (p.test(val)) return true;
+  for (const p of XSS_PATTERNS) if (p.test(val)) return true;
   return false;
 }
 
-function checkObjectForInjection(obj: unknown): boolean {
-  if (typeof obj === "string") return containsInjection(obj);
-  if (Array.isArray(obj)) return obj.some(checkObjectForInjection);
-  if (obj !== null && typeof obj === "object") {
-    return Object.values(obj as object).some(checkObjectForInjection);
-  }
+function checkObj(obj: unknown): boolean {
+  if (typeof obj === "string") return hasInjection(obj);
+  if (Array.isArray(obj)) return obj.some(checkObj);
+  if (obj !== null && typeof obj === "object")
+    return Object.values(obj as object).some(checkObj);
   return false;
 }
 
-/**
- * Middleware: Block requests that contain SQL injection or XSS payloads.
- * This is defence-in-depth on top of Prisma's parameterised queries.
- */
 export const blockInjectionAttempts = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  const toCheck = [req.body, req.query, req.params];
-  for (const target of toCheck) {
-    if (checkObjectForInjection(target)) {
-      res.status(400).json({
-        error: "Invalid input detected. Request rejected.",
-      });
-      return;
-    }
+  if (
+    checkObj(req.body) ||
+    checkObj(req.query) ||
+    checkObj(req.params)
+  ) {
+    res.status(400).json({ error: "Invalid input detected. Request rejected." });
+    return;
   }
   next();
 };
 
-// ─── 7. SECURITY RESPONSE HEADERS ───────────────────────────────────────────
+// ─── 8. SECURITY HEADERS (manual Helmet equivalent) ─────────────────────────
 
-/**
- * Adds extra security headers beyond what Helmet provides.
- */
 export const addSecurityHeaders = (
   _req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  // Prevent MIME type sniffing
+  res.removeHeader("X-Powered-By");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  // Prevent clickjacking
   res.setHeader("X-Frame-Options", "DENY");
-  // Disable XSS auditor (legacy, but no harm)
   res.setHeader("X-XSS-Protection", "1; mode=block");
-  // Referrer policy
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  // Permissions policy — disable camera, mic, geolocation
   res.setHeader(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), payment=()"
   );
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains; preload"
+  );
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https://res.cloudinary.com https://images.unsplash.com",
+      "media-src 'self' https://res.cloudinary.com https://www.youtube.com https://www.soundhelix.com",
+      "frame-src 'self' https://www.youtube.com",
+      "connect-src 'self'",
+      "font-src 'self' https://fonts.gstatic.com",
+      "object-src 'none'",
+    ].join("; ")
+  );
   next();
 };
 
-// ─── 8. CORS CONFIGURATION ──────────────────────────────────────────────────
+// ─── 9. CORS OPTIONS ─────────────────────────────────────────────────────────
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -322,14 +376,9 @@ export const corsOptions = {
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) => {
-    // Allow requests with no origin (mobile apps, curl, Postman in dev)
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    // In production, enforce origin whitelist
-    if (process.env.NODE_ENV === "production") {
-      if (ALLOWED_ORIGINS.length > 0 && !ALLOWED_ORIGINS.includes(origin)) {
+    if (!origin) { callback(null, true); return; }
+    if (process.env.NODE_ENV === "production" && ALLOWED_ORIGINS.length > 0) {
+      if (!ALLOWED_ORIGINS.includes(origin)) {
         callback(new Error("CORS: Origin not allowed."), false);
         return;
       }
@@ -339,14 +388,11 @@ export const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-  maxAge: 86400, // Cache preflight 24h
+  maxAge: 86400,
 };
 
-// ─── 9. REQUEST LOGGING (for security audit) ────────────────────────────────
+// ─── 10. SECURITY LOGGER ─────────────────────────────────────────────────────
 
-/**
- * Logs suspicious activity without exposing sensitive data.
- */
 export const securityLogger = (
   req: Request,
   _res: Response,
@@ -357,14 +403,15 @@ export const securityLogger = (
     req.socket.remoteAddress ||
     "unknown";
 
-  // Log auth attempts (without passwords)
-  if (req.path.includes("/auth/login") || req.path.includes("/auth/register")) {
-    const { password, confirmPassword, ...safeBody } = req.body || {};
+  if (
+    req.path.includes("/auth/login") ||
+    req.path.includes("/auth/register")
+  ) {
+    const { password: _p, confirmPassword: _cp, ...safe } = req.body || {};
     console.log(
-      `[AUTH] ${new Date().toISOString()} IP=${ip} path=${req.path}`,
-      JSON.stringify(safeBody)
+      `[SEC] ${new Date().toISOString()} ip=${ip} path=${req.path}`,
+      JSON.stringify(safe)
     );
   }
-
   next();
 };

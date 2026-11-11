@@ -14,22 +14,63 @@ const requestRoutes_1 = __importDefault(require("./routes/requestRoutes"));
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 const privatePrayerRoutes_1 = __importDefault(require("./routes/privatePrayerRoutes"));
 const prisma_1 = require("./config/prisma");
+const security_1 = require("./middlewares/security");
 dotenv_1.default.config();
 exports.app = (0, express_1.default)();
-exports.app.use((0, cors_1.default)());
-exports.app.use(express_1.default.json({ limit: "50mb" }));
-exports.app.use(express_1.default.urlencoded({ extended: true, limit: "50mb" }));
-// Route Mounts
+// ─── 1. CORS ──────────────────────────────────────────────────────────────────
+exports.app.use((0, cors_1.default)(security_1.corsOptions));
+// ─── 2. SECURITY HEADERS (CSP, HSTS, X-Frame-Options, etc.) ──────────────────
+exports.app.use(security_1.addSecurityHeaders);
+// ─── 3. BODY PARSING — tight limits (10MB max, was 50MB — DoS protection) ────
+exports.app.use(express_1.default.json({ limit: "10mb" }));
+exports.app.use(express_1.default.urlencoded({ extended: true, limit: "10mb" }));
+// ─── 4. GLOBAL RATE LIMITER + SPEED LIMITER (DDoS) ───────────────────────────
+exports.app.use(security_1.globalRateLimiter);
+exports.app.use(security_1.speedLimiter);
+// ─── 5. PATH TRAVERSAL BLOCKER ───────────────────────────────────────────────
+exports.app.use(security_1.blockPathTraversal);
+// ─── 6. PARAMETER POLLUTION PROTECTION ───────────────────────────────────────
+exports.app.use(security_1.preventParamPollution);
+// ─── 7. INPUT SANITIZATION (NoSQL/XSS) ───────────────────────────────────────
+exports.app.use(security_1.sanitizeInputs);
+// ─── 8. INJECTION PATTERN BLOCKER (SQL / XSS signatures) ─────────────────────
+exports.app.use(security_1.blockInjectionAttempts);
+// ─── 9. PAYLOAD SIZE GUARD per field ─────────────────────────────────────────
+exports.app.use(security_1.guardRequestSize);
+// ─── 10. SECURITY LOGGER ─────────────────────────────────────────────────────
+exports.app.use(security_1.securityLogger);
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
+// Auth: strict brute-force rate limiter applied
+exports.app.use("/api/auth/register", security_1.authRateLimiter);
+exports.app.use("/api/auth/login", security_1.authRateLimiter);
+exports.app.use("/api/auth/forgot-password", security_1.passwordResetLimiter);
+exports.app.use("/api/auth/reset-password", security_1.passwordResetLimiter);
 exports.app.use("/api/auth", authRoutes_1.default);
+// Admin: extra rate limiter
+exports.app.use("/api/admin", security_1.adminRateLimiter, adminRoutes_1.default);
+// Public routes
 exports.app.use("/api/books", bookRoutes_1.default);
 exports.app.use("/api/requests", requestRoutes_1.default);
-exports.app.use("/api/admin", adminRoutes_1.default);
 exports.app.use("/api/private-prayers", privatePrayerRoutes_1.default);
-// Healthcheck
-exports.app.get("/api/health", (req, res) => {
+// ─── HEALTHCHECK ─────────────────────────────────────────────────────────────
+exports.app.get("/api/health", (_req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
-// Seed Initial Database Items
+// ─── 404 HANDLER ─────────────────────────────────────────────────────────────
+exports.app.use((_req, res) => {
+    res.status(404).json({ error: "Resource not found." });
+});
+// ─── GLOBAL ERROR HANDLER (hides stack traces in production) ─────────────────
+exports.app.use((err, _req, res, _next) => {
+    const isProd = process.env.NODE_ENV === "production";
+    console.error("[ERROR]", isProd ? err.message : err);
+    res.status(err.status || 500).json({
+        error: isProd
+            ? "An internal server error occurred."
+            : err.message || "Internal server error",
+    });
+});
+// ─── DATABASE SEED ────────────────────────────────────────────────────────────
 async function seedInitialBooks() {
     try {
         const count = await prisma_1.prisma.book.count();
@@ -43,47 +84,8 @@ async function seedInitialBooks() {
                     price: 250,
                     coverUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop",
                     mediaType: "BOOK",
-                    sampleContent: `ክፍል 1: የእምነት መሠረት
-
-እምነት ተስፋ ስለምናደርገው ነገር የሚያስረዳ፥ የማናየውንም ነገር የሚያስረዳ ነው። (ዕብራውያን 11:1)
-
-በዚህ ምዕራፍ የምንማረው ስለ እምነት ሕይወት፣ በእግዚአብሔር ቃል ላይ ስለመቆም እና በየዕለቱ እምነታችንን ስለማደስ ነው። 
-
-ገጽ 1:
-እግዚአብሔርን ማመን ለሰው ልጅ ሕይወት ትልቁ ቁልፍ ነው። እምነት በቃል ውስጥ የሚገኝና የሚበቅል ዘር ነው። ቃሉን ባነበብንና በሰማን ቁጥር እምነታችን ያድጋል።
-
-ገጽ 2:
-በፈተና ጊዜ እምነታችን ይፈተናል። እንደ አብርሃም በእግዚአብሔር ተስፋ ላይ ማመን ማለት የማይቻለውን የሚችል አምላክ እንዳለን ማወቅ ነው።
-
-ገጽ 3:
-የእምነት ፍሬዎች፡ ሰላም፣ እረፍት፣ እና በክርስቶስ ያለን ሙሉ እርግጠኝነት ናቸው።
-
---- Sample Preview End ---`,
-                    fullContent: `ክፍል 1: የእምነት መሠረት
-
-እምነት ተስፋ ስለምናደርገው ነገር የሚያስረዳ፥ የማናየውንም ነገር የሚያስረዳ ነው። (ዕብራውያን 11:1)
-
-በዚህ ምዕራፍ የምንማረው ስለ እምነት ሕይወት፣ በእግዚአብሔር ቃል ላይ ስለመቆም እና በየዕለቱ እምነታችንን ስለማደስ ነው። 
-
-ገጽ 1:
-እግዚአብሔርን ማመን ለሰው ልጅ ሕይወት ትልቁ ቁልፍ ነው። እምነት በቃል ውስጥ የሚገኝና የሚበቅል ዘር ነው። ቃሉን ባነበብንና በሰማን ቁጥር እምነታችን ያድጋል።
-
-ገጽ 2:
-በፈተና ጊዜ እምነታችን ይፈተናል። እንደ አብርሃም በእግዚአብሔር ተስፋ ላይ ማመን ማለት የማይቻለውን የሚችል አምላክ እንዳለን ማወቅ ነው።
-
-ገጽ 3:
-የእምነት ፍሬዎች፡ ሰላም፣ እረፍት፣ እና በክርስቶስ ያለን ሙሉ እርግጠኝነት ናቸው።
-
-================ UNLOCKED FULL CONTENT ================
-
-ምዕራፍ 2: የእግዚአብሔር ድምፅ ማዳመጥ
-በመንፈስ ቅዱስ አምራችነት መመራት እንዴት ይቻላል? የእግዚአብሔር ድምፅ የሰላም፣ የእውነት እና የብርሃን ድምፅ ነው።
-
-ምዕራፍ 3: የጸሎት ኃይል
-ጸሎት ከእግዚአብሔር ጋር የምናደርገው ጥልቅ ውይይት ነው። በጸሎት ሕይወትህ ውስጥ የሚከሰቱ ታላላቅ ተአምራት።
-
-ምዕራፍ 4: በድል የመኖር ምስጢር
-ክርስቶስ ባደረገልን መስዋዕትነት የተነሳ እኛ አሸናፊዎች ነን! በሕይወትህ ውስጥ ሁሉንም தடைகள் የሚሰብረው የእግዚአብሔር ቃል ኃይል ነው።`,
+                    sampleContent: "ክፍል 1: የእምነት መሠረት\n\nእምነት ተስፋ ስለምናደርገው ነገር የሚያስረዳ። (ዕብራውያን 11:1)",
+                    fullContent: "ሙሉ ይዘት...",
                 },
                 {
                     title: "የጸሎት ሕይወትና ምስጢር",
@@ -92,26 +94,8 @@ async function seedInitialBooks() {
                     price: 200,
                     coverUrl: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=600&auto=format&fit=crop",
                     mediaType: "BOOK",
-                    sampleContent: `የጸሎት መግቢያ፡
-ጸሎት የመንፈስ ቅዱስ እስትንፋስ ነው። ያለ ጸሎት መንፈሳዊ ሕይወት ሊኖር አይችልም።
-
-ገጽ 1:
-ጸሎት ማለት ለምንጸልየው አምላክ ልባችንን መክፈት ነው።`,
-                    fullContent: `የጸሎት መግቢያ፡
-ጸሎት የመንፈስ ቅዱስ እስትንፋስ ነው። ያለ ጸሎት መንፈሳዊ ሕይወት ሊኖር አይችልም።
-
-ገጽ 1:
-ጸሎት ማለት ለምንጸልየው አምላክ ልባችንን መክፈት ነው።
-
-================ UNLOCKED FULL CONTENT ================
-
-ምዕራፍ 1: የጸሎት ዓይነቶች
-1. የምስጋና ጸሎት
-2. የንስሐ ጸሎት
-3. የማልዶ ጸሎት
-
-ምዕራፍ 2: የጸሎት መሰናክሎችና መፍትሔዎቻቸው
-ትኩረት ማጣት፣ መጠራጠር እና በእምነት አለመቆም የጸሎት መሰናክሎች ናቸው።`,
+                    sampleContent: "የጸሎት መግቢያ፡\nጸሎት የመንፈስ ቅዱስ እስትንፋስ ነው።",
+                    fullContent: "ሙሉ ይዘት...",
                 },
                 {
                     title: "የእሁድ ትምህርት - ቪዲዮና ድምፅ",
@@ -120,8 +104,8 @@ async function seedInitialBooks() {
                     price: 300,
                     coverUrl: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=600&auto=format&fit=crop",
                     mediaType: "VIDEO",
-                    sampleContent: "የቪዲዮና ኦዲዮ ትምህርት አጭር መግለጫ። ሙሉውን ለመመልከት እና ለማዳመጥ መጀመሪያ ግዢውን ያረጋግጡ።",
-                    fullContent: "እንኳን ደስ አለዎት! ሙሉውን የትምህርት ቪዲዮ እና ኦዲዮ ከታች ይመልከቱ።",
+                    sampleContent: "ሙሉ ቪዲዮ ለማየት ግዢ ያረጋግጡ።",
+                    fullContent: "እንኳን ደስ አለዎት! ሙሉ ቪዲዮ ከታች ይመልከቱ።",
                     videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
                     audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
                 },

@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
 import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes";
 import bookRoutes from "./routes/bookRoutes";
@@ -21,87 +20,54 @@ import {
   addSecurityHeaders,
   corsOptions,
   securityLogger,
+  passwordResetLimiter,
 } from "./middlewares/security";
 
 dotenv.config();
 
 export const app = express();
 
-// ─── 1. CORS — strict origin control ─────────────────────────────────────────
+// ─── 1. CORS ──────────────────────────────────────────────────────────────────
 app.use(cors(corsOptions));
 
-// ─── 2. HELMET — secure HTTP headers (CSP, HSTS, etc.) ───────────────────────
-app.use(
-  helmet({
-    // Content-Security-Policy: only allow our own domain + trusted CDNs
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // allow inline Tailwind
-        imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://images.unsplash.com"],
-        mediaSrc: ["'self'", "https://res.cloudinary.com", "https://www.youtube.com", "https://www.soundhelix.com"],
-        frameSrc: ["'self'", "https://www.youtube.com"],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: [],
-      },
-    },
-    // Strict-Transport-Security — force HTTPS for 1 year
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-    // Prevent MIME type sniffing
-    noSniff: true,
-    // Prevent clickjacking
-    frameguard: { action: "deny" },
-    // Hide X-Powered-By: Express
-    hidePoweredBy: true,
-    // Block cross-origin reads
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    // Referrer policy
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  })
-);
-
-// ─── 3. EXTRA SECURITY HEADERS ────────────────────────────────────────────────
+// ─── 2. SECURITY HEADERS (CSP, HSTS, X-Frame-Options, etc.) ──────────────────
 app.use(addSecurityHeaders);
 
-// ─── 4. REQUEST SIZE LIMITS (DoS / payload flooding) ─────────────────────────
-// Tight limit on JSON body — 10MB max (down from 50MB which was dangerously large)
+// ─── 3. BODY PARSING — tight limits (10MB max, was 50MB — DoS protection) ────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ─── 5. GLOBAL RATE LIMITER + SPEED LIMITER (DDoS) ───────────────────────────
+// ─── 4. GLOBAL RATE LIMITER + SPEED LIMITER (DDoS) ───────────────────────────
 app.use(globalRateLimiter);
 app.use(speedLimiter);
 
-// ─── 6. PATH TRAVERSAL BLOCKER ───────────────────────────────────────────────
+// ─── 5. PATH TRAVERSAL BLOCKER ───────────────────────────────────────────────
 app.use(blockPathTraversal);
 
-// ─── 7. PARAMETER POLLUTION PROTECTION ───────────────────────────────────────
+// ─── 6. PARAMETER POLLUTION PROTECTION ───────────────────────────────────────
 app.use(preventParamPollution);
 
-// ─── 8. INPUT SANITIZATION (NoSQL/XSS) ───────────────────────────────────────
+// ─── 7. INPUT SANITIZATION (NoSQL/XSS) ───────────────────────────────────────
 app.use(sanitizeInputs);
 
-// ─── 9. INJECTION PATTERN BLOCKER (SQL / XSS signatures) ─────────────────────
+// ─── 8. INJECTION PATTERN BLOCKER (SQL / XSS signatures) ─────────────────────
 app.use(blockInjectionAttempts);
 
-// ─── 10. PAYLOAD SIZE GUARD per field ────────────────────────────────────────
+// ─── 9. PAYLOAD SIZE GUARD per field ─────────────────────────────────────────
 app.use(guardRequestSize);
 
-// ─── 11. SECURITY LOGGER ─────────────────────────────────────────────────────
+// ─── 10. SECURITY LOGGER ─────────────────────────────────────────────────────
 app.use(securityLogger);
 
-// ─── ROUTE MOUNTS ─────────────────────────────────────────────────────────────
-// Auth routes get the strict brute-force rate limiter
-app.use("/api/auth", authRateLimiter, authRoutes);
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
+// Auth: strict brute-force rate limiter applied
+app.use("/api/auth/register", authRateLimiter);
+app.use("/api/auth/login", authRateLimiter);
+app.use("/api/auth/forgot-password", passwordResetLimiter);
+app.use("/api/auth/reset-password", passwordResetLimiter);
+app.use("/api/auth", authRoutes);
 
-// Admin routes get admin-specific rate limiter
+// Admin: extra rate limiter
 app.use("/api/admin", adminRateLimiter, adminRoutes);
 
 // Public routes
@@ -119,23 +85,30 @@ app.use((_req, res) => {
   res.status(404).json({ error: "Resource not found." });
 });
 
-// ─── GLOBAL ERROR HANDLER (hides stack traces in production) ──────────────────
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const isProduction = process.env.NODE_ENV === "production";
-  console.error("[ERROR]", err);
-  res.status(err.status || 500).json({
-    error: isProduction ? "An internal server error occurred." : err.message,
-    ...(isProduction ? {} : { stack: err.stack }),
-  });
-});
+// ─── GLOBAL ERROR HANDLER (hides stack traces in production) ─────────────────
+app.use(
+  (
+    err: any,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    const isProd = process.env.NODE_ENV === "production";
+    console.error("[ERROR]", isProd ? err.message : err);
+    res.status(err.status || 500).json({
+      error: isProd
+        ? "An internal server error occurred."
+        : err.message || "Internal server error",
+    });
+  }
+);
 
-// ─── SEED ─────────────────────────────────────────────────────────────────────
+// ─── DATABASE SEED ────────────────────────────────────────────────────────────
 export async function seedInitialBooks() {
   try {
     const count = await prisma.book.count();
     if (count === 0) {
       console.log("Seeding initial spiritual books into database...");
-
       const booksToSeed = [
         {
           title: "ከእምነት ወደ እምነት",
@@ -146,8 +119,8 @@ export async function seedInitialBooks() {
           coverUrl:
             "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop",
           mediaType: "BOOK",
-          sampleContent: `ክፍል 1: የእምነት መሠረት\n\nእምነት ተስፋ ስለምናደርገው ነገር የሚያስረዳ። (ዕብራውያን 11:1)`,
-          fullContent: `ክፍል 1: የእምነት መሠረት\n\nሙሉ ይዘት...`,
+          sampleContent: "ክፍል 1: የእምነት መሠረት\n\nእምነት ተስፋ ስለምናደርገው ነገር የሚያስረዳ። (ዕብራውያን 11:1)",
+          fullContent: "ሙሉ ይዘት...",
         },
         {
           title: "የጸሎት ሕይወትና ምስጢር",
@@ -157,8 +130,8 @@ export async function seedInitialBooks() {
           coverUrl:
             "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=600&auto=format&fit=crop",
           mediaType: "BOOK",
-          sampleContent: `የጸሎት መግቢያ፡\nጸሎት የመንፈስ ቅዱስ እስትንፋስ ነው።`,
-          fullContent: `ሙሉ ይዘት...`,
+          sampleContent: "የጸሎት መግቢያ፡\nጸሎት የመንፈስ ቅዱስ እስትንፋስ ነው።",
+          fullContent: "ሙሉ ይዘት...",
         },
         {
           title: "የእሁድ ትምህርት - ቪዲዮና ድምፅ",
@@ -171,14 +144,13 @@ export async function seedInitialBooks() {
           sampleContent: "ሙሉ ቪዲዮ ለማየት ግዢ ያረጋግጡ።",
           fullContent: "እንኳን ደስ አለዎት! ሙሉ ቪዲዮ ከታች ይመልከቱ።",
           videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-          audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+          audioUrl:
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
         },
       ];
-
       for (const b of booksToSeed) {
         await prisma.book.create({ data: b });
       }
-
       console.log("Initial books seeded successfully!");
     }
   } catch (e) {

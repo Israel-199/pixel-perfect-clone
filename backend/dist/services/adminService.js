@@ -7,6 +7,7 @@ exports.AdminService = void 0;
 const prisma_1 = require("../config/prisma");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const validation_1 = require("../middlewares/validation");
 const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 class AdminService {
@@ -145,33 +146,34 @@ class AdminService {
         });
     }
     static async createBook(data) {
-        if (!data.title || !data.title.trim()) {
-            throw new Error("የመጽሐፉ ርዕስ ማስገባት ተገቢ ነው (Title is required).");
-        }
-        if (!data.coverUrl || !data.coverUrl.trim()) {
-            throw new Error("የከቨር ፎቶ URL ማስገባት ተገቢ ነው (Cover image URL is required).");
-        }
-        const numPrice = data.price !== undefined && data.price !== "" ? parseFloat(data.price.toString()) : 0;
-        if (isNaN(numPrice) || numPrice < 0) {
-            throw new Error("ዋጋው ትክክለኛ አዎንታዊ ቁጥር መሆን አለበት (Price must be a valid positive number).");
-        }
+        const title = (0, validation_1.validateString)(data.title, "Title", { required: true, max: 200 });
+        const author = (0, validation_1.validateString)(data.author, "Author", { max: 150 }) || "RABBI";
+        const description = (0, validation_1.stripHtml)((0, validation_1.validateString)(data.description, "Description", { max: 2000 }));
+        const numPrice = (0, validation_1.validatePositiveNumber)(data.price ?? 0, "Price");
+        const coverUrl = (0, validation_1.validateUrl)(data.coverUrl, "Cover Image URL");
+        if (!coverUrl)
+            throw new Error("Cover image URL is required.");
+        const sampleContent = (0, validation_1.validateString)(data.sampleContent, "Sample Content", { max: 50000 });
+        const fullContent = (0, validation_1.validateString)(data.fullContent, "Full Content", { max: 500000 });
+        const videoUrl = (0, validation_1.validateUrl)(data.videoUrl, "Video URL");
+        const audioUrl = (0, validation_1.validateUrl)(data.audioUrl, "Audio URL");
         const validMediaTypes = ["BOOK", "VIDEO", "AUDIO", "IMAGE", "COURSE", "ARTICLE", "PRAYER"];
         const mediaType = (data.mediaType || "BOOK").toUpperCase().trim();
         if (!validMediaTypes.includes(mediaType)) {
-            throw new Error("የተሳሳተ የይዘት ዓይነት (Invalid content/media type).");
+            throw new Error("Invalid content/media type.");
         }
         return prisma_1.prisma.book.create({
             data: {
-                title: data.title.trim(),
-                author: data.author ? data.author.trim() : "RABBI",
-                description: data.description ? data.description.trim() : "",
+                title,
+                author,
+                description,
                 price: numPrice,
-                coverUrl: data.coverUrl.trim(),
-                sampleContent: data.sampleContent ? data.sampleContent.trim() : "",
-                fullContent: data.fullContent ? data.fullContent.trim() : "",
-                videoUrl: data.videoUrl ? data.videoUrl.trim() : null,
-                audioUrl: data.audioUrl ? data.audioUrl.trim() : null,
-                mediaType: mediaType,
+                coverUrl,
+                sampleContent,
+                fullContent,
+                videoUrl: videoUrl || null,
+                audioUrl: audioUrl || null,
+                mediaType,
             },
         });
     }
@@ -237,27 +239,21 @@ class AdminService {
         return admins;
     }
     static async createAdmin(data) {
-        if (!data.email || !data.email.trim()) {
-            throw new Error("የኢሜይል አድራሻ ማስገባት ተገቢ ነው (Email is required).");
-        }
-        const cleanEmail = data.email.toLowerCase().trim();
-        if (!EMAIL_REGEX.test(cleanEmail)) {
-            throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid email is required).");
-        }
-        if (!data.password || data.password.length < 6) {
-            throw new Error("የይለፍ ቃሉ ቢያንስ 6 ፊደላት መሆን አለበት (Password must be at least 6 characters).");
-        }
+        const cleanEmail = (0, validation_1.validateEmail)(data.email);
+        const password = (0, validation_1.validatePassword)(data.password);
+        const fullName = (0, validation_1.validateString)(data.fullName, "Full Name", { max: 100 });
+        const phone = (0, validation_1.validateString)(data.phone, "Phone", { max: 30 });
         const existing = await prisma_1.prisma.user.findUnique({ where: { email: cleanEmail } });
         if (existing) {
             throw new Error("ይህ ኢሜይል አስቀድሞ ተጠቃሚ አለው (Email already in use).");
         }
-        const hashedPassword = await bcryptjs_1.default.hash(data.password, 10);
+        const hashedPassword = await bcryptjs_1.default.hash(password, 12);
         const admin = await prisma_1.prisma.user.create({
             data: {
                 email: cleanEmail,
                 password: hashedPassword,
-                fullName: data.fullName?.trim() || null,
-                phone: data.phone?.trim() || null,
+                fullName: fullName || null,
+                phone: phone || null,
                 role: "ADMIN",
             },
             select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
@@ -288,7 +284,7 @@ class AdminService {
         if (data.password && data.password.trim()) {
             if (data.password.length < 6)
                 throw new Error("የይለፍ ቃሉ ቢያንስ 6 ፊደላት መሆን አለበት.");
-            updateData.password = await bcryptjs_1.default.hash(data.password.trim(), 10);
+            updateData.password = await bcryptjs_1.default.hash(data.password.trim(), 12);
         }
         const updated = await prisma_1.prisma.user.update({
             where: { id },
