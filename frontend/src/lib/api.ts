@@ -1,9 +1,14 @@
-const API_BASE_URL =
+const rawBaseUrl =
   import.meta.env["VITE_API_URL"] ||
   (typeof window !== "undefined" &&
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
     ? "http://localhost:5000/api"
-    : "https://pixel-perfect-clone-qt30.onrender.com/api");
+    : "https://pixel-perfect-clone-1-5lm4.onrender.com/api");
+
+const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, "");
+const API_BASE_URL = cleanBaseUrl.endsWith("/api")
+  ? cleanBaseUrl
+  : `${cleanBaseUrl}/api`;
 
 export async function fetchApi<T = any>(
   endpoint: string,
