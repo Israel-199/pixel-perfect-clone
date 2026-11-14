@@ -17,11 +17,7 @@ class AuthService {
     static async register(data) {
         const { confirmPassword } = data;
         // — Validated & sanitised fields —
-        const fullName = (0, validation_1.validateString)(data.fullName, "ሙሉ ስም (Full Name)", {
-            required: true,
-            min: 2,
-            max: 100,
-        });
+        const fullName = (0, validation_1.validateName)(data.fullName, "ሙሉ ስም (Full Name)", true);
         const phone = (0, validation_1.validatePhone)(data.phone);
         const cleanEmail = (0, validation_1.validateEmail)(data.email);
         const password = (0, validation_1.validatePassword)(data.password);

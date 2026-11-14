@@ -152,7 +152,7 @@ class AdminService {
     }
     static async createBook(data) {
         const title = (0, validation_1.validateString)(data.title, "Title", { required: true, max: 200 });
-        const author = (0, validation_1.validateString)(data.author, "Author", { max: 150 }) || "RABBI";
+        const author = data.author ? (0, validation_1.validateName)(data.author, "Author", false) || "RABBI" : "RABBI";
         const description = (0, validation_1.stripHtml)((0, validation_1.validateString)(data.description, "Description", { max: 2000 }));
         const numPrice = (0, validation_1.validatePositiveNumber)(data.price ?? 0, "Price");
         const coverUrl = (0, validation_1.validateUrl)(data.coverUrl, "Cover Image URL");
@@ -246,8 +246,8 @@ class AdminService {
     static async createAdmin(data) {
         const cleanEmail = (0, validation_1.validateEmail)(data.email);
         const password = (0, validation_1.validatePassword)(data.password);
-        const fullName = (0, validation_1.validateString)(data.fullName, "Full Name", { max: 100 });
-        const phone = (0, validation_1.validateString)(data.phone, "Phone", { max: 30 });
+        const fullName = data.fullName ? (0, validation_1.validateName)(data.fullName, "Full Name", false) : "";
+        const phone = data.phone ? (0, validation_1.validatePhone)(data.phone) : "";
         const existing = await prisma_1.prisma.user.findUnique({ where: { email: cleanEmail } });
         if (existing) {
             throw new Error("ይህ ኢሜይል አስቀድሞ ተጠቃሚ አለው (Email already in use).");
@@ -317,17 +317,14 @@ class AdminService {
         }
         const updateData = {};
         if (data.fullName && data.fullName.trim()) {
-            updateData.fullName = data.fullName.trim();
+            updateData.fullName = (0, validation_1.validateName)(data.fullName, "ሙሉ ስም (Full Name)", false);
         }
         if (data.phone && data.phone.trim()) {
-            updateData.phone = data.phone.trim();
+            updateData.phone = (0, validation_1.validatePhone)(data.phone);
         }
         // Email update
         if (data.email && data.email.trim()) {
-            const cleanEmail = data.email.toLowerCase().trim();
-            if (!EMAIL_REGEX.test(cleanEmail)) {
-                throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid email is required).");
-            }
+            const cleanEmail = (0, validation_1.validateEmail)(data.email);
             if (cleanEmail !== adminUser.email) {
                 const existing = await prisma_1.prisma.user.findUnique({ where: { email: cleanEmail } });
                 if (existing) {

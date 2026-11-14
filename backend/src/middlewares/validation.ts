@@ -5,8 +5,9 @@
  * Uses pure TypeScript (no extra library) for portability.
  */
 
-const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-const PHONE_RE = /^[+\d\s\-().]{7,20}$/;
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PHONE_RE = /^\+?\d{7,15}$/;
+const NAME_RE = /^[\p{L}\s\u1200-\u137F'\-.]+$/u;
 const URL_RE = /^https?:\/\/.{3,}/i;
 const ALPHANUM_RE = /^[\w\s\u1200-\u137F.,!?'"""''()\-:;@/+#&%\n]{1,5000}$/u;
 
@@ -14,7 +15,33 @@ export function validateEmail(email: unknown): string {
   if (!email || typeof email !== "string") throw new Error("Email is required.");
   const clean = email.trim().toLowerCase();
   if (clean.length > 254) throw new Error("Email address too long.");
-  if (!EMAIL_RE.test(clean)) throw new Error("Invalid email address format.");
+  if (!EMAIL_RE.test(clean)) throw new Error("Invalid email address format (e.g. user@example.com).");
+  return clean;
+}
+
+export function validateName(name: unknown, field = "Name", required = true): string {
+  if (!name || typeof name !== "string") {
+    if (required) throw new Error(`${field} is required.`);
+    return "";
+  }
+  const clean = name.trim();
+  if (clean.length === 0) {
+    if (required) throw new Error(`${field} is required.`);
+    return "";
+  }
+  // Check if it contains any numbers
+  if (/[\d፩-፱]/.test(clean)) {
+    throw new Error(`${field} must only contain letters/words. Numbers cannot be saved in name.`);
+  }
+  if (!NAME_RE.test(clean)) {
+    throw new Error(`${field} contains invalid characters.`);
+  }
+  if (clean.length < 2) {
+    throw new Error(`${field} must be at least 2 characters.`);
+  }
+  if (clean.length > 100) {
+    throw new Error(`${field} is too long.`);
+  }
   return clean;
 }
 
@@ -29,7 +56,10 @@ export function validatePassword(password: unknown, label = "Password"): string 
 export function validatePhone(phone: unknown): string {
   if (!phone || typeof phone !== "string") throw new Error("Phone number is required.");
   const clean = phone.trim();
-  if (!PHONE_RE.test(clean)) throw new Error("Invalid phone number format.");
+  const digitsOnly = clean.replace(/[\s\-()]/g, "");
+  if (!PHONE_RE.test(digitsOnly)) {
+    throw new Error("Phone number must contain only numbers (digits).");
+  }
   return clean;
 }
 

@@ -1,4 +1,5 @@
 import { Response } from "express";
+import path from "path";
 import { AdminService } from "../services/adminService";
 import { AuthRequest } from "../middlewares/authMiddleware";
 import { cloudinary } from "../config/cloudinary";
@@ -82,9 +83,32 @@ export class AdminController {
       }
 
       const resourceType = req.body.resourceType || "auto";
+      const originalName = req.file.originalname || "document";
+      const ext = path.extname(originalName).toLowerCase();
+
+      const uploadOptions: Record<string, any> = {
+        folder: "rabbi_church_assets",
+        resource_type: resourceType,
+      };
+
+      // For document files (.docx, .doc, .pdf) or raw uploads, preserve the extension in public_id
+      if (
+        resourceType === "raw" ||
+        ext === ".docx" ||
+        ext === ".doc" ||
+        ext === ".pdf"
+      ) {
+        const baseName = path
+          .basename(originalName, ext)
+          .replace(/[^a-zA-Z0-9_-]/g, "_")
+          .substring(0, 60);
+        const uniqueSuffix = Date.now() + "_" + Math.round(Math.random() * 1e4);
+        uploadOptions.public_id = `${baseName || "doc"}_${uniqueSuffix}${ext}`;
+        uploadOptions.resource_type = "raw";
+      }
 
       const uploadStream = cloudinary.uploader.upload_stream(
-        { folder: "rabbi_church_assets", resource_type: resourceType },
+        uploadOptions,
         (error, result) => {
           if (error || !result) {
             console.error("Cloudinary error:", error);
@@ -96,6 +120,8 @@ export class AdminController {
             url: result.secure_url,
             public_id: result.public_id,
             resource_type: result.resource_type,
+            format: result.format || ext.replace(/^\./, ""),
+            original_filename: originalName,
           });
         }
       );

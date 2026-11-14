@@ -7,6 +7,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateEmail = validateEmail;
+exports.validateName = validateName;
 exports.validatePassword = validatePassword;
 exports.validatePhone = validatePhone;
 exports.validateUrl = validateUrl;
@@ -14,8 +15,9 @@ exports.validateString = validateString;
 exports.validatePositiveNumber = validatePositiveNumber;
 exports.validateId = validateId;
 exports.stripHtml = stripHtml;
-const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-const PHONE_RE = /^[+\d\s\-().]{7,20}$/;
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PHONE_RE = /^\+?\d{7,15}$/;
+const NAME_RE = /^[\p{L}\s\u1200-\u137F'\-.]+$/u;
 const URL_RE = /^https?:\/\/.{3,}/i;
 const ALPHANUM_RE = /^[\w\s\u1200-\u137F.,!?'"""''()\-:;@/+#&%\n]{1,5000}$/u;
 function validateEmail(email) {
@@ -25,7 +27,34 @@ function validateEmail(email) {
     if (clean.length > 254)
         throw new Error("Email address too long.");
     if (!EMAIL_RE.test(clean))
-        throw new Error("Invalid email address format.");
+        throw new Error("Invalid email address format (e.g. user@example.com).");
+    return clean;
+}
+function validateName(name, field = "Name", required = true) {
+    if (!name || typeof name !== "string") {
+        if (required)
+            throw new Error(`${field} is required.`);
+        return "";
+    }
+    const clean = name.trim();
+    if (clean.length === 0) {
+        if (required)
+            throw new Error(`${field} is required.`);
+        return "";
+    }
+    // Check if it contains any numbers
+    if (/[\d፩-፱]/.test(clean)) {
+        throw new Error(`${field} must only contain letters/words. Numbers cannot be saved in name.`);
+    }
+    if (!NAME_RE.test(clean)) {
+        throw new Error(`${field} contains invalid characters.`);
+    }
+    if (clean.length < 2) {
+        throw new Error(`${field} must be at least 2 characters.`);
+    }
+    if (clean.length > 100) {
+        throw new Error(`${field} is too long.`);
+    }
     return clean;
 }
 function validatePassword(password, label = "Password") {
@@ -41,8 +70,10 @@ function validatePhone(phone) {
     if (!phone || typeof phone !== "string")
         throw new Error("Phone number is required.");
     const clean = phone.trim();
-    if (!PHONE_RE.test(clean))
-        throw new Error("Invalid phone number format.");
+    const digitsOnly = clean.replace(/[\s\-()]/g, "");
+    if (!PHONE_RE.test(digitsOnly)) {
+        throw new Error("Phone number must contain only numbers (digits).");
+    }
     return clean;
 }
 function validateUrl(url, field = "URL") {

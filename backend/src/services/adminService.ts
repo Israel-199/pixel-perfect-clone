@@ -4,6 +4,8 @@ import jsonwebtoken from "jsonwebtoken";
 import {
   validateEmail,
   validatePassword,
+  validatePhone,
+  validateName,
   validateString,
   validateUrl,
   validatePositiveNumber,
@@ -197,7 +199,7 @@ export class AdminService {
     mediaType?: string;
   }) {
     const title = validateString(data.title, "Title", { required: true, max: 200 });
-    const author = validateString(data.author, "Author", { max: 150 }) || "RABBI";
+    const author = data.author ? validateName(data.author, "Author", false) || "RABBI" : "RABBI";
     const description = stripHtml(validateString(data.description, "Description", { max: 2000 }));
     const numPrice = validatePositiveNumber(data.price ?? 0, "Price");
     const coverUrl = validateUrl(data.coverUrl, "Cover Image URL");
@@ -310,8 +312,8 @@ export class AdminService {
   }) {
     const cleanEmail = validateEmail(data.email);
     const password = validatePassword(data.password);
-    const fullName = validateString(data.fullName, "Full Name", { max: 100 });
-    const phone = validateString(data.phone, "Phone", { max: 30 });
+    const fullName = data.fullName ? validateName(data.fullName, "Full Name", false) : "";
+    const phone = data.phone ? validatePhone(data.phone) : "";
 
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
@@ -396,19 +398,16 @@ export class AdminService {
     const updateData: any = {};
 
     if (data.fullName && data.fullName.trim()) {
-      updateData.fullName = data.fullName.trim();
+      updateData.fullName = validateName(data.fullName, "ሙሉ ስም (Full Name)", false);
     }
 
     if (data.phone && data.phone.trim()) {
-      updateData.phone = data.phone.trim();
+      updateData.phone = validatePhone(data.phone);
     }
 
     // Email update
     if (data.email && data.email.trim()) {
-      const cleanEmail = data.email.toLowerCase().trim();
-      if (!EMAIL_REGEX.test(cleanEmail)) {
-        throw new Error("ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid email is required).");
-      }
+      const cleanEmail = validateEmail(data.email);
       if (cleanEmail !== adminUser.email) {
         const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
         if (existing) {

@@ -5,6 +5,7 @@ import {
   validateEmail,
   validatePassword,
   validatePhone,
+  validateName,
   validateString,
 } from "../middlewares/validation";
 
@@ -26,11 +27,7 @@ export class AuthService {
     const { confirmPassword } = data;
 
     // — Validated & sanitised fields —
-    const fullName = validateString(data.fullName, "ሙሉ ስም (Full Name)", {
-      required: true,
-      min: 2,
-      max: 100,
-    });
+    const fullName = validateName(data.fullName, "ሙሉ ስም (Full Name)", true);
     const phone = validatePhone(data.phone);
     const cleanEmail = validateEmail(data.email);
     const password = validatePassword(data.password);

@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
+const path_1 = __importDefault(require("path"));
 const adminService_1 = require("../services/adminService");
 const cloudinary_1 = require("../config/cloudinary");
 class AdminController {
@@ -81,7 +85,26 @@ class AdminController {
                 return;
             }
             const resourceType = req.body.resourceType || "auto";
-            const uploadStream = cloudinary_1.cloudinary.uploader.upload_stream({ folder: "rabbi_church_assets", resource_type: resourceType }, (error, result) => {
+            const originalName = req.file.originalname || "document";
+            const ext = path_1.default.extname(originalName).toLowerCase();
+            const uploadOptions = {
+                folder: "rabbi_church_assets",
+                resource_type: resourceType,
+            };
+            // For document files (.docx, .doc, .pdf) or raw uploads, preserve the extension in public_id
+            if (resourceType === "raw" ||
+                ext === ".docx" ||
+                ext === ".doc" ||
+                ext === ".pdf") {
+                const baseName = path_1.default
+                    .basename(originalName, ext)
+                    .replace(/[^a-zA-Z0-9_-]/g, "_")
+                    .substring(0, 60);
+                const uniqueSuffix = Date.now() + "_" + Math.round(Math.random() * 1e4);
+                uploadOptions.public_id = `${baseName || "doc"}_${uniqueSuffix}${ext}`;
+                uploadOptions.resource_type = "raw";
+            }
+            const uploadStream = cloudinary_1.cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
                 if (error || !result) {
                     console.error("Cloudinary error:", error);
                     res.status(500).json({ error: "Cloudinary upload failed." });
@@ -91,6 +114,8 @@ class AdminController {
                     url: result.secure_url,
                     public_id: result.public_id,
                     resource_type: result.resource_type,
+                    format: result.format || ext.replace(/^\./, ""),
+                    original_filename: originalName,
                 });
             });
             uploadStream.end(req.file.buffer);
