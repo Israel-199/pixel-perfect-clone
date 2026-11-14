@@ -23,10 +23,12 @@ import {
   Sun,
   Moon,
   Coffee,
+  Download,
 } from "lucide-react";
 import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
+import { filterNumberInput } from "@/lib/inputValidation";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -50,10 +52,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const { t } = useLanguage();
 
   // Reader Settings
-  const [theme, setTheme] = useState<"cream" | "dark" | "sepia">("cream");
+  const [theme, setTheme] = useState<"cream" | "dark" | "sepia" | "midnight">("cream");
   const [fontSize, setFontSize] = useState<number>(18);
   const [twoPageView, setTwoPageView] = useState<boolean>(false);
   const [showToc, setShowToc] = useState<boolean>(false);
+  const [pinToc, setPinToc] = useState<boolean>(false);
+  const [tocTab, setTocTab] = useState<"chapters" | "pages">("chapters");
   const [zoomScale, setZoomScale] = useState<number>(1);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -88,14 +92,39 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     return false;
   }, [book.mediaType, book.videoUrl, book.fullContent]);
 
-  // ── PDF detection ───────────────────────────────────────────────────────────
-  const { isPdf, pdfUrl } = useMemo(() => {
-    if (isVideo) return { isPdf: false, pdfUrl: null };
+  // ── DOCX detection ──────────────────────────────────────────────────────────
+  const { isDocx, docxUrl } = useMemo(() => {
+    if (isVideo) return { isDocx: false, docxUrl: null };
 
     const fc = (book.fullContent || "").trim();
     const sc = (book.sampleContent || "").trim();
 
-    // Any URL in fullContent or sampleContent → treat as PDF
+    const targetUrl =
+      fc.startsWith("http://") || fc.startsWith("https://")
+        ? fc
+        : sc.startsWith("http://") || sc.startsWith("https://")
+        ? sc
+        : null;
+
+    if (targetUrl && /\.docx?(\?|$)/i.test(targetUrl)) {
+      return { isDocx: true, docxUrl: targetUrl };
+    }
+
+    if (/\.docx?(\?|$)/i.test(fc)) {
+      return { isDocx: true, docxUrl: fc };
+    }
+
+    return { isDocx: false, docxUrl: null };
+  }, [isVideo, book.fullContent, book.sampleContent]);
+
+  // ── PDF detection ───────────────────────────────────────────────────────────
+  const { isPdf, pdfUrl } = useMemo(() => {
+    if (isVideo || isDocx) return { isPdf: false, pdfUrl: null };
+
+    const fc = (book.fullContent || "").trim();
+    const sc = (book.sampleContent || "").trim();
+
+    // Any URL in fullContent or sampleContent → treat as PDF if not docx
     const detectedUrl =
       fc.startsWith("http://") || fc.startsWith("https://")
         ? fc
@@ -103,7 +132,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         ? sc
         : null;
 
-    if (detectedUrl) return { isPdf: true, pdfUrl: detectedUrl };
+    if (detectedUrl) {
+      if (/\.docx?(\?|$)/i.test(detectedUrl)) {
+        return { isPdf: false, pdfUrl: null };
+      }
+      return { isPdf: true, pdfUrl: detectedUrl };
+    }
 
     if (
       fc.includes(".pdf") ||
@@ -116,7 +150,54 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }
 
     return { isPdf: false, pdfUrl: null };
-  }, [isVideo, book.fullContent, book.sampleContent, book.mediaType]);
+  }, [isVideo, isDocx, book.fullContent, book.sampleContent, book.mediaType]);
+
+  // ── DOCX state ──────────────────────────────────────────────────────────────
+  const [docxLoading, setDocxLoading] = useState<boolean>(false);
+  const [docxError, setDocxError] = useState<string | null>(null);
+  const [docxText, setDocxText] = useState<string>("");
+
+  useEffect(() => {
+    if (!isDocx || !docxUrl) return;
+    let isMounted = true;
+    setDocxLoading(true);
+    setDocxError(null);
+
+    const loadDocx = async () => {
+      try {
+        if (!(window as any).mammoth) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error("Mammoth parser failed to load"));
+            document.head.appendChild(script);
+          });
+        }
+
+        const mammoth = (window as any).mammoth;
+        const response = await fetch(docxUrl);
+        if (!response.ok) throw new Error(`DOCX fetch failed: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+
+        if (!isMounted) return;
+        setDocxText(result.value || "");
+        setDocxLoading(false);
+      } catch (err: any) {
+        console.error("DOCX loading error:", err);
+        if (isMounted) {
+          setDocxError(err?.message || "የDOCX ፋይልን ማዘጋጀት አልተቻለም።");
+          setDocxLoading(false);
+        }
+      }
+    };
+
+    loadDocx();
+    return () => {
+      isMounted = false;
+    };
+  }, [isDocx, docxUrl]);
 
   // ── PDF.js state ─────────────────────────────────────────────────────────────
   const [pdfLoading, setPdfLoading] = useState<boolean>(false);
@@ -138,30 +219,64 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
   // ============================================================================
-  // 1. TEXT PARSER & PAGINATION
+  // 1. TEXT PARSER & LOSSLESS PAGINATION (Preserves 100% of words and formatting)
   // ============================================================================
   const { chapters, pages, totalTextPages } = useMemo(() => {
     if (isPdf) return { chapters: [], pages: [], totalTextPages: 0 };
 
-    const rawText = (book.fullContent || book.sampleContent || "").trim();
+    const rawText = (docxText || book.fullContent || book.sampleContent || "").trim();
     if (!rawText) {
       return {
         chapters: [{ id: 1, title: "መግቢያ", startPage: 1 }],
-        pages: [{ pageNumber: 1, chapterTitle: "መግቢያ", text: "የይዘት መረጃ አልተገኘም።" }],
+        pages: [{ pageNumber: 1, chapterTitle: "መግቢያ", text: docxLoading ? "የDOCX ፋይል ይዘት በመጫን ላይ..." : "የይዘት መረጃ አልተገኘም።" }],
         totalTextPages: 1,
       };
     }
 
+    // Comprehensive chapter delimiter for Amharic and English books
     const chapterDelimiter =
-      /(?:(?:\r?\n)+(?=(?:ክፍል|ምዕራፍ|ትምህርት|Chapter|Part)\s*(?:[0-9]+|[፩-፱]+|[A-Z]+)?[:\s\-—]))/i;
-    const rawChapters = rawText.split(chapterDelimiter).filter(Boolean);
+      /(?:(?:\r?\n)+(?=(?:#+\s*|ክፍል|ምዕራፍ|ትምህርት|Chapter|Part|Section|Unit)\s*(?:[0-9]+|[፩-፱]+|[A-Z]+)?[:\s\-—]))/i;
+    let rawChapters = rawText.split(chapterDelimiter).filter((c) => c.trim().length > 0);
+
+    // If no explicit chapter headers exist but text is substantial (>1200 words),
+    // automatically organize into readable parts for the left sidebar index
+    if (rawChapters.length <= 1) {
+      const allParas = rawText.split(/\r?\n+/).filter(p => p.trim().length > 0);
+      const totalWords = rawText.split(/\s+/).filter(Boolean).length;
+      if (totalWords > 1200 && allParas.length > 4) {
+        rawChapters = [];
+        let currentChunk: string[] = [];
+        let chunkWords = 0;
+        let partIdx = 1;
+
+        allParas.forEach((p) => {
+          const w = p.split(/\s+/).filter(Boolean).length;
+          currentChunk.push(p);
+          chunkWords += w;
+          if (chunkWords >= 1000) {
+            rawChapters.push(`ክፍል ${partIdx++}\n\n` + currentChunk.join("\n\n"));
+            currentChunk = [];
+            chunkWords = 0;
+          }
+        });
+        if (currentChunk.length > 0) {
+          rawChapters.push(`ክፍል ${partIdx}\n\n` + currentChunk.join("\n\n"));
+        }
+      }
+    }
+
+    if (rawChapters.length === 0) {
+      rawChapters = [rawText];
+    }
 
     const generatedChapters: ChapterItem[] = [];
     const generatedPages: BookPage[] = [];
     let pageCounter = 1;
+    const TARGET_WORDS_PER_PAGE = 260;
 
     rawChapters.forEach((chapText, cIdx) => {
-      const lines = chapText.trim().split(/\r?\n/).filter(Boolean);
+      const trimmedChap = chapText.trim();
+      const lines = trimmedChap.split(/\r?\n/).filter(Boolean);
       let chapTitle = `ምዕራፍ ${cIdx + 1}`;
       if (lines[0] && lines[0].length < 100) {
         chapTitle = lines[0].replace(/^#+\s*/, "").trim();
@@ -169,31 +284,54 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
       generatedChapters.push({ id: cIdx + 1, title: chapTitle, startPage: pageCounter });
 
-      const paragraphs = chapText.split(/\r?\n\s*\r?\n/);
-      let currentPageText = "";
+      // Split chapter into natural paragraphs
+      const paragraphs = trimmedChap.split(/\r?\n\s*\r?\n/);
+      let currentPageParas: string[] = [];
+      let currentPageWordCount = 0;
+
+      const flushPage = () => {
+        if (currentPageParas.length > 0) {
+          generatedPages.push({
+            pageNumber: pageCounter++,
+            chapterTitle: chapTitle,
+            text: currentPageParas.join("\n\n").trim(),
+          });
+          currentPageParas = [];
+          currentPageWordCount = 0;
+        }
+      };
 
       paragraphs.forEach((para) => {
-        if ((currentPageText + "\n\n" + para).split(/\s+/).length > 280) {
-          if (currentPageText.trim()) {
+        const cleanPara = para.trim();
+        if (!cleanPara) return;
+
+        const words = cleanPara.split(/\s+/).filter(Boolean);
+
+        // If a single paragraph is longer than TARGET_WORDS_PER_PAGE, split cleanly into pages without losing any words
+        if (words.length > TARGET_WORDS_PER_PAGE) {
+          flushPage();
+
+          // Chunk words across pages so NO words are ever removed or lost
+          for (let i = 0; i < words.length; i += TARGET_WORDS_PER_PAGE) {
+            const chunkWords = words.slice(i, i + TARGET_WORDS_PER_PAGE).join(" ");
             generatedPages.push({
               pageNumber: pageCounter++,
               chapterTitle: chapTitle,
-              text: currentPageText.trim(),
+              text: chunkWords,
             });
-            currentPageText = para;
           }
-        } else {
-          currentPageText += (currentPageText ? "\n\n" : "") + para;
+          return;
         }
+
+        if (currentPageWordCount + words.length > TARGET_WORDS_PER_PAGE && currentPageParas.length > 0) {
+          flushPage();
+        }
+
+        currentPageParas.push(cleanPara);
+        currentPageWordCount += words.length;
       });
 
-      if (currentPageText.trim()) {
-        generatedPages.push({
-          pageNumber: pageCounter++,
-          chapterTitle: chapTitle,
-          text: currentPageText.trim(),
-        });
-      }
+      flushPage();
     });
 
     if (generatedPages.length === 0) {
@@ -201,7 +339,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }
 
     return { chapters: generatedChapters, pages: generatedPages, totalTextPages: generatedPages.length };
-  }, [book.fullContent, book.sampleContent, book.title, isPdf]);
+  }, [book.fullContent, book.sampleContent, book.title, isPdf, docxText, docxLoading]);
 
   const totalPages = isPdf ? pdfNumPages : totalTextPages;
 
@@ -579,18 +717,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   // ============================================================================
   const getThemeClasses = () => {
     switch (theme) {
-      case "dark":  return "bg-slate-950 text-slate-100 border-slate-800 shadow-2xl";
-      case "sepia": return "bg-[#fbf3e2] text-[#4a3728] border-[#e2d3be] shadow-2xl";
-      default:      return "bg-[#fefdfa] text-slate-900 border-gold/25 shadow-2xl";
+      case "dark":     return "bg-slate-950 text-slate-100 border-slate-800 shadow-2xl";
+      case "midnight": return "bg-[#0a0f1d] text-slate-100 border-gold/30 shadow-2xl";
+      case "sepia":    return "bg-[#fbf3e2] text-[#4a3728] border-[#e2d3be] shadow-2xl";
+      default:         return "bg-[#fefdfa] text-slate-900 border-gold/25 shadow-2xl";
     }
   };
 
   // PDF reader area background (behind the white canvas pages)
   const getPdfBgClass = () => {
     switch (theme) {
-      case "dark":  return "bg-slate-900";
-      case "sepia": return "bg-[#e8dcc8]";
-      default:      return "bg-[#d6d0c4]";
+      case "dark":     return "bg-slate-950";
+      case "midnight": return "bg-[#060a14]";
+      case "sepia":    return "bg-[#efe5d0]";
+      default:         return "bg-navy-deep";
     }
   };
 
@@ -649,7 +789,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                 {book.title}
               </h2>
               <span className="rounded-md bg-gold/15 px-1.5 py-0.5 text-[9px] font-bold text-gold border border-gold/30 shrink-0">
-                {book.mediaType || (isPdf ? "PDF BOOK" : "BOOK")}
+                {book.mediaType || (isPdf ? "PDF BOOK" : isDocx ? "DOCX BOOK" : "BOOK")}
               </span>
             </div>
             <p className="text-[10px] text-on-navy-muted truncate max-w-[200px] sm:max-w-none">
@@ -660,16 +800,17 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         {/* Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap justify-end">
-          {/* TOC */}
-          {!isVideo && chapters.length > 1 && (
+          {/* TOC / Index on the Left */}
+          {!isVideo && (
             <button
               onClick={() => setShowToc(!showToc)}
               className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer border ${
-                showToc ? "bg-gold text-navy-deep border-gold" : "bg-navy/40 text-gold border-gold/30 hover:bg-gold/20"
+                showToc ? "bg-gold text-navy-deep border-gold shadow-xs" : "bg-navy/40 text-gold border-gold/30 hover:bg-gold/20"
               }`}
+              title="Table of Contents / ማውጫ"
             >
               <ListOrdered className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("tableOfContents")}</span>
+              <span className="hidden sm:inline">ማውጫ (Index)</span>
             </button>
           )}
 
@@ -682,6 +823,21 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               <Columns className="h-3.5 w-3.5" />
               <span>{twoPageView ? t("twoPages") : t("singlePage")}</span>
             </button>
+          )}
+
+          {/* Download for DOCX */}
+          {isDocx && docxUrl && (
+            <a
+              href={docxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-navy/40 px-2.5 py-1.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-gold/20 cursor-pointer"
+              title="Download DOCX"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>DOCX</span>
+            </a>
           )}
 
           {/* Zoom for PDF */}
@@ -699,30 +855,31 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             </div>
           )}
 
-          {/* Theme switcher for text books */}
+          {/* Theme switcher for text & DOCX books */}
           {!isVideo && !isPdf && (
-            <div className="hidden sm:flex items-center rounded-xl bg-navy/40 p-1 border border-gold/25">
-              {(["cream", "sepia", "dark"] as const).map((th) => (
+            <div className="flex items-center rounded-xl bg-navy/40 p-1 border border-gold/25">
+              {(["cream", "sepia", "dark", "midnight"] as const).map((th) => (
                 <button
                   key={th}
                   onClick={() => setTheme(th)}
-                  className={`px-2 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
-                    theme === th ? "bg-gold text-navy-deep font-bold" : "text-on-navy-muted hover:text-gold"
+                  className={`px-2 py-1 text-[11px] sm:text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                    theme === th ? "bg-gold text-navy-deep font-bold shadow-xs" : "text-on-navy-muted hover:text-gold"
                   }`}
+                  title={`${th} theme`}
                 >
-                  {th === "cream" ? t("lightTheme") : th === "sepia" ? t("sepiaTheme") : t("darkTheme")}
+                  {th === "cream" ? "ነጭ" : th === "sepia" ? "ሴፒያ" : th === "dark" ? "ጨለማ" : "ምሽት"}
                 </button>
               ))}
             </div>
           )}
 
-          {/* Font size for text books */}
+          {/* Font size for text & DOCX books */}
           {!isVideo && !isPdf && (
-            <div className="hidden md:flex items-center gap-1 rounded-xl bg-navy/40 px-2 py-1 border border-gold/25">
+            <div className="flex items-center gap-1 rounded-xl bg-navy/40 px-2 py-1 border border-gold/25">
               <Type className="h-3.5 w-3.5 text-gold" />
-              <button onClick={() => setFontSize((s) => Math.max(14, s - 2))} className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer">A-</button>
+              <button onClick={() => setFontSize((s) => Math.max(12, s - 2))} className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer" title="Decrease font size">A-</button>
               <span className="text-[10px] text-white font-mono">{fontSize}px</span>
-              <button onClick={() => setFontSize((s) => Math.min(32, s + 2))} className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer">A+</button>
+              <button onClick={() => setFontSize((s) => Math.min(36, s + 2))} className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer" title="Increase font size">A+</button>
             </div>
           )}
 
@@ -739,40 +896,128 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
       {/* ── MAIN CONTENT ────────────────────────────────────────────────────── */}
       <div ref={contentAreaRef} className="relative flex-1 overflow-hidden flex bg-navy-deep">
-        {/* TOC Sidebar */}
+        {/* TOC Sidebar on the Left */}
         {showToc && !isVideo && (
-          <aside className="absolute left-0 top-0 bottom-0 z-30 w-72 md:w-80 bg-navy-deep/98 border-r border-gold/30 shadow-2xl p-5 overflow-y-auto backdrop-blur-md animate-in slide-in-from-left duration-200">
-            <div className="flex items-center justify-between border-b border-gold/20 pb-3 mb-4">
+          <aside
+            className={`z-30 w-72 md:w-80 bg-navy-deep/98 border-r border-gold/30 shadow-2xl p-4 sm:p-5 overflow-y-auto backdrop-blur-md animate-in slide-in-from-left duration-200 shrink-0 ${
+              pinToc ? "relative hidden md:block" : "absolute left-0 top-0 bottom-0"
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-gold/20 pb-3 mb-3">
               <div className="flex items-center gap-2">
                 <ListOrdered className="h-4 w-4 text-gold" />
                 <h3 className="font-display text-sm font-bold text-gold uppercase tracking-wider">
-                  {t("tableOfContents")}
+                  ይዘት / ማውጫ (Index)
                 </h3>
               </div>
-              <button onClick={() => setShowToc(false)} className="rounded-lg p-1 hover:bg-gold/15 hover:text-gold text-on-navy-muted">
-                <X className="h-4 w-4" />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPinToc(!pinToc)}
+                  className={`hidden md:flex rounded-lg px-2 py-0.5 text-[10px] font-bold border transition-all cursor-pointer ${
+                    pinToc
+                      ? "bg-gold text-navy-deep border-gold"
+                      : "bg-navy/40 text-on-navy-muted border-gold/20 hover:text-gold"
+                  }`}
+                  title={pinToc ? "Unpin left sidebar" : "Pin left sidebar"}
+                >
+                  {pinToc ? "📌 የተሰካ" : "📌 ሰካ"}
+                </button>
+                <button
+                  onClick={() => setShowToc(false)}
+                  className="rounded-lg p-1 hover:bg-gold/15 hover:text-gold text-on-navy-muted cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* TOC Navigation Tabs: Chapters vs All Pages */}
+            <div className="flex rounded-xl bg-navy/60 p-1 mb-3 border border-gold/20">
+              <button
+                type="button"
+                onClick={() => setTocTab("chapters")}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  tocTab === "chapters"
+                    ? "bg-gold text-navy-deep shadow-xs"
+                    : "text-on-navy-muted hover:text-white"
+                }`}
+              >
+                ምዕራፎች ({chapters.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTocTab("pages")}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  tocTab === "pages"
+                    ? "bg-gold text-navy-deep shadow-xs"
+                    : "text-on-navy-muted hover:text-white"
+                }`}
+              >
+                ገጾች ({totalPages})
               </button>
             </div>
-            <div className="space-y-1.5">
-              {chapters.map((chap) => {
-                const isActive = currentPage >= chap.startPage &&
-                  (chap.id === chapters.length || currentPage < (chapters[chap.id]?.startPage || 9999));
-                return (
-                  <button
-                    key={chap.id}
-                    onClick={() => handleSelectChapter(chap.startPage)}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
-                      isActive ? "bg-gold text-navy-deep font-bold" : "text-on-navy-muted hover:bg-gold/15 hover:text-gold"
-                    }`}
-                  >
-                    <span className="line-clamp-1 pr-2">{chap.title}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${isActive ? "bg-navy-deep/20" : "bg-navy/40 text-gold"}`}>
-                      {t("page")} {chap.startPage}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+
+            {/* Tab 1: Chapters list */}
+            {tocTab === "chapters" && (
+              <div className="space-y-1.5">
+                {chapters.map((chap) => {
+                  const isActive =
+                    currentPage >= chap.startPage &&
+                    (chap.id === chapters.length ||
+                      currentPage < (chapters[chap.id]?.startPage || 9999));
+                  return (
+                    <button
+                      key={chap.id}
+                      onClick={() => {
+                        handleSelectChapter(chap.startPage);
+                        if (!pinToc) setShowToc(false);
+                      }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
+                        isActive
+                          ? "bg-gold text-navy-deep font-bold shadow-xs"
+                          : "text-on-navy-muted hover:bg-gold/15 hover:text-gold"
+                      }`}
+                    >
+                      <span className="line-clamp-1 pr-2">{chap.title}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                          isActive ? "bg-navy-deep/20 text-navy-deep font-bold" : "bg-navy/40 text-gold"
+                        }`}
+                      >
+                        {t("page")} {chap.startPage}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Tab 2: Pages Grid/List */}
+            {tocTab === "pages" && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-[70vh] overflow-y-auto pr-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => {
+                  const isCurrent = currentPage === pg;
+                  return (
+                    <button
+                      key={pg}
+                      onClick={() => {
+                        setCurrentPage(pg);
+                        setJumpPageInput(String(pg));
+                        if (!pinToc) setShowToc(false);
+                      }}
+                      className={`py-2 px-1 rounded-lg text-xs font-mono font-bold transition-all text-center cursor-pointer ${
+                        isCurrent
+                          ? "bg-gold text-navy-deep shadow-md scale-105"
+                          : "bg-navy/50 text-gold border border-gold/20 hover:bg-gold/20"
+                      }`}
+                    >
+                      ገጽ {pg}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </aside>
         )}
 
@@ -903,6 +1148,48 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                     </div>
                   )}
                 </div>
+              ) : isDocx && (docxLoading || docxError) ? (
+                /* DOCX Loading or Error State */
+                <div className="flex flex-col items-center w-full flex-1">
+                  {docxLoading && (
+                    <div className="flex flex-col items-center justify-center flex-1 py-20">
+                      <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold border-t-transparent mb-4" />
+                      <p className="text-sm text-gold font-semibold">የDOCX ፋይል ገጾችን በማዘጋጀት ላይ...</p>
+                      <p className="text-xs text-on-navy-muted mt-1">Rendering Word Document</p>
+                    </div>
+                  )}
+
+                  {docxError && (
+                    <div className="flex flex-col items-center justify-center flex-1 py-16 max-w-md text-center">
+                      <div className="rounded-2xl bg-red-950/40 border border-red-500/40 p-6 w-full">
+                        <ShieldAlert className="h-8 w-8 text-red-400 mx-auto mb-3" />
+                        <p className="text-sm text-red-200 font-semibold mb-2">{docxError}</p>
+                        <p className="text-xs text-red-300/80 mb-4">የDOCX ፋይሉን በቀጥታ ማውረድ ወይም እንደገና መሞከር ይችላሉ።</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {docxUrl && (
+                            <a
+                              href={docxUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold text-navy-deep text-xs font-bold hover:bg-gold/90 transition-all"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span>ፋይሉን አውርድ (Download)</span>
+                            </a>
+                          )}
+                          <button
+                            onClick={() => window.location.reload()}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold/20 text-gold text-xs font-bold border border-gold/40 hover:bg-gold hover:text-navy-deep cursor-pointer transition-all"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            <span>እንደገና ይሞክሩ (Retry)</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 /* Structured text pages */
                 <div className={`grid gap-4 sm:gap-6 w-full max-w-5xl ${twoPageView ? "lg:grid-cols-2" : "grid-cols-1 max-w-3xl"}`}>
@@ -965,11 +1252,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               <form onSubmit={handleJumpToPage} className="flex items-center gap-1.5 text-xs">
                 <span className="text-on-navy-muted text-[11px]">{t("page")}</span>
                 <input
-                  type="number"
-                  min={1}
-                  max={totalPages || 1}
+                  type="text"
+                  inputMode="numeric"
                   value={jumpPageInput}
-                  onChange={(e) => setJumpPageInput(e.target.value)}
+                  onChange={(e) => setJumpPageInput(filterNumberInput(e.target.value))}
                   className="w-14 rounded-lg border border-gold/30 bg-white px-2 py-1 text-center font-mono text-xs text-navy focus:border-gold focus:outline-none"
                 />
                 <span className="text-on-navy-muted text-[11px]">{t("pageOf")} {totalPages || 1}</span>

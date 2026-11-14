@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/rabbi/Logo";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
+import { validateEmail } from "@/lib/inputValidation";
 
 export const Route = createFileRoute("/login")({
   component: LoginRoute,
@@ -23,8 +24,9 @@ function LoginRoute() {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
-      setError("እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid Email is required).");
+    const emailErr = validateEmail(email, "ኢሜይል (Email)");
+    if (emailErr) {
+      setError(emailErr);
       return;
     }
 

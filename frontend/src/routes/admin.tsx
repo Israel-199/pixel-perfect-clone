@@ -41,6 +41,14 @@ import {
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
 import { formatEtbWithUsd } from "@/lib/bookUtils";
+import {
+  filterNameInput,
+  filterNumberInput,
+  filterPhoneInput,
+  validateName,
+  validateNumber,
+  validateEmail,
+} from "@/lib/inputValidation";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -451,7 +459,7 @@ function AdminRoute() {
     }
   };
 
-  // Upload Book PDF via Cloudinary
+  // Upload Book PDF or DOCX via Cloudinary
   const handleBookPdfUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     isEdit = false
@@ -477,18 +485,24 @@ function AdminRoute() {
         body: formData,
       });
 
+      const isDocx = /\.docx?$/i.test(file.name);
+      const successMessage = isDocx
+        ? "የመጽሐፉ DOCX ፋይል በተሳካ ሁኔታ ተጭኗል! (DOCX uploaded successfully)"
+        : "የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)";
+
       if (isEdit) {
         setEditFullContent(data.url);
-        setEditMsg("የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)");
+        setEditMsg(successMessage);
       } else {
         setFullContent(data.url);
-        setFormMsg("የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)");
+        setFormMsg(successMessage);
       }
     } catch (err: any) {
-      const msg = err.message || "PDF መጫን አልተሳካም።";
+      const msg = err.message || "ፋይል መጫን አልተሳካም።";
       if (isEdit) setEditError(msg);
       else setFormError(msg);
     } finally {
+      if (e.target) e.target.value = "";
       if (isEdit) setEditUploading(false);
       else setUploading(false);
     }
@@ -508,6 +522,14 @@ function AdminRoute() {
     if (!coverUrl.trim()) {
       setFormError("እባክዎ መጀመሪያ የከቨር ፎቶ ይጫኑ ወይም ምስል URL ያስገቡ።");
       return;
+    }
+
+    if (author.trim()) {
+      const authorErr = validateName(author, "ደራሲ / አቅራቢ (Author/Speaker)");
+      if (authorErr) {
+        setFormError(authorErr);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -1893,7 +1915,7 @@ function AdminRoute() {
                     type="number"
                     required
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => setPrice(filterNumberInput(e.target.value, true))}
                     min="0"
                     placeholder="250"
                     readOnly={mediaType === "ARTICLE" || mediaType === "PRAYER"}
@@ -1948,7 +1970,7 @@ function AdminRoute() {
                     <input
                       type="text"
                       value={author}
-                      onChange={(e) => setAuthor(e.target.value)}
+                      onChange={(e) => setAuthor(filterNameInput(e.target.value))}
                       placeholder="RABBI / ዶርቃ ኮሌጅ"
                       className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background"
                     />
@@ -2126,10 +2148,10 @@ function AdminRoute() {
                       </label>
                       <label className="rounded-lg bg-navy-deep px-3 py-1 text-[11px] font-bold text-gold hover:bg-navy transition-all cursor-pointer flex items-center gap-1.5 shadow-xs">
                         <Upload className="h-3.5 w-3.5" />
-                        <span>{uploading ? "PDF በመጫን ላይ..." : "PDF ስቀል"}</span>
+                        <span>{uploading ? "ፋይል በመጫን ላይ..." : "PDF / DOCX ስቀል"}</span>
                         <input
                           type="file"
-                          accept=".pdf,application/pdf"
+                          accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
                           disabled={uploading}
                           onChange={(e) => handleBookPdfUpload(e, false)}
                           className="hidden"
@@ -2140,7 +2162,7 @@ function AdminRoute() {
                       rows={5}
                       value={fullContent}
                       onChange={(e) => setFullContent(e.target.value)}
-                      placeholder="ሙሉ ጽሑፍ እዚህ ይጻፉ ወይም ከላይ PDF ስቀሉ..."
+                      placeholder="ሙሉ ጽሑፍ እዚህ ይጻፉ ወይም ከላይ PDF / DOCX ስቀሉ..."
                       className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background leading-relaxed"
                     />
                   </div>
@@ -2185,10 +2207,10 @@ function AdminRoute() {
                       </label>
                       <label className="rounded-lg bg-navy-deep px-3 py-1 text-[11px] font-bold text-gold hover:bg-navy transition-all cursor-pointer flex items-center gap-1.5 shadow-xs">
                         <Upload className="h-3.5 w-3.5" />
-                        <span>{uploading ? "PDF በመጫን ላይ..." : "PDF ስቀል"}</span>
+                        <span>{uploading ? "ፋይል በመጫን ላይ..." : "PDF / DOCX ስቀል"}</span>
                         <input
                           type="file"
-                          accept=".pdf,application/pdf"
+                          accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
                           disabled={uploading}
                           onChange={(e) => handleBookPdfUpload(e, false)}
                           className="hidden"
@@ -2199,7 +2221,7 @@ function AdminRoute() {
                       rows={4}
                       value={fullContent}
                       onChange={(e) => setFullContent(e.target.value)}
-                      placeholder="ሙሉ ይዘት እዚህ ይጻፉ ወይም PDF ሊንክ ያስገቡ..."
+                      placeholder="ሙሉ ይዘት እዚህ ይጻፉ ወይም PDF / DOCX ሊንክ ያስገቡ..."
                       className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background leading-relaxed"
                     />
                   </div>
@@ -2579,7 +2601,7 @@ function AdminRoute() {
                     <input
                       type="text"
                       value={profileFullName}
-                      onChange={(e) => setProfileFullName(e.target.value)}
+                      onChange={(e) => setProfileFullName(filterNameInput(e.target.value))}
                       placeholder="RABBI Admin"
                       className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background shadow-xs"
                     />
@@ -2593,7 +2615,7 @@ function AdminRoute() {
                     <input
                       type="tel"
                       value={profilePhone}
-                      onChange={(e) => setProfilePhone(e.target.value)}
+                      onChange={(e) => setProfilePhone(filterPhoneInput(e.target.value))}
                       placeholder="+251..."
                       className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background shadow-xs"
                     />
@@ -2752,7 +2774,7 @@ function AdminRoute() {
                   <input
                     type="text"
                     value={newAdminFullName}
-                    onChange={(e) => setNewAdminFullName(e.target.value)}
+                    onChange={(e) => setNewAdminFullName(filterNameInput(e.target.value))}
                     placeholder="Admin Name"
                     className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs focus:border-gold focus:outline-none bg-background"
                   />
@@ -2762,7 +2784,7 @@ function AdminRoute() {
                   <input
                     type="tel"
                     value={newAdminPhone}
-                    onChange={(e) => setNewAdminPhone(e.target.value)}
+                    onChange={(e) => setNewAdminPhone(filterPhoneInput(e.target.value))}
                     placeholder="+251..."
                     className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs focus:border-gold focus:outline-none bg-background"
                   />
@@ -3022,7 +3044,7 @@ function AdminRoute() {
                   <input
                     type="number"
                     value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
+                    onChange={(e) => setEditPrice(filterNumberInput(e.target.value, true))}
                     min="0"
                     className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
                   />
@@ -3051,7 +3073,7 @@ function AdminRoute() {
                   <input
                     type="text"
                     value={editAuthor}
-                    onChange={(e) => setEditAuthor(e.target.value)}
+                    onChange={(e) => setEditAuthor(filterNameInput(e.target.value))}
                     className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background"
                   />
                 </div>
@@ -3148,13 +3170,13 @@ function AdminRoute() {
                   <label className="block text-xs font-bold text-navy">
                     {editMediaType === "ARTICLE" ? "ሙሉ የጽሑፉ ይዘት (Full Article)" : "ሙሉ ይዘት"}
                   </label>
-                  {(editMediaType === "BOOK" || editMediaType === "COURSE") && (
+                  {(editMediaType === "BOOK" || editMediaType === "COURSE" || editMediaType === "ARTICLE") && (
                     <label className="rounded-lg bg-navy-deep px-2.5 py-0.5 text-[10px] font-bold text-gold hover:bg-navy transition-all cursor-pointer flex items-center gap-1 shadow-xs">
                       <Upload className="h-3 w-3" />
-                      <span>{editUploading ? "..." : "PDF ስቀል"}</span>
+                      <span>{editUploading ? "..." : "PDF / DOCX ስቀል"}</span>
                       <input
                         type="file"
-                        accept=".pdf,application/pdf"
+                        accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
                         disabled={editUploading}
                         onChange={(e) => handleBookPdfUpload(e, true)}
                         className="hidden"

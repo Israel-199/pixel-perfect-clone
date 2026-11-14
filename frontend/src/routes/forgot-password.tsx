@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/rabbi/Logo";
 import { fetchApi } from "@/lib/api";
+import { validateEmail } from "@/lib/inputValidation";
 
 export const Route = createFileRoute("/forgot-password")({
   component: ForgotPasswordRoute,
@@ -23,6 +24,13 @@ function ForgotPasswordRoute() {
     e.preventDefault();
     setError(null);
     setMessage(null);
+
+    const emailErr = validateEmail(email, "ኢሜይል (Email)");
+    if (emailErr) {
+      setError(emailErr);
+      return;
+    }
+
     setLoading(true);
 
     try {

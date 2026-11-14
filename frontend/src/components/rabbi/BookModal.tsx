@@ -42,11 +42,56 @@ export const BookModal: React.FC<BookModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string>(book?.requestStatus || "NONE");
   const [pageCount, setPageCount] = useState<number>(0);
+  const [docxSamplePages, setDocxSamplePages] = useState<string[]>([]);
+  const [docxPageIndex, setDocxPageIndex] = useState<number>(0);
+  const [docxLoading, setDocxLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (!book) return;
     const content = book.fullContent || book.sampleContent || "";
-    if (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf")) {
+    const isDocx = /\.docx?(\?|$)/i.test(content);
+
+    if (isDocx && (content.startsWith("http://") || content.startsWith("https://"))) {
+      setDocxLoading(true);
+      const loadDocx = async () => {
+        try {
+          if (!(window as any).mammoth) {
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
+              script.onload = () => resolve();
+              script.onerror = () => reject(new Error("Mammoth load error"));
+              document.head.appendChild(script);
+            });
+          }
+          const mammoth = (window as any).mammoth;
+          const res = await fetch(content);
+          if (!res.ok) throw new Error("Failed to fetch docx");
+          const arrayBuffer = await res.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          const text = (result.value || "").trim();
+          if (text) {
+            const words = text.split(/\s+/).filter(Boolean);
+            const totalEstimatedPages = Math.max(1, Math.ceil(words.length / 260));
+            setPageCount(totalEstimatedPages);
+
+            // Generate sample preview pages without removing any words
+            const sampleWordLimit = Math.min(words.length, 240 * 5);
+            const sampleWords = words.slice(0, sampleWordLimit);
+            const pagesArr: string[] = [];
+            for (let i = 0; i < sampleWords.length; i += 240) {
+              pagesArr.push(sampleWords.slice(i, i + 240).join(" "));
+            }
+            setDocxSamplePages(pagesArr);
+          }
+        } catch (e) {
+          console.error("BookModal docx preview error:", e);
+        } finally {
+          setDocxLoading(false);
+        }
+      };
+      loadDocx();
+    } else if (!isDocx && (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf"))) {
       getPdfPageCount(content).then((cnt) => {
         if (cnt > 0) setPageCount(cnt);
       });
@@ -158,14 +203,55 @@ export const BookModal: React.FC<BookModalProps> = ({
 
               {/* Sample Content Section */}
               <div className="mb-5 rounded-xl bg-navy-deep/5 p-4 border border-navy/10">
-                <h4 className="text-xs font-semibold text-navy uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <BookOpen className="h-4 w-4 text-gold" />
-                  የነፃ ናሙና ንባብ (4-5 Sample Pages)
-                </h4>
-                <div className="max-h-36 overflow-y-auto pr-2 text-xs text-navy/80 whitespace-pre-line leading-relaxed font-sans scrollbar-thin">
-                  {book.sampleContent && !book.sampleContent.startsWith("http")
-                    ? book.sampleContent
-                    : "የተዘጋጀ የተጠበቀ የዲጂታል ፒዲኤፍ መጽሐፍ (PDF Book)። ክፍያውን ፈጽመው አስተዳዳሪው ሲያጸድቅልዎ ሙሉውን መጽሐፍ በከፍተኛ ጥራት በዲጂታል አንባቢው ማንበብ ይችላሉ።"}
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-navy uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen className="h-4 w-4 text-gold" />
+                    <span>የነፃ ናሙና ንባብ (Sample Preview)</span>
+                    {docxSamplePages.length > 0 && (
+                      <span className="text-[11px] font-mono text-gold bg-gold/15 px-2 py-0.5 rounded-full border border-gold/30">
+                        ገጽ {docxPageIndex + 1} / {docxSamplePages.length}
+                      </span>
+                    )}
+                  </h4>
+                  {docxSamplePages.length > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={docxPageIndex <= 0}
+                        onClick={() => setDocxPageIndex((p) => Math.max(0, p - 1))}
+                        className="px-2 py-0.5 text-xs font-bold rounded bg-gold/20 text-gold hover:bg-gold hover:text-navy-deep disabled:opacity-40 cursor-pointer"
+                        title="ቀዳሚ ገጽ"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        disabled={docxPageIndex >= docxSamplePages.length - 1}
+                        onClick={() => setDocxPageIndex((p) => Math.min(docxSamplePages.length - 1, p + 1))}
+                        className="px-2 py-0.5 text-xs font-bold rounded bg-gold/20 text-gold hover:bg-gold hover:text-navy-deep disabled:opacity-40 cursor-pointer"
+                        title="ቀጣይ ገጽ"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="max-h-44 overflow-y-auto pr-2 text-xs text-navy/85 whitespace-pre-line leading-relaxed font-sans scrollbar-thin">
+                  {docxLoading ? (
+                    <div className="py-4 text-center text-xs text-gold flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+                      <span>የDOCX ገጾችን በማዘጋጀት ላይ...</span>
+                    </div>
+                  ) : docxSamplePages.length > 0 ? (
+                    <div className="text-justify leading-relaxed">{docxSamplePages[docxPageIndex]}</div>
+                  ) : book.sampleContent && !book.sampleContent.startsWith("http") ? (
+                    book.sampleContent
+                  ) : /\.docx?(\?|$)/i.test(book.fullContent || "") ? (
+                    "የተዘጋጀ የተጠበቀ የዲጂታል ዎርድ / DOCX መጽሐፍ (Word/DOCX Book)። ክፍያውን ፈጽመው አስተዳዳሪው ሲያጸድቅልዎ ሙሉውን መጽሐፍ በከፍተኛ ጥራት በዲጂታል አንባቢው ማንበብ ይችላሉ።"
+                  ) : (
+                    "የተዘጋጀ የተጠበቀ የዲጂታል ፒዲኤፍ መጽሐፍ (PDF Book)። ክፍያውን ፈጽመው አስተዳዳሪው ሲያጸድቅልዎ ሙሉውን መጽሐፍ በከፍተኛ ጥራት በዲጂታል አንባቢው ማንበብ ይችላሉ።"
+                  )}
                 </div>
               </div>
 

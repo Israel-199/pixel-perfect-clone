@@ -3,6 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/rabbi/Logo";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
+import {
+  filterNameInput,
+  filterPhoneInput,
+  validateName,
+  validateEmail,
+} from "@/lib/inputValidation";
 
 export const Route = createFileRoute("/register")({
   component: RegisterRoute,
@@ -27,18 +33,21 @@ function RegisterRoute() {
     setError(null);
 
     // Client-side Input Validations
-    if (!fullName.trim()) {
-      setError("እባክዎ ሙሉ ስምዎን ያስገቡ (Full Name is required).");
+    const nameErr = validateName(fullName, "ሙሉ ስም (Full Name)");
+    if (nameErr) {
+      setError(nameErr);
       return;
     }
 
-    if (!phone.trim() || phone.trim().length < 9) {
-      setError("እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ (Valid Phone Number is required).");
+    const digits = phone.replace(/\D/g, "");
+    if (!digits || digits.length < 9) {
+      setError("እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ (ቁጥር ብቻ) (Valid Phone Number of digits only is required).");
       return;
     }
 
-    if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
-      setError("እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ (Valid Email is required).");
+    const emailErr = validateEmail(email, "ኢሜይል (Email)");
+    if (emailErr) {
+      setError(emailErr);
       return;
     }
 
@@ -110,8 +119,8 @@ function RegisterRoute() {
                 type="text"
                 required
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="ለምሳሌ፡ አበበ በቀለ"
+                onChange={(e) => setFullName(filterNameInput(e.target.value))}
+                placeholder="ለምሳሌ፡ አበበ በቀለ (ፊደላት ብቻ)"
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
@@ -125,8 +134,8 @@ function RegisterRoute() {
                 type="tel"
                 required
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0911223344"
+                onChange={(e) => setPhone(filterPhoneInput(e.target.value))}
+                placeholder="0911223344 (ቁጥር ብቻ)"
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>

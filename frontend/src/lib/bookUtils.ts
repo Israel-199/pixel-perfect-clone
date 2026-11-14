@@ -89,6 +89,7 @@ const pdfPageCountCache = new Map<string, number>();
  */
 export async function getPdfPageCount(pdfUrl: string): Promise<number> {
   if (!pdfUrl) return 0;
+  if (/\.docx?(\?|$)/i.test(pdfUrl)) return 0;
   if (pdfPageCountCache.has(pdfUrl)) {
     return pdfPageCountCache.get(pdfUrl)!;
   }
