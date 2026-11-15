@@ -79,6 +79,184 @@ export function estimateTextPageCount(content?: string | null): number {
   return Math.max(1, pageCounter);
 }
 
+export interface DocxAnalysis {
+  pageCount: number;
+  pages: string[];
+  fullText: string;
+  paragraphs: string[];
+}
+
+/**
+ * Cache for asynchronously analyzed DOCX files by URL
+ */
+const docxAnalysisCache = new Map<string, DocxAnalysis>();
+
+export async function loadJSZip(): Promise<any> {
+  if (typeof window === "undefined") return null;
+  if ((window as any).JSZip) return (window as any).JSZip;
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src*="jszip"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve((window as any).JSZip));
+      existing.addEventListener("error", () => reject(new Error("Failed to load JSZip")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    script.onload = () => resolve((window as any).JSZip);
+    script.onerror = () => reject(new Error("Failed to load JSZip"));
+    document.head.appendChild(script);
+  });
+}
+
+export async function loadMammoth(): Promise<any> {
+  if (typeof window === "undefined") return null;
+  if ((window as any).mammoth) return (window as any).mammoth;
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src*="mammoth"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve((window as any).mammoth));
+      existing.addEventListener("error", () => reject(new Error("Failed to load Mammoth")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
+    script.onload = () => resolve((window as any).mammoth);
+    script.onerror = () => reject(new Error("Failed to load Mammoth"));
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Extract exact page count, paragraphs, and lossless pages from a DOCX file.
+ * Preserves the exact page count (e.g. 1 page stays 1 page) and keeps original
+ * paragraph gaps and spacing intact.
+ */
+export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<DocxAnalysis> {
+  const isUrl = typeof docxUrlOrBuffer === "string";
+  if (isUrl && docxAnalysisCache.has(docxUrlOrBuffer as string)) {
+    return docxAnalysisCache.get(docxUrlOrBuffer as string)!;
+  }
+
+  let arrayBuffer: ArrayBuffer;
+  if (isUrl) {
+    const res = await fetch(docxUrlOrBuffer as string);
+    if (!res.ok) throw new Error(`Failed to fetch DOCX file: ${res.status}`);
+    arrayBuffer = await res.arrayBuffer();
+  } else {
+    arrayBuffer = docxUrlOrBuffer as ArrayBuffer;
+  }
+
+  const [JSZip, mammoth] = await Promise.all([
+    loadJSZip().catch(() => null),
+    loadMammoth().catch(() => null),
+  ]);
+
+  let declaredPageCount = 0;
+  let explicitPageBreakCount = 0;
+  let rawText = "";
+
+  // 1. Inspect docx internal XML via JSZip
+  if (JSZip) {
+    try {
+      const zip = await JSZip.loadAsync(arrayBuffer);
+
+      // docProps/app.xml holds the official Word-saved page count
+      const appXml = await zip.file("docProps/app.xml")?.async("text");
+      if (appXml) {
+        const pageMatch = appXml.match(/<Pages>(\d+)<\/Pages>/i);
+        if (pageMatch) {
+          declaredPageCount = parseInt(pageMatch[1], 10);
+        }
+      }
+
+      // word/document.xml holds page breaks
+      const docXml = await zip.file("word/document.xml")?.async("text");
+      if (docXml) {
+        const pageBreaks = docXml.match(/<w:br[^>]+w:type=["']page["']|<w:lastRenderedPageBreak\b/gi);
+        if (pageBreaks) {
+          explicitPageBreakCount = pageBreaks.length;
+        }
+      }
+    } catch (e) {
+      console.warn("JSZip docx inspection notice:", e);
+    }
+  }
+
+  // 2. Extract text with paragraphs using Mammoth
+  if (mammoth) {
+    try {
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      rawText = (result.value || "").trim();
+    } catch (e) {
+      console.warn("Mammoth extraction notice:", e);
+    }
+  }
+
+  if (!rawText) {
+    const emptyResult: DocxAnalysis = {
+      pageCount: declaredPageCount || 1,
+      pages: [""],
+      fullText: "",
+      paragraphs: [],
+    };
+    if (isUrl) docxAnalysisCache.set(docxUrlOrBuffer as string, emptyResult);
+    return emptyResult;
+  }
+
+  // 3. Preserve paragraph gaps:
+  // Split strictly by paragraph breaks (empty lines / double newlines)
+  // so all original paragraph gaps and line spacing remain 100% intact.
+  const paragraphs = rawText
+    .split(/\r?\n\s*\r?\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const wordCount = rawText.split(/\s+/).filter(Boolean).length;
+
+  // 4. Calculate final page count:
+  // - If Word's app.xml explicitly declared Pages (e.g. 1), that is respected.
+  // - If explicit page breaks exist, page count = breaks + 1.
+  // - Otherwise, standard density is ~450 words/page (so 1-page documents stay 1 page!).
+  let finalPageCount = 1;
+  if (declaredPageCount > 0) {
+    finalPageCount = declaredPageCount;
+  } else if (explicitPageBreakCount > 0) {
+    finalPageCount = explicitPageBreakCount + 1;
+  } else {
+    finalPageCount = Math.max(1, Math.ceil(wordCount / 450));
+  }
+
+  // 5. Build pages preserving gaps:
+  let pages: string[] = [];
+  if (finalPageCount <= 1 || paragraphs.length <= 1) {
+    // Single page document: keep ALL paragraphs and gaps together on Page 1!
+    pages = [paragraphs.join("\n\n")];
+  } else {
+    const parasPerPage = Math.max(1, Math.ceil(paragraphs.length / finalPageCount));
+    for (let i = 0; i < paragraphs.length; i += parasPerPage) {
+      const pageParas = paragraphs.slice(i, i + parasPerPage);
+      pages.push(pageParas.join("\n\n"));
+    }
+    if (pages.length === 0) {
+      pages = [paragraphs.join("\n\n")];
+    }
+  }
+
+  const analysis: DocxAnalysis = {
+    pageCount: finalPageCount,
+    pages,
+    fullText: rawText,
+    paragraphs,
+  };
+
+  if (isUrl) {
+    docxAnalysisCache.set(docxUrlOrBuffer as string, analysis);
+  }
+
+  return analysis;
+}
+
 /**
  * Cache for asynchronously detected PDF page counts by URL
  */

@@ -23,12 +23,12 @@ import {
   Sun,
   Moon,
   Coffee,
-  Download,
 } from "lucide-react";
 import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { filterNumberInput } from "@/lib/inputValidation";
+import { parseDocx } from "@/lib/bookUtils";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -156,6 +156,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [docxLoading, setDocxLoading] = useState<boolean>(false);
   const [docxError, setDocxError] = useState<string | null>(null);
   const [docxText, setDocxText] = useState<string>("");
+  const [docxPages, setDocxPages] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isDocx || !docxUrl) return;
@@ -165,24 +166,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
     const loadDocx = async () => {
       try {
-        if (!(window as any).mammoth) {
-          await new Promise<void>((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error("Mammoth parser failed to load"));
-            document.head.appendChild(script);
-          });
-        }
-
-        const mammoth = (window as any).mammoth;
-        const response = await fetch(docxUrl);
-        if (!response.ok) throw new Error(`DOCX fetch failed: ${response.status}`);
-        const arrayBuffer = await response.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-
+        const analysis = await parseDocx(docxUrl);
         if (!isMounted) return;
-        setDocxText(result.value || "");
+        setDocxText(analysis.fullText);
+        setDocxPages(analysis.pages);
         setDocxLoading(false);
       } catch (err: any) {
         console.error("DOCX loading error:", err);
@@ -223,6 +210,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   // ============================================================================
   const { chapters, pages, totalTextPages } = useMemo(() => {
     if (isPdf) return { chapters: [], pages: [], totalTextPages: 0 };
+
+    // For DOCX files: use the lossless pages with preserved gaps and true page count!
+    if (isDocx && docxPages.length > 0) {
+      const generatedPages: BookPage[] = docxPages.map((pageText, idx) => ({
+        pageNumber: idx + 1,
+        chapterTitle: book.title,
+        text: pageText,
+      }));
+      return {
+        chapters: [{ id: 1, title: book.title, startPage: 1 }],
+        pages: generatedPages,
+        totalTextPages: generatedPages.length,
+      };
+    }
 
     const rawText = (docxText || book.fullContent || book.sampleContent || "").trim();
     if (!rawText) {
@@ -339,7 +340,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }
 
     return { chapters: generatedChapters, pages: generatedPages, totalTextPages: generatedPages.length };
-  }, [book.fullContent, book.sampleContent, book.title, isPdf, docxText, docxLoading]);
+  }, [book.fullContent, book.sampleContent, book.title, isPdf, isDocx, docxText, docxPages, docxLoading]);
 
   const totalPages = isPdf ? pdfNumPages : totalTextPages;
 
@@ -398,6 +399,14 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     return () => { isMounted = false; };
   }, [isPdf, pdfUrl]);
 
+  // ── Forensic Watermark Label ───────────────────────────────────────────────
+  const watermarkLabel = useMemo(() => {
+    const name = user?.fullName || "AUTHORIZED MEMBER";
+    const contact = user?.phone || user?.email || "RABBI CHURCH";
+    const uid = user?.id ? `UID:${user.id.slice(0, 8)}` : "LICENSED";
+    return `${name} • ${contact} • ${uid} • PROTECTED • DO NOT SHARE`;
+  }, [user]);
+
   // ============================================================================
   // 3. PDF CANVAS RENDERER — fills container width, no shrinking
   // ============================================================================
@@ -441,11 +450,31 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
+
+        // BURN FORENSIC WATERMARK DIRECTLY INTO PDF CANVAS BITMAP PIXELS
+        ctx.save();
+        if (transform) {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = "#b8860b";
+        ctx.font = "bold 13px monospace";
+        ctx.rotate((-25 * Math.PI) / 180);
+        const wStepX = 300;
+        const wStepY = 120;
+        const wWidth = viewport.width * 2.5;
+        const wHeight = viewport.height * 2.5;
+        for (let x = -viewport.width; x < wWidth; x += wStepX) {
+          for (let y = -viewport.height; y < wHeight; y += wStepY) {
+            ctx.fillText(watermarkLabel, x, y);
+          }
+        }
+        ctx.restore();
       } catch (e) {
         console.error("Canvas render error:", e);
       }
     },
-    [pdfDoc, zoomScale, twoPageView]
+    [pdfDoc, zoomScale, twoPageView, watermarkLabel]
   );
 
   useEffect(() => {
@@ -470,18 +499,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   }, [isPdf, pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
   // ============================================================================
-  // 4. HARDENED SCREENSHOT PREVENTION
+  // 4. HARDENED SCREENSHOT & ANTI-LEAK PROTECTION
   // ============================================================================
-  // Strategy:
-  //  A) React overlay — solid black div z-[999999] covers EVERYTHING when active
-  //  B) Canvas wipe — canvases are painted black every animation frame while active
-  //  C) CSS injection — @media print hides all content
-  //  D) Events: keydown/keyup for PrintScreen, blur, visibilitychange
-  //  E) requestAnimationFrame watchdog — continuously paints black on canvas
-  //     while focus is lost; this catches Windows Snipping Tool which does NOT
-  //     fire blur before capturing (it uses DWM/screen grab APIs)
-  //  F) document.hasFocus() polled every 80ms as extra safety net
-
   const wipeCanvasesBlack = useCallback(() => {
     [pdfCanvasRef.current, pdfCanvasRef2.current].forEach((canvas) => {
       if (!canvas) return;
@@ -493,18 +512,34 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     });
   }, []);
 
-  // Activate blackout — sets ref synchronously so RAF loop catches it instantly
+  // Synchronous, zero-latency blackout across both DOM and canvases
   const activateBlackout = useCallback(() => {
     isBlackoutActiveRef.current = true;
     setIsScreenBlackout(true);
     wipeCanvasesBlack();
-    try { navigator.clipboard?.writeText(""); } catch {}
-  }, [wipeCanvasesBlack]);
+    if (contentAreaRef.current) {
+      contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
+      contentAreaRef.current.style.opacity = "0";
+      contentAreaRef.current.style.pointerEvents = "none";
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(
+          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
+        );
+      }
+    } catch {}
+  }, [wipeCanvasesBlack, user]);
 
   const deactivateBlackout = useCallback(() => {
     isBlackoutActiveRef.current = false;
     setIsScreenBlackout(false);
     setSecurityNotice(null);
+    if (contentAreaRef.current) {
+      contentAreaRef.current.style.filter = "none";
+      contentAreaRef.current.style.opacity = "1";
+      contentAreaRef.current.style.pointerEvents = "auto";
+    }
     // Re-render pages after restoring
     if (pdfDoc) {
       setTimeout(() => {
@@ -516,20 +551,28 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }
   }, [pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
-  // RAF loop: runs every frame; keeps canvas painted black while blackout is active
-  // This is the key mechanism against Windows Snipping Tool — it grabs a frame,
-  // so if every frame is black the grab is black.
+  // RAF loop: runs every frame; keeps content hidden while blackout is active
   useEffect(() => {
     const loop = () => {
       if (isBlackoutActiveRef.current) {
         wipeCanvasesBlack();
+        if (contentAreaRef.current && contentAreaRef.current.style.opacity !== "0") {
+          contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
+          contentAreaRef.current.style.opacity = "0";
+          contentAreaRef.current.style.pointerEvents = "none";
+        }
       }
-      // Also check focus every frame (60fps = no visible gap for Snipping Tool)
+      // Check focus every frame (60fps = catches Snipping Tool, Game Bar, Alt-Tab)
       if (!document.hasFocus() || document.hidden) {
         if (!isBlackoutActiveRef.current) {
           isBlackoutActiveRef.current = true;
           setIsScreenBlackout(true);
           wipeCanvasesBlack();
+          if (contentAreaRef.current) {
+            contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
+            contentAreaRef.current.style.opacity = "0";
+            contentAreaRef.current.style.pointerEvents = "none";
+          }
         }
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -615,6 +658,32 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     }, 80);
 
+    // Mobile Touch & Gesture protection:
+    // 1. Multi-finger touch (>=2 fingers): mobile screenshots (pinch, 3-finger swipe)
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches && e.touches.length >= 2) {
+        activateBlackout();
+        setSecurityNotice(t("screenshotBlockedMsg"));
+      }
+    };
+
+    // 2. Hardware buttons (Power + Volume Down) fire touchcancel on active mobile touch
+    const handleTouchCancel = () => {
+      activateBlackout();
+    };
+
+    // 3. Mobile app switch / screenshot preview mode triggers pagehide
+    const handlePageHide = () => {
+      activateBlackout();
+    };
+
+    // 4. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        activateBlackout();
+      }
+    };
+
     // Print prevention CSS
     const printStyle = document.createElement("style");
     printStyle.id = "rabbi-drm-print-guard";
@@ -627,6 +696,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
     window.addEventListener("contextmenu", blockContextMenu);
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("mouseleave", handleMouseLeave);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
@@ -636,6 +709,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("contextmenu", blockContextMenu);
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchcancel", handleTouchCancel);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("mouseleave", handleMouseLeave);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.getElementById("rabbi-drm-print-guard")?.remove();
     };
@@ -823,21 +900,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               <Columns className="h-3.5 w-3.5" />
               <span>{twoPageView ? t("twoPages") : t("singlePage")}</span>
             </button>
-          )}
-
-          {/* Download for DOCX */}
-          {isDocx && docxUrl && (
-            <a
-              href={docxUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
-              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-navy/40 px-2.5 py-1.5 text-xs font-semibold text-gold border border-gold/30 hover:bg-gold/20 cursor-pointer"
-              title="Download DOCX"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>DOCX</span>
-            </a>
           )}
 
           {/* Zoom for PDF */}
@@ -1128,7 +1190,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           ref={pdfCanvasRef}
                           style={{ display: "block", width: "100%", height: "auto" }}
                         />
-                        <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm">
+                        {/* Forensic Anti-Leak Watermark Grid Layer on PDF Canvas */}
+                        <div
+                          className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
+                          style={{ opacity: 0.14 }}
+                          aria-hidden="true"
+                        >
+                          {Array.from({ length: 24 }).map((_, i) => (
+                            <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-black leading-tight">
+                              <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
+                              <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
                           {t("page")} {currentPage}
                         </div>
                       </div>
@@ -1140,7 +1215,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                             ref={pdfCanvasRef2}
                             style={{ display: "block", width: "100%", height: "auto" }}
                           />
-                          <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm">
+                          {/* Forensic Anti-Leak Watermark Grid Layer on PDF Canvas 2 */}
+                          <div
+                            className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
+                            style={{ opacity: 0.14 }}
+                            aria-hidden="true"
+                          >
+                            {Array.from({ length: 24 }).map((_, i) => (
+                              <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-black leading-tight">
+                                <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
+                                <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
                             {t("page")} {currentPage + 1}
                           </div>
                         </div>
@@ -1164,23 +1252,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       <div className="rounded-2xl bg-red-950/40 border border-red-500/40 p-6 w-full">
                         <ShieldAlert className="h-8 w-8 text-red-400 mx-auto mb-3" />
                         <p className="text-sm text-red-200 font-semibold mb-2">{docxError}</p>
-                        <p className="text-xs text-red-300/80 mb-4">የDOCX ፋይሉን በቀጥታ ማውረድ ወይም እንደገና መሞከር ይችላሉ።</p>
+                        <p className="text-xs text-red-300/80 mb-4">እባክዎ እንደገና ይሞክሩ ወይም ከአስተዳዳሪው ጋር ይገናኙ።</p>
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {docxUrl && (
-                            <a
-                              href={docxUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold text-navy-deep text-xs font-bold hover:bg-gold/90 transition-all"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              <span>ፋይሉን አውርድ (Download)</span>
-                            </a>
-                          )}
                           <button
                             onClick={() => window.location.reload()}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold/20 text-gold text-xs font-bold border border-gold/40 hover:bg-gold hover:text-navy-deep cursor-pointer transition-all"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold text-navy-deep text-xs font-bold hover:bg-gold/90 cursor-pointer transition-all shadow-md"
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
                             <span>እንደገና ይሞክሩ (Retry)</span>
@@ -1198,7 +1274,21 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                     className={`relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-10 min-h-[60vh] flex flex-col justify-between border ${getThemeClasses()}`}
                     style={{ fontSize: `${fontSize}px` }}
                   >
-                    <div>
+                    {/* Forensic Anti-Leak Watermark Grid Layer on Left Page */}
+                    <div
+                      className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
+                      style={{ opacity: 0.12 }}
+                      aria-hidden="true"
+                    >
+                      {Array.from({ length: 24 }).map((_, i) => (
+                        <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-current leading-tight">
+                          <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
+                          <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="relative z-1">
                       <div className="flex items-center justify-between border-b border-current/15 pb-3 mb-6 text-[11px] font-bold tracking-widest uppercase opacity-60">
                         <span className="truncate pr-4">{book.title}</span>
                         <span className="shrink-0">{activePageObj?.chapterTitle}</span>
@@ -1207,7 +1297,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         {activePageObj?.text}
                       </div>
                     </div>
-                    <div className="mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
+                    <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
                       <span>RABBI Digital Library</span>
                       <span>— {currentPage} —</span>
                     </div>
@@ -1219,7 +1309,21 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       className={`relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-10 min-h-[60vh] flex flex-col justify-between border hidden lg:flex ${getThemeClasses()}`}
                       style={{ fontSize: `${fontSize}px` }}
                     >
-                      <div>
+                      {/* Forensic Anti-Leak Watermark Grid Layer on Right Page */}
+                      <div
+                        className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
+                        style={{ opacity: 0.12 }}
+                        aria-hidden="true"
+                      >
+                        {Array.from({ length: 24 }).map((_, i) => (
+                          <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-current leading-tight">
+                            <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
+                            <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="relative z-1">
                         <div className="flex items-center justify-between border-b border-current/15 pb-3 mb-6 text-[11px] font-bold tracking-widest uppercase opacity-60">
                           <span>{secondPageObj.chapterTitle}</span>
                           <span>{book.author || "RABBI"}</span>
@@ -1228,7 +1332,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           {secondPageObj.text}
                         </div>
                       </div>
-                      <div className="mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
+                      <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
                         <span>— {currentPage + 1} —</span>
                         <span>{t("protectedContent")}</span>
                       </div>

@@ -5,23 +5,25 @@ import { fetchApi } from "@/lib/api";
 import { BookItem, BookModal } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 import { formatEtbWithUsd } from "@/lib/bookUtils";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/books")({
   component: BooksRoute,
 });
 
-const SUB_SECTIONS = [
-  { icon: Book, title: "መጽሐፍ ቅዱስ", desc: "የሕይወት ቃል" },
-  { icon: Library, title: "ሁሉም መጽሐፍት", desc: "መንፈሳዊ መጽሐፍት ክምችት" },
-  { icon: GraduationCap, title: "የመማሪያ መጽሐፍት", desc: "ለጥናት የሚረዱ መጽሐፍት" },
-  { icon: LayoutList, title: "መጽሐፍ ዝርዝር", desc: "የመጽሐፍት ማጠቃለያና መግለጫ" },
-];
-
 function BooksRoute() {
+  const { t } = useLanguage();
   const [books, setBooks] = useState<BookItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedBook, setSelectedBook] = useState<BookItem | null>(null);
   const [selectedBookForReader, setSelectedBookForReader] = useState<BookItem | null>(null);
+
+  const subSections = [
+    { icon: Book, title: t("catBibleTitle"), desc: t("catBibleDesc") },
+    { icon: Library, title: t("catAllBooksTitle"), desc: t("catAllBooksDesc") },
+    { icon: GraduationCap, title: t("catStudyTitle"), desc: t("catStudyDesc") },
+    { icon: LayoutList, title: t("catSummaryTitle"), desc: t("catSummaryDesc") },
+  ];
 
   const fetchBooks = async () => {
     try {
@@ -43,16 +45,16 @@ function BooksRoute() {
     <div className="animate-in fade-in pb-20">
       {/* Banner */}
       <div className="bg-navy-deep px-4 sm:px-6 py-10 sm:py-16 text-center border-b border-gold/20">
-        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">መንፈሳዊ መጽሐፍትና ሚዲያዎች</h1>
+        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">{t("booksTitle")}</h1>
         <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
-          የተመረጡ መንፈሳዊ መጽሐፍትን፣ የቪዲዮና ኦዲዮ ትምህርቶችን ናሙና ያንብቡ፤ በስርዓቱ ላይ ብቻ በሚሰራው ጥበቃ ይማሩ።
+          {t("booksSubtitle")}
         </p>
       </div>
 
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* Categories / Filters */}
         <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 mb-8 sm:mb-12">
-          {SUB_SECTIONS.map(({ icon: Icon, title, desc }) => (
+          {subSections.map(({ icon: Icon, title, desc }) => (
             <div
               key={title}
               className="group cursor-pointer rounded-xl bg-card p-3.5 sm:p-5 shadow-card transition-all hover:-translate-y-1 hover:shadow-lg border border-gold/10 hover:border-gold/30"
@@ -69,7 +71,7 @@ function BooksRoute() {
         {/* Books List Grid */}
         <h2 className="font-display text-xl sm:text-2xl font-bold text-navy mb-5 sm:mb-6 flex items-center gap-2">
           <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-gold shrink-0" />
-          <span>ያሉ መጽሐፍት ({books.length})</span>
+          <span>{t("availableBooks")} ({books.length})</span>
         </h2>
 
         {loading ? (
@@ -110,12 +112,12 @@ function BooksRoute() {
                       {/* Status Overlay Badge */}
                       {isPermitted && (
                         <div className="absolute bottom-3 left-3 rounded-md bg-green-600 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow">
-                          ✓ ተፈቅዷል
+                          ✓ {t("approved")}
                         </div>
                       )}
                       {isPending && (
                         <div className="absolute bottom-3 left-3 rounded-md bg-amber-500 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow">
-                          ⏳ ጥያቄ ተልኳል
+                          ⏳ {t("pendingApproval")}
                         </div>
                       )}
                     </div>
@@ -126,7 +128,7 @@ function BooksRoute() {
                         {book.title}
                       </h3>
                       <p className="text-xs font-semibold text-gold mt-0.5">
-                        ደራሲ: {book.author || "RABBI"}
+                        {t("authorLabel")}: {book.author || "RABBI"}
                       </p>
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
                         {book.description}
@@ -150,12 +152,12 @@ function BooksRoute() {
                       {isPermitted ? (
                         <>
                           <BookOpen className="h-3.5 w-3.5" />
-                          <span>አንብብ</span>
+                          <span>{t("readAction")}</span>
                         </>
                       ) : (
                         <>
                           <Lock className="h-3.5 w-3.5" />
-                          <span>ናሙና / ጠይቅ</span>
+                          <span>{t("sampleOrRequest")}</span>
                         </>
                       )}
                     </button>

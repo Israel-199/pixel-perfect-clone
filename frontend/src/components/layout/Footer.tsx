@@ -1,42 +1,43 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { Logo } from "@/components/rabbi/Logo";
-
-const FOOTER_COLS = [
-  {
-    title: "መጽሐፍትና ኮርሶች",
-    links: [
-      { label: "ሁሉም መጽሐፍት", to: "/books" },
-      { label: "ኮርሶች እና ስልጠናዎች", to: "/courses" },
-      { label: "ጸሎት", to: "/prayer" },
-      { label: "ጽሑፎች", to: "/articles" },
-      { label: "ሚዲያ", to: "/media" },
-    ],
-  },
-  {
-    title: "ደጋፍና መረጃ",
-    links: [
-      { label: "ስለ እኛ", to: "/about" },
-      { label: "ራዕይና ተልዕኮ", to: "/about" },
-      { label: "የአጋርነት ጥያቄ", to: "/about" },
-      { label: "ያግኙን", to: "/about" },
-    ],
-  },
-];
+import { useLanguage } from "@/lib/language";
 
 export function Footer() {
+  const { t } = useLanguage();
+
+  const footerCols = [
+    {
+      title: t("footerBooksCoursesCol"),
+      links: [
+        { label: t("catAllBooksTitle"), to: "/books" },
+        { label: t("navCourses"), to: "/courses" },
+        { label: t("navPrayer"), to: "/prayer" },
+        { label: t("navArticles"), to: "/articles" },
+        { label: t("navMedia"), to: "/media" },
+      ],
+    },
+    {
+      title: t("footerSupportCol"),
+      links: [
+        { label: t("subAboutUs"), to: "/about" },
+        { label: t("subVision"), to: "/about" },
+        { label: t("subPartnership"), to: "/about" },
+        { label: t("subContact"), to: "/about" },
+      ],
+    },
+  ];
+
   return (
     <footer className="border-t border-navy-soft/40 bg-navy-deep">
       <div className="mx-auto grid max-w-[1180px] gap-8 px-4 sm:px-6 py-10 sm:py-12 grid-cols-1 sm:grid-cols-2 md:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
         <div>
           <Logo size="lg" />
-          <p className="mt-4 text-[0.7rem] leading-5 text-on-navy-muted">
-            ቃሱን አንብብ፣ አምነትን ተረዳ፣
-            <br />
-            በሕይወትህ ኑር፤
+          <p className="mt-4 text-[0.7rem] leading-5 text-on-navy-muted whitespace-pre-line">
+            {t("motto")}
           </p>
         </div>
-        {FOOTER_COLS.map((col) => (
+        {footerCols.map((col) => (
           <div key={col.title}>
             <h4 className="text-xs font-semibold text-gold">{col.title}</h4>
             <ul className="mt-3 space-y-2">
@@ -54,7 +55,7 @@ export function Footer() {
           </div>
         ))}
         <div>
-          <h4 className="text-xs font-semibold text-gold">ያማኸኝ</h4>
+          <h4 className="text-xs font-semibold text-gold">{t("footerContactCol")}</h4>
           <ul className="mt-3 space-y-2 text-[0.7rem] text-on-navy-muted">
             <li className="flex items-center gap-2">
               <Mail className="h-3.5 w-3.5 text-gold" /> info@rabbimessenger.com
@@ -63,13 +64,13 @@ export function Footer() {
               <Phone className="h-3.5 w-3.5 text-gold" /> +251 9XX XXX XXX
             </li>
             <li className="flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-gold" /> አዲስ አበባ፣ ኢትዮጵያ
+              <MapPin className="h-3.5 w-3.5 text-gold" /> {t("footerAddisAbaba")}
             </li>
           </ul>
         </div>
       </div>
       <div className="border-t border-navy-soft/40 py-4 text-center text-[0.65rem] text-on-navy-muted">
-        © 2024 RABBI. All Rights Reserved.
+        {t("footerCopyright")}
       </div>
     </footer>
   );

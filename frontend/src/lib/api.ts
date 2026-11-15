@@ -6,14 +6,9 @@ const rawBaseUrl =
     : "https://pixel-perfect-clone-1-5lm4.onrender.com/api");
 
 const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, "");
-const API_BASE_URL = cleanBaseUrl.endsWith("/api")
-  ? cleanBaseUrl
-  : `${cleanBaseUrl}/api`;
+const API_BASE_URL = cleanBaseUrl.endsWith("/api") ? cleanBaseUrl : `${cleanBaseUrl}/api`;
 
-export async function fetchApi<T = any>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("rabbi_auth_token") : null;
 
   const headers: Record<string, string> = {
