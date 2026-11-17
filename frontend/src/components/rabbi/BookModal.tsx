@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { X, Lock, CheckCircle2, Send, CreditCard, BookOpen, PlayCircle, Music, FileText, ShieldAlert } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Lock, CheckCircle2, Send, CreditCard, BookOpen, PlayCircle, Music, FileText } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
@@ -48,198 +48,18 @@ export const BookModal: React.FC<BookModalProps> = ({
   const [docxPageIndex, setDocxPageIndex] = useState<number>(0);
   const [docxLoading, setDocxLoading] = useState<boolean>(false);
 
-  // ── Anti-Screenshot & DRM Security State ────────────────────────────────────
-  const [isScreenBlackout, setIsScreenBlackout] = useState<boolean>(false);
-  const [securityNotice, setSecurityNotice] = useState<string | null>(null);
-  const isBlackoutActiveRef = useRef<boolean>(false);
-  const modalContainerRef = useRef<HTMLDivElement | null>(null);
-
-  const activateBlackout = useCallback((reason?: string) => {
-    isBlackoutActiveRef.current = true;
-    setIsScreenBlackout(true);
-    if (reason) setSecurityNotice(reason);
-    if (modalContainerRef.current) {
-      modalContainerRef.current.style.filter = "blur(60px) brightness(0)";
-      modalContainerRef.current.style.opacity = "0";
-      modalContainerRef.current.style.pointerEvents = "none";
-    }
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(
-          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
-        );
-      }
-    } catch {}
-  }, [user]);
-
-  const deactivateBlackout = useCallback(() => {
-    isBlackoutActiveRef.current = false;
-    setIsScreenBlackout(false);
-    setSecurityNotice(null);
-    if (modalContainerRef.current) {
-      modalContainerRef.current.style.filter = "none";
-      modalContainerRef.current.style.opacity = "1";
-      modalContainerRef.current.style.pointerEvents = "auto";
-    }
-  }, []);
-
-  // ── Anti-Screenshot & DRM Event Listeners ──────────────────────────────────
-  useEffect(() => {
-    // 1. Inject Print Prevention CSS
-    const printStyleId = "rabbi-bookmodal-print-guard";
-    let printStyle = document.getElementById(printStyleId) as HTMLStyleElement | null;
-    if (!printStyle) {
-      printStyle = document.createElement("style");
-      printStyle.id = printStyleId;
-      printStyle.innerHTML = "@media print { * { display: none !important; visibility: hidden !important; } }";
-      document.head.appendChild(printStyle);
-    }
-
-    // 2. Keyboard shortcuts & PrintScreen interceptor
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // PrintScreen key (standard, Alt+PrintScreen, Win+PrintScreen, etc.)
-      if (e.key === "PrintScreen" || e.keyCode === 44) {
-        e.preventDefault();
-        activateBlackout("ማስጠንቀቂያ፡ ስክሪንሾት (Screenshot) ማንሳት በደህንነት ደንብ በጥብቅ የተከለከለ ነው! (Screenshotting is strictly prohibited)");
-        return;
-      }
-
-      // Windows Snipping Tool shortcut: Win+Shift+S or Ctrl+Shift+S
-      if ((e.key === "S" || e.key === "s") && e.shiftKey && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        activateBlackout("ስክሪንሾት ማንሳት በስርዓቱ የተከለከለ ነው። (Screen capture prohibited)");
-        return;
-      }
-
-      // Mac screenshot shortcuts: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && ["3", "4", "5", "$", "%", "#"].includes(e.key)) {
-        e.preventDefault();
-        activateBlackout("ስክሪንሾት ማንሳት በስርዓቱ የተከለከለ ነው። (Screen capture prohibited)");
-        return;
-      }
-
-      // Print / Save / Inspect shortcuts
-      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P" || e.key === "s" || e.key === "S" || e.key === "u" || e.key === "U")) {
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === "F12") {
-        e.preventDefault();
-        return;
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "PrintScreen" || e.keyCode === 44) {
-        e.preventDefault();
-        activateBlackout("ማስጠንቀቂያ፡ ስክሪንሾት (Screenshot) ማንሳት በደህንነት ደንብ በጥብቅ የተከለከለ ነው!");
-      }
-    };
-
-    // 3. Window blur detection (catches external snipping / screen recording apps)
-    const handleWindowBlur = () => {
-      activateBlackout("ይዘቱ የተጠበቀ ነው (Protected View - Window Focus Lost)");
-    };
-
-    const handleWindowFocus = () => {
-      setTimeout(() => {
-        if (document.hasFocus() && !document.hidden) {
-          deactivateBlackout();
-        }
-      }, 250);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden || document.visibilityState !== "visible") {
-        activateBlackout("ይዘቱ የተጠበቀ ነው (Protected View - Window Inactive)");
-      } else {
-        setTimeout(() => {
-          if (document.hasFocus() && !document.hidden) {
-            deactivateBlackout();
-          }
-        }, 200);
-      }
-    };
-
-    // 4. Mobile & Desktop touch/gesture protection
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 2) {
-        activateBlackout("ስክሪንሾት ማንሳት በስርዓቱ የተከለከለ ነው። (Screen capture prohibited)");
-      }
-    };
-
-    const handleTouchCancel = () => {
-      activateBlackout("ይዘቱ የተጠበቀ ነው (Protected View)");
-    };
-
-    const handlePageHide = () => {
-      activateBlackout("ይዘቱ የተጠበቀ ነው (Protected View)");
-    };
-
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0 || e.clientX <= 0 || (e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
-        activateBlackout("ይዘቱ የተጠበቀ ነው (Protected View)");
-      }
-    };
-
-    // 5. Watchdog RAF loop
-    let rafId: number | null = null;
-    const loop = () => {
-      if (isBlackoutActiveRef.current) {
-        if (modalContainerRef.current && modalContainerRef.current.style.opacity !== "0") {
-          modalContainerRef.current.style.filter = "blur(60px) brightness(0)";
-          modalContainerRef.current.style.opacity = "0";
-          modalContainerRef.current.style.pointerEvents = "none";
-        }
-      }
-      if (!document.hasFocus() || document.hidden) {
-        if (!isBlackoutActiveRef.current) {
-          activateBlackout("ይዘቱ የተጠበቀ ነው (Protected View)");
-        }
-      }
-      rafId = requestAnimationFrame(loop);
-    };
-    rafId = requestAnimationFrame(loop);
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("blur", handleWindowBlur);
-    window.addEventListener("focus", handleWindowFocus);
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
-    window.addEventListener("pagehide", handlePageHide);
-    document.addEventListener("mouseleave", handleMouseLeave);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("blur", handleWindowBlur);
-      window.removeEventListener("focus", handleWindowFocus);
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchcancel", handleTouchCancel);
-      window.removeEventListener("pagehide", handlePageHide);
-      document.removeEventListener("mouseleave", handleMouseLeave);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.getElementById(printStyleId)?.remove();
-    };
-  }, [activateBlackout, deactivateBlackout]);
-
   // ── Accurate DOCX / PDF Page Count & Lossless Sample Extraction ────────────
   useEffect(() => {
     if (!book) return;
-    const content = book.fullContent || book.sampleContent || "";
+    const content = (book.fullContent || book.sampleContent || "").trim();
     const isDocx = /\.docx?(\?|$)/i.test(content);
+    const isPdfUrl = (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf")) && !isDocx;
 
     if (isDocx && (content.startsWith("http://") || content.startsWith("https://"))) {
       setDocxLoading(true);
       parseDocx(content)
         .then((analysis) => {
-          // Accurate page count from Word metadata: 1 page stays 1 page!
           setPageCount(analysis.pageCount);
-          // Preserve paragraph gaps and lossless pages
           setDocxSamplePages(analysis.pages);
         })
         .catch((e) => {
@@ -248,11 +68,11 @@ export const BookModal: React.FC<BookModalProps> = ({
         .finally(() => {
           setDocxLoading(false);
         });
-    } else if (!isDocx && (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf"))) {
+    } else if (isPdfUrl) {
       getPdfPageCount(content).then((cnt) => {
         if (cnt > 0) setPageCount(cnt);
       });
-    } else {
+    } else if (content) {
       const cnt = estimateTextPageCount(content);
       setPageCount(cnt);
     }
@@ -298,61 +118,11 @@ export const BookModal: React.FC<BookModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in select-none"
-      onContextMenu={(e) => e.preventDefault()}
-      onCopy={(e) => e.preventDefault()}
-      onCut={(e) => e.preventDefault()}
-      onDragStart={(e) => e.preventDefault()}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in"
     >
-      {/* ── PITCH-BLACK SCREENSHOT VEIL ─────────────────────────────────── */}
-      {isScreenBlackout && (
-        <div
-          className="fixed inset-0 flex flex-col items-center justify-center select-none cursor-pointer p-6 text-center animate-in fade-in"
-          style={{ zIndex: 999999, backgroundColor: "#000000" }}
-          onClick={deactivateBlackout}
-        >
-          <div className="max-w-md rounded-2xl border border-red-500/40 bg-zinc-950/90 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 text-red-500 border border-red-500/30">
-              <ShieldAlert className="h-7 w-7" />
-            </div>
-            <h3 className="font-display text-lg sm:text-xl font-bold text-white mb-2">
-              {securityNotice || "የይዘት ጥበቃ ማስጠንቀቂያ (Security Notice)"}
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed mb-6">
-              ስክሪንሾት ማንሳት ወይም ይዘት መቅዳት በስርዓቱ በጥብቅ የተከለከለ ነው። ወደ ንባብ ለመመለስ እዚህ ይጫኑ።
-              <br />
-              <span className="text-[11px] text-zinc-400 mt-1 block">
-                (Screenshots, screen recording, and unauthorized copying are strictly prohibited on protected church content.)
-              </span>
-            </p>
-            <button
-              type="button"
-              onClick={deactivateBlackout}
-              className="w-full rounded-xl bg-gold px-5 py-2.5 text-xs font-bold text-navy-deep hover:bg-gold/90 transition-all cursor-pointer shadow-md"
-            >
-              ይዘቱን ለመመልከት እዚህ ይጫኑ (Resume Viewing)
-            </button>
-          </div>
-        </div>
-      )}
-
       <div
-        ref={modalContainerRef}
         className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-card border border-gold/30 shadow-2xl p-4 sm:p-6 md:p-8"
       >
-        {/* Dynamic Anti-Piracy Watermark Grid */}
-        <div
-          className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none opacity-[0.11] flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-15deg]"
-          aria-hidden="true"
-        >
-          {Array.from({ length: 16 }).map((_, i) => (
-            <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-navy-deep">
-              <p>{user?.fullName || "AUTHORIZED READER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
-              <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SCREENSHOT</p>
-            </div>
-          ))}
-        </div>
-
         {/* Close Button */}
         <button
           onClick={onClose}

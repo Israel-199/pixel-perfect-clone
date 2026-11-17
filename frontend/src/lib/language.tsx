@@ -179,10 +179,10 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: "Read Now (Full Access)",
   },
   pendingReviewNotice: {
-    am: "ጥያቄዎ በመታየት ላይ ነው። ክፍያ ደረሰኝ በቴሌግራም መላክ ይችላሉ።",
-    or: "Gaaffiin keessan ilaallamaa jira. Nagahee kaffaltii Telegram irratti erguu dandeessu.",
-    en: "Your request is under review. You can send receipt proof via Telegram.",
-  },
+  am: "ጥያቄዎ በመታየት ላይ ነው። የክፍያ ደረሰኝ በቴሌግራም መላክ አይርሱ!!!",
+  or: "Gaaffiin keessan ilaalamaa jira. Ragaa kaffaltii keessan Telegram irratti erguu hin dagatinaa!!!",
+  en: "Your request is being reviewed. Please don't forget to send your payment receipt via Telegram!!!"
+},
   rejectedNotice: {
     am: "ጥያቄዎ አልተፈቀደም። እባክዎ አድሚንን ያነጋግሩ።",
     or: "Gaaffiin keessan hin eeyyamamne. Maaloo admin qunnamaa.",

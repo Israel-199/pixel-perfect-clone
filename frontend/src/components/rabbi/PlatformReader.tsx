@@ -39,6 +39,7 @@ interface ChapterItem {
   id: number;
   title: string;
   startPage: number;
+  startPageLabel?: string | undefined;
 }
 
 interface BookPage {
@@ -191,9 +192,22 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfNumPages, setPdfNumPages] = useState<number>(0);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [pdfPageLabels, setPdfPageLabels] = useState<string[] | null>(null);
+  const [pdfOutlineChapters, setPdfOutlineChapters] = useState<ChapterItem[]>([]);
   const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pdfCanvasRef2 = useRef<HTMLCanvasElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Exact Page Label helper (uses Roman or customized numbering if present in PDF)
+  const getPageLabel = useCallback(
+    (pageNo: number): string => {
+      if (isPdf && pdfPageLabels && pdfPageLabels[pageNo - 1]) {
+        return String(pdfPageLabels[pageNo - 1]);
+      }
+      return String(pageNo);
+    },
+    [isPdf, pdfPageLabels]
+  );
 
   // ── Video player state ───────────────────────────────────────────────────────
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -344,6 +358,66 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   const totalPages = isPdf ? pdfNumPages : totalTextPages;
 
+  // ── Unified Table of Contents Chapters (combines PDF outline / labels / text chapters) ──
+  const effectiveChapters: ChapterItem[] = useMemo(() => {
+    if (isPdf) {
+      if (pdfOutlineChapters.length > 0) {
+        return pdfOutlineChapters;
+      }
+
+      // If PDF has custom page labels (e.g. Roman numerals for preface and 1,2,3 for content)
+      if (pdfPageLabels && pdfPageLabels.length > 0) {
+        const generated: ChapterItem[] = [];
+        let firstRomanIdx = -1;
+        let firstNumericIdx = -1;
+
+        pdfPageLabels.forEach((lbl, idx) => {
+          if (/^[ivxlcdm]+$/i.test(lbl) && firstRomanIdx === -1) {
+            firstRomanIdx = idx;
+          } else if (/^\d+$/.test(lbl) && firstNumericIdx === -1) {
+            firstNumericIdx = idx;
+          }
+        });
+
+        if (firstRomanIdx !== -1) {
+          generated.push({
+            id: 1,
+            title: "መግቢያና ማውጫ (Preface / Intro)",
+            startPage: firstRomanIdx + 1,
+            startPageLabel: pdfPageLabels[firstRomanIdx],
+          });
+        }
+        if (firstNumericIdx !== -1) {
+          generated.push({
+            id: generated.length + 1,
+            title: "ዋናው ይዘት (Main Content)",
+            startPage: firstNumericIdx + 1,
+            startPageLabel: pdfPageLabels[firstNumericIdx],
+          });
+        }
+        if (generated.length > 0) return generated;
+      }
+
+      // Fallback for PDF: group by sections of 10-20 pages
+      if (pdfNumPages > 0) {
+        const step = pdfNumPages > 40 ? 20 : 10;
+        const generated: ChapterItem[] = [];
+        for (let p = 1; p <= pdfNumPages; p += step) {
+          const endP = Math.min(pdfNumPages, p + step - 1);
+          generated.push({
+            id: generated.length + 1,
+            title: `ክፍል ${generated.length + 1} (ገጽ ${getPageLabel(p)} - ${getPageLabel(endP)})`,
+            startPage: p,
+            startPageLabel: getPageLabel(p),
+          });
+        }
+        return generated;
+      }
+      return [];
+    }
+    return chapters;
+  }, [isPdf, pdfOutlineChapters, pdfPageLabels, pdfNumPages, chapters, getPageLabel]);
+
   // ============================================================================
   // 2. PDF.JS BINARY LOADER
   // ============================================================================
@@ -385,6 +459,64 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (!isMounted) return;
         setPdfDoc(loadedPdf);
         setPdfNumPages(loadedPdf.numPages);
+
+        // 1. Fetch exact PDF Page Labels (e.g. ['i', 'ii', 'iii', '1', '2', ...])
+        let pageLabels: string[] | null = null;
+        try {
+          pageLabels = await loadedPdf.getPageLabels();
+          if (isMounted && pageLabels && pageLabels.length > 0) {
+            setPdfPageLabels(pageLabels);
+          }
+        } catch (e) {
+          console.warn("Could not retrieve PDF page labels:", e);
+        }
+
+        // 2. Fetch exact PDF Outline / Bookmarks for Table of Contents ("ማውጫ")
+        try {
+          const outline = await loadedPdf.getOutline();
+          if (isMounted && outline && outline.length > 0) {
+            const parsedOutlineChapters: ChapterItem[] = [];
+
+            const traverseOutline = async (items: any[]) => {
+              for (const item of items) {
+                let dest = item.dest;
+                if (typeof dest === "string") {
+                  try {
+                    dest = await loadedPdf.getDestination(dest);
+                  } catch (e) {}
+                }
+                if (Array.isArray(dest)) {
+                  try {
+                    const pageIndex = await loadedPdf.getPageIndex(dest[0]);
+                    const pageNumber = pageIndex + 1;
+                    const pageLabel =
+                      pageLabels && pageLabels[pageIndex]
+                        ? pageLabels[pageIndex]
+                        : String(pageNumber);
+
+                    parsedOutlineChapters.push({
+                      id: parsedOutlineChapters.length + 1,
+                      title: item.title,
+                      startPage: pageNumber,
+                      startPageLabel: pageLabel,
+                    });
+                  } catch (e) {}
+                }
+                if (item.items && item.items.length > 0) {
+                  await traverseOutline(item.items);
+                }
+              }
+            };
+
+            await traverseOutline(outline);
+            if (isMounted && parsedOutlineChapters.length > 0) {
+              setPdfOutlineChapters(parsedOutlineChapters);
+            }
+          }
+        } catch (e) {
+          console.warn("Could not retrieve PDF outline:", e);
+        }
+
         setPdfLoading(false);
       } catch (err: any) {
         console.error("PDF loading error:", err);
@@ -725,7 +857,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     const step = twoPageView ? 2 : 1;
     setCurrentPage((p) => {
       const n = Math.min(totalPages, p + step);
-      setJumpPageInput(String(n));
+      setJumpPageInput(getPageLabel(n));
       return n;
     });
   };
@@ -734,21 +866,40 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     const step = twoPageView ? 2 : 1;
     setCurrentPage((p) => {
       const n = Math.max(1, p - step);
-      setJumpPageInput(String(n));
+      setJumpPageInput(getPageLabel(n));
       return n;
     });
   };
 
   const handleJumpToPage = (e: React.FormEvent) => {
     e.preventDefault();
-    const p = parseInt(jumpPageInput, 10);
-    if (!isNaN(p) && p >= 1 && p <= totalPages) setCurrentPage(p);
-    else setJumpPageInput(String(currentPage));
+    const raw = jumpPageInput.trim();
+    if (!raw) return;
+
+    // Check if user entered a Roman numeral or custom page label (e.g. "iv", "iii")
+    if (isPdf && pdfPageLabels) {
+      const matchIdx = pdfPageLabels.findIndex(
+        (l) => l.toLowerCase() === raw.toLowerCase()
+      );
+      if (matchIdx !== -1) {
+        setCurrentPage(matchIdx + 1);
+        setJumpPageInput(raw);
+        return;
+      }
+    }
+
+    const p = parseInt(raw, 10);
+    if (!isNaN(p) && p >= 1 && p <= totalPages) {
+      setCurrentPage(p);
+      setJumpPageInput(getPageLabel(p));
+    } else {
+      setJumpPageInput(getPageLabel(currentPage));
+    }
   };
 
   const handleSelectChapter = (startPage: number) => {
     setCurrentPage(startPage);
-    setJumpPageInput(String(startPage));
+    setJumpPageInput(getPageLabel(startPage));
     setShowToc(false);
   };
 
@@ -1005,7 +1156,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                     : "text-on-navy-muted hover:text-white"
                 }`}
               >
-                ምዕራፎች ({chapters.length})
+                ምዕራፎች ({effectiveChapters.length})
               </button>
               <button
                 type="button"
@@ -1023,11 +1174,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             {/* Tab 1: Chapters list */}
             {tocTab === "chapters" && (
               <div className="space-y-1.5">
-                {chapters.map((chap) => {
+                {effectiveChapters.map((chap) => {
                   const isActive =
                     currentPage >= chap.startPage &&
-                    (chap.id === chapters.length ||
-                      currentPage < (chapters[chap.id]?.startPage || 9999));
+                    (chap.id === effectiveChapters.length ||
+                      currentPage < (effectiveChapters[chap.id]?.startPage || 9999));
+                  const label = chap.startPageLabel || getPageLabel(chap.startPage);
                   return (
                     <button
                       key={chap.id}
@@ -1047,7 +1199,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           isActive ? "bg-navy-deep/20 text-navy-deep font-bold" : "bg-navy/40 text-gold"
                         }`}
                       >
-                        {t("page")} {chap.startPage}
+                        {t("page")} {label}
                       </span>
                     </button>
                   );
@@ -1060,12 +1212,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-[70vh] overflow-y-auto pr-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => {
                   const isCurrent = currentPage === pg;
+                  const label = getPageLabel(pg);
                   return (
                     <button
                       key={pg}
                       onClick={() => {
                         setCurrentPage(pg);
-                        setJumpPageInput(String(pg));
+                        setJumpPageInput(label);
                         if (!pinToc) setShowToc(false);
                       }}
                       className={`py-2 px-1 rounded-lg text-xs font-mono font-bold transition-all text-center cursor-pointer ${
@@ -1074,7 +1227,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           : "bg-navy/50 text-gold border border-gold/20 hover:bg-gold/20"
                       }`}
                     >
-                      ገጽ {pg}
+                      ገጽ {label}
                     </button>
                   );
                 })}
@@ -1204,7 +1357,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           ))}
                         </div>
                         <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
-                          {t("page")} {currentPage}
+                          {t("page")} {getPageLabel(currentPage)}
                         </div>
                       </div>
 
@@ -1229,7 +1382,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                             ))}
                           </div>
                           <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
-                            {t("page")} {currentPage + 1}
+                            {t("page")} {getPageLabel(currentPage + 1)}
                           </div>
                         </div>
                       )}
@@ -1357,12 +1510,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                 <span className="text-on-navy-muted text-[11px]">{t("page")}</span>
                 <input
                   type="text"
-                  inputMode="numeric"
                   value={jumpPageInput}
-                  onChange={(e) => setJumpPageInput(filterNumberInput(e.target.value))}
+                  onChange={(e) => setJumpPageInput(e.target.value)}
                   className="w-14 rounded-lg border border-gold/30 bg-white px-2 py-1 text-center font-mono text-xs text-navy focus:border-gold focus:outline-none"
                 />
-                <span className="text-on-navy-muted text-[11px]">{t("pageOf")} {totalPages || 1}</span>
+                <span className="text-on-navy-muted text-[11px]">{t("pageOf")} {getPageLabel(totalPages)} ({totalPages})</span>
                 <button type="submit" className="rounded-lg bg-gold/20 px-2.5 py-1 text-[11px] font-bold text-gold hover:bg-gold hover:text-navy-deep cursor-pointer active:scale-95">
                   {t("go")}
                 </button>
