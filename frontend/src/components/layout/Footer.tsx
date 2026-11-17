@@ -58,10 +58,10 @@ export function Footer() {
           <h4 className="text-xs font-semibold text-gold">{t("footerContactCol")}</h4>
           <ul className="mt-3 space-y-2 text-[0.7rem] text-on-navy-muted">
             <li className="flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5 text-gold" /> info@rabbimessenger.com
+              <Mail className="h-3.5 w-3.5 text-gold" /> rabbidigitals@gmail.com
             </li>
             <li className="flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5 text-gold" /> +251 9XX XXX XXX
+              <Phone className="h-3.5 w-3.5 text-gold" /> +251 921 161 705
             </li>
             <li className="flex items-center gap-2">
               <MapPin className="h-3.5 w-3.5 text-gold" /> {t("footerAddisAbaba")}
