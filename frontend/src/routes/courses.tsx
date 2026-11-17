@@ -519,7 +519,7 @@ function CoursesRoute() {
       navigate({ to: "/login" });
       return;
     }
-    window.open("https://t.me/rabbi_admin", "_blank", "noopener,noreferrer");
+    window.open("https://t.me/rabbidigitals", "_blank", "noopener,noreferrer");
   };
 
   // Handle Request Access

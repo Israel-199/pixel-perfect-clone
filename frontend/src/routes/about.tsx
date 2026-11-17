@@ -843,7 +843,7 @@ function AboutRoute() {
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <a
-                    href="https://t.me/rabbi_admin"
+                    href="https://t.me/rabbidigitals"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-xl bg-navy-deep px-5 py-2.5 text-xs font-bold text-gold hover:bg-navy transition-all shadow"
@@ -925,7 +925,7 @@ function AboutRoute() {
                   </h3>
 
                   <a
-                    href="https://t.me/rabbi_admin"
+                    href="https://t.me/rabbidigitals"
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-start gap-4 rounded-2xl bg-card p-5 border border-gold/25 shadow-sm hover:border-gold hover:shadow-md transition-all group"
