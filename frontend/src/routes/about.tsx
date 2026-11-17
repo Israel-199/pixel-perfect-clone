@@ -950,7 +950,7 @@ function AboutRoute() {
                     </div>
                     <div>
                       <h4 className="font-display text-sm font-bold text-navy">ኢሜይል (Email)</h4>
-                      <p className="text-xs text-navy font-semibold mt-0.5">info@rabbimessenger.com</p>
+                      <p className="text-xs text-navy font-semibold mt-0.5">rabbidigitals@gmail.com</p>
                       <p className="text-[11px] text-muted-foreground mt-1">
                         ለመደበኛ ደብዳቤዎችና ለአጋርነት ጥያቄዎች
                       </p>

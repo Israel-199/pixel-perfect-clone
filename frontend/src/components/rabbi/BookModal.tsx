@@ -259,7 +259,7 @@ export const BookModal: React.FC<BookModalProps> = ({
                 <div className="text-xs text-navy space-y-1">
                   <p><span className="font-semibold">ባንክ:</span> ኢትዮጵያ ንግድ ባንክ (CBE)</p>
                   <p><span className="font-semibold">የሂሳብ ቁጥር:</span> <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">1000123456789</code></p>
-                  <p><span className="font-semibold">የሂሳብ ስም:</span> RABBI Ministry / መጋቢ ካስሁብ</p>
+                  <p><span className="font-semibold">የሂሳብ ስም:</span> Kaleb Mesfin</p>
                 </div>
               </div>
             </div>

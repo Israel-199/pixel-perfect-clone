@@ -67,13 +67,15 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [jumpPageInput, setJumpPageInput] = useState<string>("1");
 
-  // ── Security state ──────────────────────────────────────────────────────────
-  // isScreenBlackout controls the React-rendered black overlay (for UI feedback)
-  // isBlackoutActiveRef is used synchronously inside RAF loop & event handlers
+  // ── Screenshot / DRM security state ─────────────────────────────────────────
+  // isScreenBlackout drives the React-rendered full-black overlay
+  // isBlackoutActiveRef is read synchronously in the RAF loop & event handlers
   const [isScreenBlackout, setIsScreenBlackout] = useState<boolean>(false);
   const [securityNotice, setSecurityNotice] = useState<string | null>(null);
   const isBlackoutActiveRef = useRef<boolean>(false);
   const rafRef = useRef<number | null>(null);
+
+  // ── Reader refs ─────────────────────────────────────────────────────────────
   const readerRef = useRef<HTMLDivElement | null>(null);
   const contentAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -531,13 +533,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     return () => { isMounted = false; };
   }, [isPdf, pdfUrl]);
 
-  // ── Forensic Watermark Label ───────────────────────────────────────────────
-  const watermarkLabel = useMemo(() => {
-    const name = user?.fullName || "AUTHORIZED MEMBER";
-    const contact = user?.phone || user?.email || "RABBI CHURCH";
-    const uid = user?.id ? `UID:${user.id.slice(0, 8)}` : "LICENSED";
-    return `${name} • ${contact} • ${uid} • PROTECTED • DO NOT SHARE`;
-  }, [user]);
+  // ── Forensic Watermark Label (removed) ───────────────────────────────────────
 
   // ============================================================================
   // 3. PDF CANVAS RENDERER — fills container width, no shrinking
@@ -582,31 +578,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
-
-        // BURN FORENSIC WATERMARK DIRECTLY INTO PDF CANVAS BITMAP PIXELS
-        ctx.save();
-        if (transform) {
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
-        ctx.globalAlpha = 0.18;
-        ctx.fillStyle = "#b8860b";
-        ctx.font = "bold 13px monospace";
-        ctx.rotate((-25 * Math.PI) / 180);
-        const wStepX = 300;
-        const wStepY = 120;
-        const wWidth = viewport.width * 2.5;
-        const wHeight = viewport.height * 2.5;
-        for (let x = -viewport.width; x < wWidth; x += wStepX) {
-          for (let y = -viewport.height; y < wHeight; y += wStepY) {
-            ctx.fillText(watermarkLabel, x, y);
-          }
-        }
-        ctx.restore();
       } catch (e) {
         console.error("Canvas render error:", e);
       }
     },
-    [pdfDoc, zoomScale, twoPageView, watermarkLabel]
+    [pdfDoc, zoomScale, twoPageView]
   );
 
   useEffect(() => {
@@ -715,7 +691,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     };
   }, [wipeCanvasesBlack]);
 
-  // Event-based protection layer
+  // Event-based protection layer (PC + Android / iOS)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
@@ -790,8 +766,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     }, 80);
 
-    // Mobile Touch & Gesture protection:
-    // 1. Multi-finger touch (>=2 fingers): mobile screenshots (pinch, 3-finger swipe)
+    // ── Android / Mobile Screenshot Protection ────────────────────────────────
+    // Android: Power+Volume-Down triggers a brief touchcancel then pagehide-like
+    // sequence. We catch every signal available in WebView / Chrome Mobile.
+
+    // 1. Multi-touch (≥2 fingers) — covers pinch-zoom screenshots & 3-finger swipe
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches && e.touches.length >= 2) {
         activateBlackout();
@@ -799,24 +778,43 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // 2. Hardware buttons (Power + Volume Down) fire touchcancel on active mobile touch
+    // 2. touchcancel fires on Android when hardware buttons interrupt a touch session
+    //    (Power+Vol-Down screenshot shortcut)
     const handleTouchCancel = () => {
       activateBlackout();
+      setSecurityNotice(t("screenshotBlockedMsg"));
     };
 
-    // 3. Mobile app switch / screenshot preview mode triggers pagehide
+    // 3. touchend with sudden 0-finger state after multi-touch = screenshot released
+    const handleTouchEnd = (e: TouchEvent) => {
+      // If touches drop to 0 immediately after a 2+ finger gesture, blackout
+      if (e.changedTouches.length >= 2 && e.touches.length === 0) {
+        activateBlackout();
+      }
+    };
+
+    // 4. pagehide fires on Android when the app switcher / recents screen opens
+    //    (which can capture the screen in the app thumbnail)
     const handlePageHide = () => {
       activateBlackout();
     };
 
-    // 4. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
+    // 5. Android share sheet / screenshot assistant opens as a new activity,
+    //    causing a visibilitychange to "hidden" — already covered above.
+
+    // 6. Pointer capture loss (stylus screenshot on Samsung DeX / tablets)
+    const handlePointerCancel = () => {
+      activateBlackout();
+    };
+
+    // 7. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
     const handleMouseLeave = (e: MouseEvent) => {
       if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
         activateBlackout();
       }
     };
 
-    // Print prevention CSS
+    // Print prevention CSS (also blocks Ctrl+P on PC)
     const printStyle = document.createElement("style");
     printStyle.id = "rabbi-drm-print-guard";
     printStyle.innerHTML =
@@ -830,7 +828,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     window.addEventListener("contextmenu", blockContextMenu);
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
     window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pointercancel", handlePointerCancel);
     document.addEventListener("mouseleave", handleMouseLeave);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -843,7 +843,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchcancel", handleTouchCancel);
+      window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pointercancel", handlePointerCancel);
       document.removeEventListener("mouseleave", handleMouseLeave);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.getElementById("rabbi-drm-print-guard")?.remove();
