@@ -159,48 +159,6 @@ export function Header() {
     </>
   );
 }
-      </header>
-      {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-sm rounded-2xl bg-card border border-gold/30 shadow-2xl p-6 text-center">
-            <button
-              onClick={() => setShowLogoutConfirm(false)}
-              className="absolute top-3.5 right-3.5 rounded-full p-1 text-muted-foreground hover:bg-navy/10 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
 
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
-              <AlertTriangle className="h-7 w-7" />
-            </div>
-
-            <h3 className="font-display text-lg font-bold text-navy mb-2">
-              ከስርዓቱ መውጣት ይፈልጋሉ?
-            </h3>
-            <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
-              ከወጡ በኋላ ወደ እርስዎ መጽሐፍትና ሚዲያዎች ለመግባት እንደገና መግባት ይኖርብዎታል።
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 rounded-xl border border-navy/20 bg-background py-2.5 text-xs font-bold text-navy hover:bg-accent transition-all"
-              >
-                ተመለስ (Cancel)
-              </button>
-              <button
-                onClick={handleConfirmLogout}
-                className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow hover:bg-red-700 transition-all active:scale-[0.98]"
-              >
-                አዎ፣ ውጣ (Logout)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 

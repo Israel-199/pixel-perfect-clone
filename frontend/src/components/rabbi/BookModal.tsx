@@ -458,7 +458,7 @@ export const BookModal: React.FC<BookModalProps> = ({
                     </div>
                   ) : docxSamplePages.length > 0 ? (
                     <div className="text-justify leading-relaxed space-y-3 font-sans">
-                      {docxSamplePages[docxPageIndex].split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
+                      {(docxSamplePages[docxPageIndex] || "").split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
                         <p key={pIdx} className="mb-3 text-navy/90 leading-relaxed">
                           {para}
                         </p>

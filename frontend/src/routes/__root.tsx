@@ -1,3 +1,4 @@
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -7,6 +8,7 @@ import {
   useLocation,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -17,15 +19,32 @@ import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/language";
 
+// ============================================
+// RABBI DIGITAL - HOMEPAGE SEO CONFIGURATION
+// ============================================
+
+const SITE_URL = "https://www.rabbidigital.com";
+
+const SEO_TITLE =
+  "RABBI Digital | መንፈሳዊ ዲጂታል ምርቶችና የክርስቲያን ትምህርት";
+
+const SEO_DESCRIPTION =
+  "RABBI Digital መንፈሳዊ ዲጂታል ምርቶችን፣ የመጽሐፍ ቅዱስ ጥናት መርጃዎችን፣ የክርስቲያን መጻሕፍትንና የእምነት ማጠናከሪያ ትምህርቶችን በቀላሉ የሚያገኙበት የኢትዮጵያ ዲጂታል መድረክ ነው።";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+
+        <h2 className="mt-4 text-xl font-semibold text-foreground">
+          Page not found
+        </h2>
+
         <p className="mt-2 text-sm text-muted-foreground">
           The page you're looking for doesn't exist or has been moved.
         </p>
+
         <div className="mt-6">
           <Link
             to="/"
@@ -39,11 +58,18 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({
+  error,
+  reset,
+}: ErrorComponentProps) {
   console.error(error);
+
   const router = useRouter();
+
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportLovableError(error, {
+      boundary: "tanstack_root_error_component",
+    });
   }, [error]);
 
   return (
@@ -52,9 +78,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
+
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          Something went wrong on our end. You can try refreshing or head back
+          to the home page.
         </p>
+
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -65,6 +94,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             Try again
           </button>
+
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
@@ -77,42 +107,138 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "RABBI — ጊታና መምህር" },
-      { name: "description", content: "ቃሱን አንብብ፣ አምነትን ተረዳ፣ በሕይወትህ ኑር።" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Noto+Serif+Ethiopic:wght@400;600;700&display=swap",
-      },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-    ],
-  }),
-  shellComponent: RootShell,
-  component: RootComponent,
-  notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
-});
+// ============================================
+// ROOT ROUTE
+// ============================================
+
+export const Route =
+  createRootRouteWithContext<{ queryClient: QueryClient }>()({
+    head: () => ({
+      meta: [
+        // Basic SEO
+        { charSet: "utf-8" },
+        {
+          name: "viewport",
+          content: "width=device-width, initial-scale=1",
+        },
+
+        { title: SEO_TITLE },
+
+        {
+          name: "description",
+          content: SEO_DESCRIPTION,
+        },
+
+        {
+          name: "robots",
+          content: "index, follow, max-image-preview:large",
+        },
+
+        {
+          name: "googlebot",
+          content: "index, follow, max-image-preview:large",
+        },
+
+        {
+          name: "application-name",
+          content: "RABBI Digital",
+        },
+
+        // Open Graph - Facebook, WhatsApp, Telegram
+        {
+          property: "og:type",
+          content: "website",
+        },
+        {
+          property: "og:site_name",
+          content: "RABBI Digital",
+        },
+        {
+          property: "og:title",
+          content: SEO_TITLE,
+        },
+        {
+          property: "og:description",
+          content: SEO_DESCRIPTION,
+        },
+        {
+          property: "og:url",
+          content: SITE_URL,
+        },
+        {
+          property: "og:locale",
+          content: "am_ET",
+        },
+
+        // Twitter / X
+        {
+          name: "twitter:card",
+          content: "summary_large_image",
+        },
+        {
+          name: "twitter:title",
+          content: SEO_TITLE,
+        },
+        {
+          name: "twitter:description",
+          content: SEO_DESCRIPTION,
+        },
+      ],
+
+      links: [
+        // Canonical URL
+        {
+          rel: "canonical",
+          href: SITE_URL,
+        },
+
+        // Stylesheet
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+
+        // Google Fonts
+        {
+          rel: "preconnect",
+          href: "https://fonts.googleapis.com",
+        },
+        {
+          rel: "preconnect",
+          href: "https://fonts.gstatic.com",
+          crossOrigin: "anonymous",
+        },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Noto+Serif+Ethiopic:wght@400;600;700&display=swap",
+        },
+
+        // Favicon
+        {
+          rel: "icon",
+          href: "/favicon.ico",
+          type: "image/x-icon",
+        },
+      ],
+    }),
+
+    shellComponent: RootShell,
+    component: RootComponent,
+    notFoundComponent: NotFoundComponent,
+    errorComponent: ErrorComponent,
+  });
+
+// ============================================
+// ROOT HTML SHELL
+// ============================================
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="am">
       <head>
         <HeadContent />
       </head>
+
       <body>
         {children}
         <Scripts />
@@ -121,9 +247,15 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+// ============================================
+// ROOT APPLICATION COMPONENT
+// ============================================
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
   const location = useLocation();
+
   const isAdmin = location.pathname.startsWith("/admin");
 
   return (
@@ -132,9 +264,11 @@ function RootComponent() {
         <LanguageProvider>
           <div className="min-h-screen bg-cream font-body flex gap-0 flex-col">
             {!isAdmin && <Header />}
+
             <main className="flex-1">
               <Outlet />
             </main>
+
             {!isAdmin && <Footer />}
           </div>
         </LanguageProvider>
