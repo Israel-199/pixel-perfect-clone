@@ -212,7 +212,7 @@ export const BookModal: React.FC<BookModalProps> = ({
                 </h4>
                 <div className="text-xs text-navy space-y-1">
                   <p><span className="font-semibold">{t("bankTitle")}</span> {t("bankCbeName")}</p>
-                  <p><span className="font-semibold">{t("accountNumber")}</span> <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">1000123456789</code></p>
+                  <p><span className="font-semibold">{t("accountNumber")}</span> <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">1000313542002</code></p>
                   <p><span className="font-semibold">{t("accountHolder")}</span> Kaleb Mesfin</p>
                 </div>
               </div>
