@@ -735,12 +735,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }
     try {
       if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(
-          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
-        );
+        navigator.clipboard.writeText("");
       }
     } catch {}
-  }, [wipeCanvasesBlack, user]);
+  }, [wipeCanvasesBlack]);
 
   const deactivateBlackout = useCallback(() => {
     isBlackoutActiveRef.current = false;
@@ -802,23 +800,32 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       // Block copy/print/save/select-all
       if (ctrl && ["c", "a", "p", "s", "u", "x"].includes(e.key.toLowerCase())) {
         e.preventDefault();
-        setSecurityNotice(t("copyBlockedMsg"));
         activateBlackout();
-        setTimeout(() => setSecurityNotice(null), 3000);
         return;
       }
 
-      if (
+      // Windows Snipping Tool: Win + Shift + S (or Ctrl/Alt + Shift + S)
+      const isWinShiftS =
+        (e.key?.toLowerCase() === "s" || e.code === "KeyS" || e.keyCode === 83) &&
+        e.shiftKey &&
+        (e.metaKey || e.ctrlKey || e.altKey);
+
+      // PrintScreen and DevTools / screenshot combos
+      const isPrintScreen =
         e.key === "PrintScreen" ||
         e.code === "PrintScreen" ||
         e.keyCode === 44 ||
-        (e as any).which === 44 ||
+        (e as any).which === 44;
+
+      if (
+        isPrintScreen ||
+        isWinShiftS ||
         e.key === "F12" ||
         ((ctrl || e.altKey) && e.shiftKey && ["i", "j", "c", "s"].includes(e.key.toLowerCase()))
       ) {
         e.preventDefault();
         activateBlackout();
-        setSecurityNotice(t("screenshotBlockedMsg"));
+        try { navigator.clipboard?.writeText(""); } catch {}
       }
 
       if (!isVideo) {
@@ -829,59 +836,53 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
     // Windows Chromium fires PrintScreen on KEYUP, not keydown
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (
+      const isPrintScreen =
         e.key === "PrintScreen" ||
         e.code === "PrintScreen" ||
         e.keyCode === 44 ||
-        (e as any).which === 44
-      ) {
+        (e as any).which === 44;
+
+      if (isPrintScreen) {
         e.preventDefault();
         activateBlackout();
-        setSecurityNotice(t("screenshotBlockedMsg"));
-        // Overwrite clipboard which may have received the screenshot data
         try { navigator.clipboard?.writeText(""); } catch {}
       }
     };
 
-    // Window blur — fires when ANY external tool (Snipping Tool, Game Bar,
-    // ADB screencap, scrcpy, Android screen recorder) pulls focus away.
-    // We do NOT auto-restore on focus — user must tap the black screen.
-    // This eliminates the race condition where JS restores content before the
-    // OS screenshot has finished writing to disk.
+    // Window blur ? fires when ANY external tool (Snipping Tool, Game Bar,
+    // screen capture overlay) pulls focus away.
     const handleBlur = () => { activateBlackout(); };
-    // handleFocus intentionally does NOT call deactivateBlackout automatically.
-    // The user clicks the black overlay to restore (see onClick on the veil div).
+
+    // Window focus ? smoothly restores view when returning to the reader
+    const handleFocus = () => {
+      if (isBlackoutActiveRef.current) {
+        deactivateBlackout();
+      }
+    };
 
     const handleVisibilityChange = () => {
       if (document.hidden || document.visibilityState !== "visible") {
         activateBlackout();
+      } else {
+        deactivateBlackout();
       }
-      // No auto-restore on visible — user must tap the black screen.
     };
 
     const blockContextMenu = (e: MouseEvent) => e.preventDefault();
 
-    // Slower poll (80ms) catches tools the event system misses
-    const focusPoll = setInterval(() => {
-      if (!document.hasFocus() || document.hidden) {
-        if (!isBlackoutActiveRef.current) activateBlackout();
-      }
-    }, 80);
-
-    // ── Android / Mobile Screenshot Protection ────────────────────────────────
-    // 1. Multi-touch (≥2 fingers) — covers Power+VolDown & 3-finger swipe
+    // ?? Android / Mobile Screenshot Protection ????????????????????????????????
+    // 1. Multi-touch (?2 fingers) ? covers Power+VolDown & 3-finger swipe
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches && e.touches.length >= 2) {
         activateBlackout();
-        setSecurityNotice(t("screenshotBlockedMsg"));
+      } else if (isBlackoutActiveRef.current && e.touches.length === 1) {
+        deactivateBlackout();
       }
     };
 
-    // 2. touchcancel fires on Android when hardware buttons interrupt a touch
-    //    session (Power+Vol-Down shortcut on many OEMs)
+    // 2. touchcancel fires on Android when hardware buttons interrupt a touch session
     const handleTouchCancel = () => {
       activateBlackout();
-      setSecurityNotice(t("screenshotBlockedMsg"));
     };
 
     // 3. touchend with sudden 0-finger state after multi-touch
@@ -894,23 +895,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     // 4. pagehide fires on Android recents / app-switcher (screen captured as thumbnail)
     const handlePageHide = () => { activateBlackout(); };
 
-    // 5. freeze event fires on Android when Chrome freezes the page (e.g. screenshot
-    //    assistants, Nearby Share, Google Assistant screen capture)
+    // 5. freeze event fires on Android when Chrome freezes the page (screenshot assistant)
     const handleFreeze = () => { activateBlackout(); };
 
-    // 6. Screen orientation change — some Android screenshot flows trigger a
-    //    transient orientation shift (assistive tools, screen recorders)
+    // 6. Screen orientation change
     const handleOrientationChange = () => { activateBlackout(); };
-
-    // 7. Pointer capture loss (stylus screenshot on Samsung DeX / tablets)
-    const handlePointerCancel = () => { activateBlackout(); };
-
-    // 8. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-        activateBlackout();
-      }
-    };
 
     // Print prevention CSS (also blocks Ctrl+P on PC)
     const printStyle = document.createElement("style");
@@ -922,35 +911,32 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
     window.addEventListener("contextmenu", blockContextMenu);
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
     window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("freeze", handleFreeze);
-    window.addEventListener("pointercancel", handlePointerCancel);
     screen.orientation?.addEventListener("change", handleOrientationChange);
-    document.addEventListener("mouseleave", handleMouseLeave);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      clearInterval(focusPoll);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchcancel", handleTouchCancel);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("freeze", handleFreeze);
-      window.removeEventListener("pointercancel", handlePointerCancel);
       screen.orientation?.removeEventListener("change", handleOrientationChange);
-      document.removeEventListener("mouseleave", handleMouseLeave);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.getElementById("rabbi-drm-print-guard")?.remove();
     };
-  }, [activateBlackout, isVideo, t]);
+  }, [activateBlackout, deactivateBlackout, isVideo]);
 
   // ============================================================================
   // 5. PAGE CONTROLS
@@ -1074,7 +1060,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     <div
       ref={readerRef}
       className="fixed inset-0 z-50 flex flex-col bg-navy-deep text-white overflow-hidden"
-      style={{ userSelect: "none", WebkitUserSelect: "none", MozUserSelect: "none" }}
+      style={{ userSelect: "none", WebkitUserSelect: "none", MozUserSelect: "none", WebkitTouchCallout: "none" }}
       onContextMenu={(e) => e.preventDefault()}
       onCopy={(e) => e.preventDefault()}
       onCut={(e) => e.preventDefault()}
@@ -1086,16 +1072,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
           there's nothing to capture even with accessibility APIs.             */}
       {isScreenBlackout && (
         <div
-          className="fixed inset-0 flex flex-col items-center justify-center select-none cursor-pointer"
+          className="fixed inset-0 select-none cursor-pointer"
           style={{ zIndex: 999999, backgroundColor: "#000000" }}
           onClick={deactivateBlackout}
-        >
-          {/* Minimal feedback so user knows to click to resume */}
-          <ShieldAlert className="h-10 w-10 text-red-500 mb-4 opacity-80" />
-          <p className="text-gold text-sm font-bold opacity-70">
-            {t("protectedContent")} — {t("clickToResume")}
-          </p>
-        </div>
+        />
       )}
 
       {/* ── SECURITY TOAST ──────────────────────────────────────────────────── */}
