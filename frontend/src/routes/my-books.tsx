@@ -40,7 +40,7 @@ function MyBooksRoute() {
   const fetchMyRequests = async () => {
     try {
       setLoading(true);
-      const data = await fetchApi<{ requests: UserRequestItem[] }>("/requests/my");
+      const data = await fetchApi<{ requests: UserRequestItem[] }>("/requests/my", { skipCache: true });
       setRequests(data.requests);
     } catch (err: any) {
       setError(err.message || "የእርስዎን መጽሐፍት ማምጣት አልተሳካም።");

@@ -85,7 +85,7 @@ function BooksRoute() {
   const fetchBooks = async () => {
     try {
       setLoading(true);
-      const data = await fetchApi<{ books: BookItem[] }>("/books");
+      const data = await fetchApi<{ books: BookItem[] }>("/books", { skipCache: true });
       setBooks(data.books);
     } catch (err) {
       console.error("Failed to fetch books:", err);

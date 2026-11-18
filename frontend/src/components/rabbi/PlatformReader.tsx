@@ -27,6 +27,7 @@ import {
 import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
+import { API_BASE_URL } from "@/lib/api";
 import { filterNumberInput } from "@/lib/inputValidation";
 import { parseDocx, fromRoman, fromAlpha, parseTableOfContentsText, SUBCHAPTER_HEADING_REGEX } from "@/lib/bookUtils";
 
@@ -463,10 +464,30 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         pdfjs.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-        const response = await fetch(pdfUrl);
-        if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
-        const arrayBuffer = await response.arrayBuffer();
-        const uint8Data = new Uint8Array(arrayBuffer);
+        // Robust fetch with Cloudinary 401 handling via backend proxy
+        const fetchPdfData = async (targetUrl: string): Promise<Uint8Array> => {
+          const isCloudinary = targetUrl.includes("cloudinary.com");
+          const proxyUrl = `${API_BASE_URL}/books/pdf-proxy?url=${encodeURIComponent(targetUrl)}`;
+          // For Cloudinary URLs, try proxy first (since Cloudinary CDN restricts raw PDFs with 401), fallback to direct
+          const urlsToTry = isCloudinary ? [proxyUrl, targetUrl] : [targetUrl, proxyUrl];
+
+          let lastError: any = null;
+          for (const u of urlsToTry) {
+            try {
+              const res = await fetch(u);
+              if (res.ok) {
+                const buffer = await res.arrayBuffer();
+                return new Uint8Array(buffer);
+              }
+              lastError = new Error(`Failed to fetch PDF: ${res.status}`);
+            } catch (e: any) {
+              lastError = e;
+            }
+          }
+          throw lastError || new Error("Failed to load PDF data.");
+        };
+
+        const uint8Data = await fetchPdfData(pdfUrl);
 
         const loadingTask = pdfjs.getDocument({
           data: uint8Data,

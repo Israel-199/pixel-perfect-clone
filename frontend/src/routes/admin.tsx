@@ -769,6 +769,7 @@ function AdminRoute() {
         }),
       });
 
+      clearApiCache();
       setEditMsg("ይዘቱ በተሳካ ሁኔታ ተሻሽሏል!");
       await Promise.all([
         fetchAdminContents(true),

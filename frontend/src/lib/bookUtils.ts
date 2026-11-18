@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./api";
 /**
  * Helper to compute book page count from text or PDF URL
  * and format currency conversions (ETB <-> USD).
@@ -546,10 +547,22 @@ export async function getPdfPageCount(pdfUrl: string): Promise<number> {
     pdfjs.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    const response = await fetch(pdfUrl);
-    if (!response.ok) return 0;
-    const arrayBuffer = await response.arrayBuffer();
-    const uint8Data = new Uint8Array(arrayBuffer);
+    const isCloudinary = pdfUrl.includes("cloudinary.com");
+    const proxyUrl = `${API_BASE_URL}/books/pdf-proxy?url=${encodeURIComponent(pdfUrl)}`;
+    const urlsToTry = isCloudinary ? [proxyUrl, pdfUrl] : [pdfUrl, proxyUrl];
+
+    let uint8Data: Uint8Array | null = null;
+    for (const u of urlsToTry) {
+      try {
+        const res = await fetch(u);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          uint8Data = new Uint8Array(buf);
+          break;
+        }
+      } catch (e) {}
+    }
+    if (!uint8Data) return 0;
 
     const doc = await pdfjs.getDocument({
       data: uint8Data,
