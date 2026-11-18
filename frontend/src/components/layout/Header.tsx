@@ -39,9 +39,15 @@ export function Header() {
   return (
     <>
       <header className="bg-navy-deep sticky top-0 z-50 border-b border-gold/10 shadow-md">
-        <div className="mx-auto flex max-w-[1180px] items-center gap-3 sm:gap-6 px-4 sm:px-6 py-3.5">
+        <div className="mx-auto flex max-w-[1240px] items-center gap-2 sm:gap-4 lg:gap-3 xl:gap-6 px-3 sm:px-6 py-3">
           <Logo />
-          <nav className="ml-auto hidden items-center gap-5 lg:flex">
+          <nav
+            className={`ml-auto hidden items-center flex-nowrap whitespace-nowrap lg:flex ${
+              language === "or"
+                ? "gap-1.5 xl:gap-3 2xl:gap-4"
+                : "gap-2 xl:gap-3.5 2xl:gap-4.5"
+            }`}
+          >
             {navItems.map((item) => {
               const isActive =
                 location.pathname === item.href ||
@@ -50,7 +56,11 @@ export function Header() {
                 <Link
                   key={item.href}
                   to={item.href}
-                  className={`text-[0.78rem] font-medium tracking-wide transition-colors hover:text-gold ${
+                  className={`whitespace-nowrap shrink-0 font-medium transition-colors hover:text-gold ${
+                    language === "or"
+                      ? "text-[0.68rem] xl:text-[0.74rem] 2xl:text-[0.78rem] tracking-tight"
+                      : "text-[0.73rem] xl:text-[0.77rem] 2xl:text-[0.81rem] tracking-normal"
+                  } ${
                     isActive ? "text-gold font-bold" : "text-on-navy-muted"
                   }`}
                 >
@@ -59,7 +69,7 @@ export function Header() {
               );
             })}
           </nav>
-          <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:ml-0">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5 lg:ml-0 shrink-0">
             {/* ── 3-Language Selector Pill ──────────────────────────────── */}
             <div className="flex items-center rounded-full bg-navy/60 p-0.5 border border-gold/30 text-[11px] shadow-xs">
               <button
