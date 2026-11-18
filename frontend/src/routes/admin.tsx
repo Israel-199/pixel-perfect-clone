@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   ShieldAlert,
@@ -39,7 +39,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, clearApiCache } from "@/lib/api";
 import { formatEtbWithUsd } from "@/lib/bookUtils";
 import {
   filterNameInput,
@@ -53,6 +53,13 @@ import {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "Admin Dashboard — RABBI Digital" },
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "googlebot", content: "noindex, nofollow" },
+    ],
+  }),
   component: AdminRoute,
 });
 
@@ -276,7 +283,7 @@ function AdminRoute() {
   const fetchDashboardStats = async (quiet = false) => {
     try {
       if (!quiet) setStatsLoading(true);
-      const data = await fetchApi<{ stats: DashboardStats }>("/admin/stats");
+      const data = await fetchApi<{ stats: DashboardStats }>("/admin/stats", { skipCache: true });
       setStats(data.stats);
     } catch (err) {
       console.error("Failed to load dashboard stats:", err);
@@ -288,16 +295,20 @@ function AdminRoute() {
   // Fetch Requests (silent for background polling)
   const fetchAdminRequests = async (quiet = false) => {
     try {
-      if (!quiet) setReqLoading(true);
-      setIsRefreshing(true);
-      const data = await fetchApi<{ requests: AdminRequestItem[] }>("/admin/requests");
+      if (!quiet) {
+        setReqLoading(true);
+        setIsRefreshing(true);
+      }
+      const data = await fetchApi<{ requests: AdminRequestItem[] }>("/admin/requests", { skipCache: true });
       setRequests(data.requests);
       setLastRefreshed(new Date());
     } catch (err) {
       console.error("Failed to load admin requests:", err);
     } finally {
-      if (!quiet) setReqLoading(false);
-      setIsRefreshing(false);
+      if (!quiet) {
+        setReqLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -305,12 +316,12 @@ function AdminRoute() {
   const fetchAdminContents = async (quiet = false) => {
     try {
       if (!quiet) setContentLoading(true);
-      const data = await fetchApi<{ contents: ContentItemAdmin[] }>("/admin/contents-with-stats");
+      const data = await fetchApi<{ contents: ContentItemAdmin[] }>("/admin/contents-with-stats", { skipCache: true });
       setContents(data.contents || []);
     } catch (err) {
       console.error("Failed to load contents with stats:", err);
       try {
-        const fallback = await fetchApi<{ books: ContentItemAdmin[] }>("/books");
+        const fallback = await fetchApi<{ books: ContentItemAdmin[] }>("/books", { skipCache: true });
         setContents(fallback.books || []);
       } catch (e) {}
     } finally {
@@ -322,7 +333,7 @@ function AdminRoute() {
   const fetchPrivatePrayers = async (quiet = false) => {
     try {
       if (!quiet) setPrayerLoading(true);
-      const data = await fetchApi<{ prayers: PrivatePrayerAdminItem[] }>("/private-prayers/admin/all");
+      const data = await fetchApi<{ prayers: PrivatePrayerAdminItem[] }>("/private-prayers/admin/all", { skipCache: true });
       setPrivatePrayers(data.prayers || []);
     } catch (err) {
       console.error("Failed to load private prayers:", err);
@@ -331,33 +342,44 @@ function AdminRoute() {
     }
   };
 
-  // Toggle Private Prayer Prayed Status
+  // Toggle Private Prayer Prayed Status (Optimistic UI for instantaneous response)
   const handleTogglePrayerStatus = async (id: string) => {
+    const prevPrayers = [...privatePrayers];
+    // Optimistic: toggle checkmark immediately (0ms lag)
+    setPrivatePrayers((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, isPrayed: !p.isPrayed } : p))
+    );
+    setTogglingPrayerId(id);
     try {
-      setTogglingPrayerId(id);
       const data = await fetchApi<{ prayer: PrivatePrayerAdminItem }>(`/private-prayers/admin/${id}/toggle`, {
         method: "PUT",
       });
+      clearApiCache();
       setPrivatePrayers((prev) =>
         prev.map((p) => (p.id === id ? { ...p, isPrayed: data.prayer.isPrayed } : p))
       );
     } catch (err: any) {
+      setPrivatePrayers(prevPrayers);
       alert(err.message || "የጸሎት ሁኔታ መቀየር አልተሳካም።");
     } finally {
       setTogglingPrayerId(null);
     }
   };
 
-  // Delete Private Prayer
+  // Delete Private Prayer (Optimistic UI for instantaneous response)
   const handleDeletePrayer = async (id: string) => {
     if (!confirm("ይህንን የግል ጸሎት መሰረዝ ይፈልጋሉ?")) return;
+    const prevPrayers = [...privatePrayers];
+    // Optimistic: remove row immediately (0ms lag)
+    setPrivatePrayers((prev) => prev.filter((p) => p.id !== id));
+    setDeletingPrayerId(id);
     try {
-      setDeletingPrayerId(id);
       await fetchApi(`/private-prayers/admin/${id}`, {
         method: "DELETE",
       });
-      setPrivatePrayers((prev) => prev.filter((p) => p.id !== id));
+      clearApiCache();
     } catch (err: any) {
+      setPrivatePrayers(prevPrayers);
       alert(err.message || "ጸሎት መሰረዝ አልተሳካም።");
     } finally {
       setDeletingPrayerId(null);
@@ -383,34 +405,41 @@ function AdminRoute() {
     fetchDashboardStats();
     fetchAdmins();
 
-    // Setup real-time polling every 4 seconds for requests, contents, prayers, and tracking stats
+    // Setup real-time polling every 12 seconds only when tab is active (prevents thread thrashing)
     pollingRef.current = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       fetchAdminRequests(true);
       fetchPrivatePrayers(true);
       fetchAdminContents(true);
       fetchDashboardStats(true);
-    }, 4000);
+    }, 12000);
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [user, authLoading]);
 
-  // Update Request Status (Approve / Reject) with instantaneous tracking update and button loading state
+  // Update Request Status (Approve / Reject) with instantaneous optimistic update (0ms lag)
   const handleUpdateStatus = async (id: string, status: "PERMITTED" | "REJECTED" | "PENDING") => {
+    const prevRequests = [...requests];
+    // Optimistic: update status tag immediately in UI (0ms lag)
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status } : r))
+    );
+    setActionLoadingId({ id, action: status });
+
     try {
-      setActionLoadingId({ id, action: status });
       await fetchApi(`/admin/requests/${id}`, {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
-      await Promise.all([
-        fetchAdminRequests(true),
-        fetchAdminContents(true),
-        fetchDashboardStats(true),
-      ]);
+      clearApiCache();
+      // Silently refresh stats and contents in background
+      fetchAdminContents(true);
+      fetchDashboardStats(true);
     } catch (err: any) {
-      alert(err.message || "የጥያቄ ሁኔት መቀየር አልተሳካም።");
+      setRequests(prevRequests);
+      alert(err.message || "የጥያቄ ሁኔታ መቀየር አልተሳካም።");
     } finally {
       setActionLoadingId(null);
     }
@@ -640,20 +669,24 @@ function AdminRoute() {
     }
   };
 
-  // Delete Content with loading state
+  // Delete Content with optimistic removal (0ms lag)
   const handleConfirmDelete = async () => {
     if (!deletingId) return;
+    const targetId = deletingId;
+    const prevContents = [...contents];
+
+    // Optimistic: remove row from table immediately
+    setContents((prev) => prev.filter((item) => item.id !== targetId));
+    setDeletingId(null);
+    setDeletingLoading(true);
 
     try {
-      setDeletingLoading(true);
-      await fetchApi(`/admin/books/${deletingId}`, { method: "DELETE" });
-      setDeletingId(null);
-      await Promise.all([
-        fetchAdminContents(),
-        fetchAdminRequests(true),
-        fetchDashboardStats(true),
-      ]);
+      await fetchApi(`/admin/books/${targetId}`, { method: "DELETE" });
+      clearApiCache();
+      fetchDashboardStats(true);
+      fetchAdminRequests(true);
     } catch (err: any) {
+      setContents(prevContents);
       alert(err.message || "ይዘቱን መሰረዝ አልተሳካም።");
     } finally {
       setDeletingLoading(false);
@@ -744,15 +777,22 @@ function AdminRoute() {
     }
   };
 
-  // Delete admin
+  // Delete admin with optimistic removal (0ms lag)
   const handleDeleteAdmin = async () => {
     if (!deletingAdminId) return;
+    const targetId = deletingAdminId;
+    const prevList = [...adminsList];
+
+    // Optimistic: remove admin row immediately
+    setAdminsList((prev) => prev.filter((a) => a.id !== targetId));
+    setDeletingAdminId(null);
     setDeletingAdminLoading(true);
+
     try {
-      await fetchApi(`/admin/admins/${deletingAdminId}`, { method: "DELETE" });
-      setDeletingAdminId(null);
-      fetchAdmins();
+      await fetchApi(`/admin/admins/${targetId}`, { method: "DELETE" });
+      clearApiCache();
     } catch (err: any) {
+      setAdminsList(prevList);
       alert(err.message || "አስተዳዳሪ መሰረዝ አልተሳካም።");
     } finally {
       setDeletingAdminLoading(false);
@@ -810,104 +850,118 @@ function AdminRoute() {
     }
   };
 
-  // Filtered requests
-  const filteredRequests = requests.filter((r) => {
-    if (requestFilter === "ALL") return true;
-    const type = (r.book?.mediaType || "").toUpperCase();
-    const title = (r.book?.title || "").toLowerCase();
-    if (requestFilter === "BOOK") return type === "BOOK" && !title.includes("ኮርስ");
-    if (requestFilter === "MEDIA") return type === "VIDEO" || type === "AUDIO";
-    if (requestFilter === "COURSE") {
-      return (
-        type === "COURSE" ||
-        title.includes("ኮርስ") ||
-        title.includes("ስልጠና") ||
-        title.includes("pdf")
-      );
-    }
-    return true;
-  });
+  // Filtered requests (Memoized to prevent unnecessary re-filtering on unrelated state changes)
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      if (requestFilter === "ALL") return true;
+      const type = (r.book?.mediaType || "").toUpperCase();
+      const title = (r.book?.title || "").toLowerCase();
+      if (requestFilter === "BOOK") return type === "BOOK" && !title.includes("ኮርስ");
+      if (requestFilter === "MEDIA") return type === "VIDEO" || type === "AUDIO";
+      if (requestFilter === "COURSE") {
+        return (
+          type === "COURSE" ||
+          title.includes("ኮርስ") ||
+          title.includes("ስልጠና") ||
+          title.includes("pdf")
+        );
+      }
+      return true;
+    });
+  }, [requests, requestFilter]);
 
-  // Filtered contents
-  const filteredContents = contents.filter((item) => {
-    const matchFilter =
-      contentFilter === "ALL"
-        ? true
-        : contentFilter === "COURSE"
-          ? item.mediaType === "COURSE" ||
-            item.title.toLowerCase().includes("ኮርስ") ||
-            item.title.toLowerCase().includes("ስልጠና")
-          : item.mediaType === contentFilter;
+  // Filtered contents (Memoized for high typing performance in search inputs)
+  const filteredContents = useMemo(() => {
+    return contents.filter((item) => {
+      const matchFilter =
+        contentFilter === "ALL"
+          ? true
+          : contentFilter === "COURSE"
+            ? item.mediaType === "COURSE" ||
+              item.title.toLowerCase().includes("ኮርስ") ||
+              item.title.toLowerCase().includes("ስልጠና")
+            : item.mediaType === contentFilter;
 
-    const matchSearch =
-      searchQuery.trim() === ""
-        ? true
-        : item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (item.author && item.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchSearch =
+        searchQuery.trim() === ""
+          ? true
+          : item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.author && item.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return matchFilter && matchSearch;
-  });
+      return matchFilter && matchSearch;
+    });
+  }, [contents, contentFilter, searchQuery]);
 
-  const pendingCount = requests.filter((r) => r.status === "PENDING").length;
+  const pendingCount = useMemo(() => requests.filter((r) => r.status === "PENDING").length, [requests]);
 
-  const unprayedCount = privatePrayers.filter((p) => !p.isPrayed).length;
-  const prayedCount = privatePrayers.filter((p) => p.isPrayed).length;
+  const unprayedCount = useMemo(() => privatePrayers.filter((p) => !p.isPrayed).length, [privatePrayers]);
+  const prayedCount = useMemo(() => privatePrayers.filter((p) => p.isPrayed).length, [privatePrayers]);
 
-  const filteredPrivatePrayers = privatePrayers.filter((p) => {
-    if (prayerFilter === "UNPRAYED" && p.isPrayed) return false;
-    if (prayerFilter === "PRAYED" && !p.isPrayed) return false;
-    if (prayerSearch.trim()) {
-      const q = prayerSearch.toLowerCase();
-      const matchTitle = (p.title || "").toLowerCase().includes(q);
-      const matchDesc = (p.description || "").toLowerCase().includes(q);
-      const matchBy = (p.submittedBy || "").toLowerCase().includes(q);
-      const matchContact = (p.contactInfo || "").toLowerCase().includes(q);
-      if (!matchTitle && !matchDesc && !matchBy && !matchContact) return false;
-    }
-    return true;
-  });
+  const filteredPrivatePrayers = useMemo(() => {
+    return privatePrayers.filter((p) => {
+      if (prayerFilter === "UNPRAYED" && p.isPrayed) return false;
+      if (prayerFilter === "PRAYED" && !p.isPrayed) return false;
+      if (prayerSearch.trim()) {
+        const q = prayerSearch.toLowerCase();
+        const matchTitle = (p.title || "").toLowerCase().includes(q);
+        const matchDesc = (p.description || "").toLowerCase().includes(q);
+        const matchBy = (p.submittedBy || "").toLowerCase().includes(q);
+        const matchContact = (p.contactInfo || "").toLowerCase().includes(q);
+        if (!matchTitle && !matchDesc && !matchBy && !matchContact) return false;
+      }
+      return true;
+    });
+  }, [privatePrayers, prayerFilter, prayerSearch]);
 
-  // Real-time tracking calculations
-  const totalApprovedSales =
-    stats?.totalApprovedSales ??
-    requests.filter((r) => r.status === "PERMITTED").length;
+  // Real-time tracking calculations (Memoized)
+  const totalApprovedSales = useMemo(() => {
+    return stats?.totalApprovedSales ?? requests.filter((r) => r.status === "PERMITTED").length;
+  }, [stats?.totalApprovedSales, requests]);
 
-  const totalRevenue =
-    stats?.totalRevenue ??
-    requests
-      .filter((r) => r.status === "PERMITTED")
-      .reduce((sum, r) => sum + (r.book?.price || 0), 0);
+  const totalRevenue = useMemo(() => {
+    return (
+      stats?.totalRevenue ??
+      requests
+        .filter((r) => r.status === "PERMITTED")
+        .reduce((sum, r) => sum + (r.book?.price || 0), 0)
+    );
+  }, [stats?.totalRevenue, requests]);
 
   const totalPending = stats?.totalPendingRequests ?? pendingCount;
 
-  const totalUniqueBuyers =
-    stats?.totalUniqueBuyers ??
-    new Set(requests.filter((r) => r.status === "PERMITTED").map((r) => r.user?.id || r.id)).size;
+  const totalUniqueBuyers = useMemo(() => {
+    return (
+      stats?.totalUniqueBuyers ??
+      new Set(requests.filter((r) => r.status === "PERMITTED").map((r) => r.user?.id || r.id)).size
+    );
+  }, [stats?.totalUniqueBuyers, requests]);
 
-  // Filtered contents for Tracking tab
-  const filteredTrackingContents = contents.filter((item) => {
-    const matchType =
-      trackingTypeFilter === "ALL"
-        ? true
-        : item.mediaType === trackingTypeFilter;
+  // Filtered contents for Tracking tab (Memoized)
+  const filteredTrackingContents = useMemo(() => {
+    return contents.filter((item) => {
+      const matchType =
+        trackingTypeFilter === "ALL"
+          ? true
+          : item.mediaType === trackingTypeFilter;
 
-    const buyersCount = item.approvedCount || 0;
-    const matchBuyer =
-      trackingBuyerFilter === "ALL"
-        ? true
-        : trackingBuyerFilter === "HAS_BUYERS"
-          ? buyersCount > 0
-          : buyersCount === 0;
+      const buyersCount = item.approvedCount || 0;
+      const matchBuyer =
+        trackingBuyerFilter === "ALL"
+          ? true
+          : trackingBuyerFilter === "HAS_BUYERS"
+            ? buyersCount > 0
+            : buyersCount === 0;
 
-    const matchSearch =
-      trackingSearch.trim() === ""
-        ? true
-        : item.title.toLowerCase().includes(trackingSearch.toLowerCase()) ||
-          (item.author && item.author.toLowerCase().includes(trackingSearch.toLowerCase()));
+      const matchSearch =
+        trackingSearch.trim() === ""
+          ? true
+          : item.title.toLowerCase().includes(trackingSearch.toLowerCase()) ||
+            (item.author && item.author.toLowerCase().includes(trackingSearch.toLowerCase()));
 
-    return matchType && matchBuyer && matchSearch;
-  });
+      return matchType && matchBuyer && matchSearch;
+    });
+  }, [contents, trackingTypeFilter, trackingBuyerFilter, trackingSearch]);
 
   return (
     <div className="animate-in fade-in min-h-screen bg-navy/5 pb-20">

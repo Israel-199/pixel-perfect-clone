@@ -8,6 +8,63 @@ import { formatEtbWithUsd } from "@/lib/bookUtils";
 import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/books")({
+  head: () => ({
+    meta: [
+      { title: "RABBI Digital | መጻሕፍት — መንፈሳዊ፣ ሥነ-መለኮትና የትምህርት መጻሕፍት" },
+      {
+        name: "description",
+        content:
+          "RABBI Digital ላይ ያሉ ሁሉም መንፈሳዊ፣ ሥነ-መለኮታዊ እና ትምህርታዊ መጻሕፍትን ያስሱ። ቅዱሳን ጽሑፎችን፣ የጥናት ማኑዋሎችን እና የዶርቃ ኮሌጅ ምሑራዊ ሥራዎችን ያግኙ።",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | መጻሕፍት" },
+      {
+        property: "og:description",
+        content:
+          "መንፈሳዊ፣ ሥነ-መለኮታዊ እና ትምህርታዊ መጻሕፍት ሙሉ ስብስብ — RABBI Digital።",
+      },
+      { property: "og:url", content: "https://www.rabbidigital.com/books" },
+      { property: "og:locale", content: "am_ET" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | መጻሕፍት" },
+      {
+        name: "twitter:description",
+        content:
+          "መንፈሳዊ እና ሥነ-መለኮታዊ መጻሕፍት — RABBI Digital።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/books" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "@id": "https://www.rabbidigital.com/books",
+          "url": "https://www.rabbidigital.com/books",
+          "name": "RABBI Digital — መጻሕፍት",
+          "description": "RABBI Digital ላይ ያሉ ሁሉም መንፈሳዊ፣ ሥነ-መለኮታዊ እና ትምህርታዊ መጻሕፍት",
+          "inLanguage": "am",
+          "isPartOf": {
+            "@id": "https://www.rabbidigital.com/#website"
+          },
+          "publisher": {
+            "@id": "https://www.rabbidigital.com/#organization"
+          },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" },
+              { "@type": "ListItem", "position": 2, "name": "መጻሕፍት", "item": "https://www.rabbidigital.com/books" }
+            ]
+          }
+        })
+      }
+    ],
+  }),
   component: BooksRoute,
 });
 

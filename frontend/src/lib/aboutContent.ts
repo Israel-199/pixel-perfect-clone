@@ -104,9 +104,10 @@ export interface AboutSectionData {
 
 export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
   am: {
-    heroBadge: "ረቢ (REBI) • የክርስቲያን እውቀትና ሥነ-ጽሑፍ ዲጂታል መድረክ",
+    heroBadge: "ረቢ (RABBI) • የክርስቲያን እውቀትና ሥነ-ጽሑፍ ዲጂታል መድረክ",
     heroTitle: "ስለ RABBI",
-    heroSubtitle: "በኢትዮጵያ የወንጌል አማኞች ማኅበረሰብ ግንባታ፣ በሀገር ልማት፣ በሰላም ግንባታና በእውቀት ማዳረስ ላይ አስተዋጽኦ ለማድረግ የተቋቋመ ሁለገብ ዲጂታል መድረክ።",
+    heroSubtitle:
+      "በኢትዮጵያ የወንጌል አማኞች ማኅበረሰብ ግንባታ፣ በሀገር ልማት፣ በሰላም ግንባታና በእውቀት ማዳረስ ላይ አስተዋጽኦ ለማድረግ የተቋቋመ ሁለገብ ዲጂታል መድረክ።",
     heroPillars: ["ማንበብ", "መማር", "መጻፍ", "ማገናኘት", "ማነጽ"],
 
     subSections: {
@@ -122,11 +123,14 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
 
     aboutPart: "ክፍል ፩",
     aboutHeaderTitle: "ስለ እኛ — ስለ RABBI አገልግሎት እና ታሪክ",
-    aboutIntroTitle: "ረቢ (REBI)",
+    aboutIntroTitle: "ረቢ (RABBI)",
     aboutIntroSubtitle: "የክርስቲያን እውቀት፣ ሥነ-ጽሑፍና ማኅበረሰብ ግንባታ ዲጂታል መድረክ",
-    aboutIntroP1: "ረቢ መጽሐፍትን ለማንበብና ለመሸጥ ብቻ የተዘጋጀ አፕ ሳይሆን፣ በኢትዮጵያ የወንጌል አማኞች ማኅበረሰብ ግንባታ፣ በሀገር ልማት፣ በሰላም ግንባታና በእውቀት ማዳረስ ላይ አስተዋጽኦ ለማድረግ የተቋቋመ ሁለገብ ዲጂታል መድረክ ነው።",
-    aboutIntroP2: "መድረኩ የመጽሐፍ ማንበብን፣ የመጻፍና የህትመት አገልግሎትን፣ የመጽሐፍ ቅዱስ ትምህርትን፣ የድምፅ መጽሐፍትን፣ የመስመር ላይ ኮርሶችን፣ የክርስቲያን ዜናዎችን፣ የጥናት ሀብቶችንና የማኅበረሰብ ትብብርን በአንድ ሥርዓት ያገናኛል።",
-    aboutIntroP3: "የረቢ ዋና ዓላማ የወንጌል አማኞች መንፈሳዊ እድገት በግለሰብና በቤተሰብ ደረጃ ብቻ እንዳይቀር፣ ወደ ቤተክርስቲያን፣ ወደ ማኅበረሰብና ወደ ሀገር ግንባታ የሚዘልቅ ተግባራዊ አስተዋጽኦ እንዲያፈራ ማገዝ ነው።",
+    aboutIntroP1:
+      "ረቢ መጽሐፍትን ለማንበብና ለመሸጥ ብቻ የተዘጋጀ አፕ ሳይሆን፣ በኢትዮጵያ የወንጌል አማኞች ማኅበረሰብ ግንባታ፣ በሀገር ልማት፣ በሰላም ግንባታና በእውቀት ማዳረስ ላይ አስተዋጽኦ ለማድረግ የተቋቋመ ሁለገብ ዲጂታል መድረክ ነው።",
+    aboutIntroP2:
+      "መድረኩ የመጽሐፍ ማንበብን፣ የመጻፍና የህትመት አገልግሎትን፣ የመጽሐፍ ቅዱስ ትምህርትን፣ የድምፅ መጽሐፍትን፣ የመስመር ላይ ኮርሶችን፣ የክርስቲያን ዜናዎችን፣ የጥናት ሀብቶችንና የማኅበረሰብ ትብብርን በአንድ ሥርዓት ያገናኛል።",
+    aboutIntroP3:
+      "የረቢ ዋና ዓላማ የወንጌል አማኞች መንፈሳዊ እድገት በግለሰብና በቤተሰብ ደረጃ ብቻ እንዳይቀር፣ ወደ ቤተክርስቲያን፣ ወደ ማኅበረሰብና ወደ ሀገር ግንባታ የሚዘልቅ ተግባራዊ አስተዋጽኦ እንዲያፈራ ማገዝ ነው።",
     servicesTitle: "3. የረቢ ዋና ዋና የአገልግሎት ዘርፎች",
     services: [
       {
@@ -163,9 +167,12 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       },
     ],
     messageTitle: "9. የረቢ መልእክት",
-    messageP1: "ረቢ እውቀት ከመጽሐፍ ገጾች ወጥቶ ወደ ሕይወት፣ ከግለሰብ ወደ ማኅበረሰብ፣ ከቤተክርስቲያን ወደ ሀገር ግንባታ እንዲዘልቅ የሚሠራ መድረክ ነው።",
-    messageP2: "ደራሲዎች ሐሳባቸውን ወደ መጽሐፍ እንዲቀይሩ፣ አንባቢያን በእውቀት እንዲያድጉ፣ መምህራን ትምህርታቸውን ለብዙዎች እንዲያደርሱ፣ ቤተክርስቲያንም በማኅበረሰብ ግንባታ ላይ ያላትን አስተዋጽኦ እንድታጠናክር ያግዛል።",
-    messageP3: "የረቢ ዓላማ መጽሐፍትን ማተም ብቻ ሳይሆን፣ እውቀትን ማሳደግ፣ ሰዎችን ማገናኘት፣ የሰላም ባህልን ማበረታታትና ለሀገር የሚጠቅም ትውልድ ግንባታ ላይ መሳተፍ ነው።",
+    messageP1:
+      "ረቢ እውቀት ከመጽሐፍ ገጾች ወጥቶ ወደ ሕይወት፣ ከግለሰብ ወደ ማኅበረሰብ፣ ከቤተክርስቲያን ወደ ሀገር ግንባታ እንዲዘልቅ የሚሠራ መድረክ ነው።",
+    messageP2:
+      "ደራሲዎች ሐሳባቸውን ወደ መጽሐፍ እንዲቀይሩ፣ አንባቢያን በእውቀት እንዲያድጉ፣ መምህራን ትምህርታቸውን ለብዙዎች እንዲያደርሱ፣ ቤተክርስቲያንም በማኅበረሰብ ግንባታ ላይ ያላትን አስተዋጽኦ እንድታጠናክር ያግዛል።",
+    messageP3:
+      "የረቢ ዓላማ መጽሐፍትን ማተም ብቻ ሳይሆን፣ እውቀትን ማሳደግ፣ ሰዎችን ማገናኘት፣ የሰላም ባህልን ማበረታታትና ለሀገር የሚጠቅም ትውልድ ግንባታ ላይ መሳተፍ ነው።",
     motto: "ረቢ — ከእውቀት ወደ ሕይወት፤ ከመጽሐፍ ወደ ማኅበረሰብ፤ ከእምነት ወደ አገልግሎት።",
     principle: "መሪ መርህ፦ ማንበብ፣ መማር፣ መጻፍ፣ ማገናኘትና ማነጽ",
 
@@ -173,7 +180,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     visionHeaderTitle: "ራዕይ እና ተልዕኮ — የምንሰራው እና መዳረሻችን",
     visionTitle: "1. ራዕያችን",
     visionHeading: "በመጽሐፍ ቅዱስ እውነት፣ በእውቀት፣ በጥበብና በተግባራዊ አገልግሎት የተገነባ የወንጌል አማኞች ማኅበረሰብ መገንባት!",
-    visionText: "በመጽሐፍ ቅዱስ እውነት፣ በእውቀት፣ በጥበብና በተግባራዊ አገልግሎት የተገነባ፤ የሚያነብ፣ የሚጽፍ፣ የሚመረምር፣ ለሰላም የሚሠራና ለሀገር ዕድገት አስተዋጽኦ የሚያደርግ የወንጌል አማኞች ማኅበረሰብ መገንባት።",
+    visionText:
+      "በመጽሐፍ ቅዱስ እውነት፣ በእውቀት፣ በጥበብና በተግባራዊ አገልግሎት የተገነባ፤ የሚያነብ፣ የሚጽፍ፣ የሚመረምር፣ ለሰላም የሚሠራና ለሀገር ዕድገት አስተዋጽኦ የሚያደርግ የወንጌል አማኞች ማኅበረሰብ መገንባት።",
     missionTitle: "2. ተልዕኳችን",
     missionIntro: "ረቢ ዲጂታል ቴክኖሎጂን፣ የመጽሐፍ ሥነ-ጽሑፍን፣ የትምህርት ሀብቶችንና የባለሙያዎችን ትብብር በመጠቀም፦",
     missionItems: [
@@ -221,7 +229,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     teamPart: "ክፍል ፫",
     teamHeaderTitle: "ቡድናችን — ከእኛ ጋር ያሉ አገልጋዮች",
     teamIntroTitle: "ደራሲያን፣ አንባቢያን፣ መምህራን፣ መርማሪዎችና የቤተክርስቲያን አገልጋዮች ማኅበረሰብ",
-    teamIntroText: "ረቢ በአንድ ግለሰብ ጥረት ብቻ ሳይሆን በኢትዮጵያ የወንጌል አማኞች አብያተ ክርስቲያናት መጋቢዎች፣ የሥነ-መለኮት ምሁራን፣ ጸሐፊያንና የቴክኖሎጂ አገልጋዮች የጋራ ራዕይና የትብብር አገልግሎት የሚመራ መድረክ ነው።",
+    teamIntroText:
+      "ረቢ በአንድ ግለሰብ ጥረት ብቻ ሳይሆን በኢትዮጵያ የወንጌል አማኞች አብያተ ክርስቲያናት መጋቢዎች፣ የሥነ-መለኮት ምሁራን፣ ጸሐፊያንና የቴክኖሎጂ አገልጋዮች የጋራ ራዕይና የትብብር አገልግሎት የሚመራ መድረክ ነው።",
     ministryGroupsTitle: "ከእኛ ጋር ያሉ የአገልግሎት ዘርፎችና አገልጋዮች",
     ministryGroups: [
       {
@@ -246,14 +255,16 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       },
     ],
     serveCallTitle: "ከእኛ ጋር አብረው ማገልገል ይፈልጋሉ?",
-    serveCallText: "በደራሲነት፣ በትርጉም፣ በድምፅ ንባብ ወይም በቴክኖሎጂ ድጋፍ አገልግሎታችንን ለማጠናከር የእርስዎ ተሳትፎ ሁሌም በደስታ ይቀበላል።",
+    serveCallText:
+      "በደራሲነት፣ በትርጉም፣ በድምፅ ንባብ ወይም በቴክኖሎጂ ድጋፍ አገልግሎታችንን ለማጠናከር የእርስዎ ተሳትፎ ሁሌም በደስታ ይቀበላል።",
     contactNowBtn: "አሁን ያነጋግሩን",
 
     partnerPart: "ክፍል ፬",
     partnerHeaderTitle: "አጋርነት — አጋር ለመሆን እና የጋራ ሥራ",
     nationRoleTag: "4. ረቢ በሀገር ግንባታ ላይ ያለው ሚና",
     nationRoleTitle: "መንፈሳዊ እድገትን ከሀገራዊ ኃላፊነት ጋር ማገናኘት",
-    nationRoleText: "ረቢ የወንጌል አማኞች ማኅበረሰብ መንፈሳዊ እድገትን ከሀገራዊ ኃላፊነት ጋር በማገናኘት፣ ቤተክርስቲያን በሀገር ግንባታ ላይ የምታደርገውን አስተዋጽኦ ለማጠናከር ይሠራል። ይህ አስተዋጽኦ በሚከተሉት መንገዶች ሊገለጽ ይችላል፦",
+    nationRoleText:
+      "ረቢ የወንጌል አማኞች ማኅበረሰብ መንፈሳዊ እድገትን ከሀገራዊ ኃላፊነት ጋር በማገናኘት፣ ቤተክርስቲያን በሀገር ግንባታ ላይ የምታደርገውን አስተዋጽኦ ለማጠናከር ይሠራል። ይህ አስተዋጽኦ በሚከተሉት መንገዶች ሊገለጽ ይችላል፦",
     nationRoles: [
       {
         label: "በእውቀት ግንባታ",
@@ -276,9 +287,11 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
         text: "በችግር፣ በመፈናቀልና በሌሎች አስቸጋሪ ሁኔታዎች ውስጥ ለሚገኙ ሰዎች የተደራሽ ትምህርትና መንፈሳዊ ማጽናኛ ማቅረብ።",
       },
     ],
-    nationRoleCallout: "የረቢ አቀራረብ የቤተክርስቲያንን መንፈሳዊ ማንነት እየጠበቀ፣ ለጋራ የሰው ልጅ ደህንነትና ለሀገር ዕድገት በኃላፊነት የሚሳተፍ ማኅበረሰብ መገንባት ነው።",
+    nationRoleCallout:
+      "የረቢ አቀራረብ የቤተክርስቲያንን መንፈሳዊ ማንነት እየጠበቀ፣ ለጋራ የሰው ልጅ ደህንነትና ለሀገር ዕድገት በኃላፊነት የሚሳተፍ ማኅበረሰብ መገንባት ነው።",
     bridgeTitle: "5. በቤተክርስቲያንና በማኅበረሰብ መካከል ድልድይ መፍጠር",
-    bridgeIntro: "ረቢ ቤተክርስቲያን ከማኅበረሰቡ ጋር በጋራ የሚያስቡበትን፣ የሚማሩበትንና የሚሠሩበትን መንገድ ለማስፋት ይጥራል። ይህም በሚከተሉት ይተገበራል፦",
+    bridgeIntro:
+      "ረቢ ቤተክርስቲያን ከማኅበረሰቡ ጋር በጋራ የሚያስቡበትን፣ የሚማሩበትንና የሚሠሩበትን መንገድ ለማስፋት ይጥራል። ይህም በሚከተሉት ይተገበራል፦",
     bridgePoints: [
       "በሰላም፣ በእርቅ፣ በይቅርታና በማኅበራዊ ኃላፊነት ላይ የተዘጋጁ መጽሐፍትንና ኮርሶችን ማቅረብ።",
       "ለተለያዩ ማኅበረሰቦች የሚጠቅሙ የጋራ ጥናትና ውይይት መድረኮችን ማበረታታት።",
@@ -286,7 +299,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "በተለያዩ የእምነትና የማኅበራዊ ዳራ ያላቸው ሰዎች መካከል መከባበርንና ሰላማዊ አብሮ መኖርን የሚያጠናክሩ ትምህርቶችን ማዳረስ።",
     ],
     partnerInstitutionsTitle: "አጋር ለመሆን የሚፈልጉ ተቋማትና አገልጋዮች",
-    partnerInstitutionsText: "አብያተ ክርስቲያናት፣ ደራሲያን፣ አሳታሚዎች፣ የሥነ-መለኮት ኮሌጆች እና የሲቪል ማኅበራት ከእኛ ጋር በትብብር ለመሥራት ዝግጁ ነን።",
+    partnerInstitutionsText:
+      "አብያተ ክርስቲያናት፣ ደራሲያን፣ አሳታሚዎች፣ የሥነ-መለኮት ኮሌጆች እና የሲቪል ማኅበራት ከእኛ ጋር በትብብር ለመሥራት ዝግጁ ነን።",
     telegramPartnerBtn: "በቴሌግራም አጋር ለመሆን ያነጋግሩ (@rabbi_admin)",
     fillFormBtn: "የመልእክት ቅፅ ይሙሉ",
 
@@ -327,17 +341,38 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
   },
 
   or: {
-    heroBadge: "REBI • Wiirtuu Dijitaalaa Beekumsa fi Barreeffama Kiristaanaa",
+    heroBadge: "RABBI • Wiirtuu Dijitaalaa Beekumsa fi Barreeffama Kiristaanaa",
     heroTitle: "Waa'ee RABBI",
-    heroSubtitle: "Hawaasa amantoota wangeelaa Itoophiyaa ijaaruu, guddina biyyaa, ijaarsa nagaa fi beekumsa babal'isuuf kan hundeeffame waltajjii dijitaalaa maraa.",
+    heroSubtitle:
+      "Hawaasa amantoota wangeelaa Itoophiyaa ijaaruu, guddina biyyaa, ijaarsa nagaa fi beekumsa babal'isuuf kan hundeeffame waltajjii dijitaalaa maraa.",
     heroPillars: ["Dubbisuu", "Barachuu", "Barreessuu", "Walqunnamsiisuu", "Ijaaruu"],
 
     subSections: {
-      about: { title: "Waa'ee Keenya", desc: "Waa'ee tajaajila RABBI fi seenaa", badge: "Waltajjii fi Tajaajiloota" },
-      vision: { title: "Mul'ata fi Ergama", desc: "Waan hojjennuu fi galma keenya", badge: "Mul'ata, Ergama fi Duudhaalee" },
-      team: { title: "Garee Keenya", desc: "Tajaajiltoota nu waliin jiran", badge: "Hawaasa Tajaajiltootaa" },
-      partnership: { title: "Michummaa", desc: "Michuu tajaajilaa ta'uuf", badge: "Ijaarsa Biyyaa fi Gamtaa" },
-      contact: { title: "Nu Qunnamaa", desc: "Yaada fi gaaffiidhaaf nu qunnamaa", badge: "Qunnamtii Kallattii fi Deeggarsa" },
+      about: {
+        title: "Waa'ee Keenya",
+        desc: "Waa'ee tajaajila RABBI fi seenaa",
+        badge: "Waltajjii fi Tajaajiloota",
+      },
+      vision: {
+        title: "Mul'ata fi Ergama",
+        desc: "Waan hojjennuu fi galma keenya",
+        badge: "Mul'ata, Ergama fi Duudhaalee",
+      },
+      team: {
+        title: "Garee Keenya",
+        desc: "Tajaajiltoota nu waliin jiran",
+        badge: "Hawaasa Tajaajiltootaa",
+      },
+      partnership: {
+        title: "Michummaa",
+        desc: "Michuu tajaajilaa ta'uuf",
+        badge: "Ijaarsa Biyyaa fi Gamtaa",
+      },
+      contact: {
+        title: "Nu Qunnamaa",
+        desc: "Yaada fi gaaffiidhaaf nu qunnamaa",
+        badge: "Qunnamtii Kallattii fi Deeggarsa",
+      },
     },
 
     activeLabel: "Hojii Irra",
@@ -345,12 +380,16 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
 
     aboutPart: "Kutaa 1",
     aboutHeaderTitle: "Waa'ee Keenya — Waa'ee Tajaajila fi Seenaa RABBI",
-    aboutIntroTitle: "REBI",
-    aboutIntroSubtitle: "Waltajjii Dijitaalaa Beekumsa Kiristaanaa, Barreeffama fi Ijaarsa Hawaasaa",
-    aboutIntroP1: "Rebi macaafota dubbisuu fi gurguruu qofaaf kan qophaa'e utuu hin taane, hawaasa amantoota wangeelaa Itoophiyaa ijaaruu, guddina biyyaa, ijaarsa nagaa fi beekumsa qooduuf kan hundeeffamedha.",
-    aboutIntroP2: "Waltajjiin kun dubbisa macaafotaa, tajaajila barreessuu fi maxxansaa, barnoota Macaafa Qulqulluu, macaafota sagalee, leenjiilee toora interneetii, oduuwwan kiristaanaa fi qorannoo sirna tokko jalatti walitti fida.",
-    aboutIntroP3: "Kaayyoon guddaan Rebi guddinni hafuuraa amantoota wangeelaa dhuunfaa fi maatiitti qofa akka hin hafne, gara waldaa, hawaasa fi ijaarsa biyyaatti akka babal'atu gargaaruudha.",
-    servicesTitle: "3. Dameewwan Tajaajilaa Ijoo Rebi",
+    aboutIntroTitle: "RABBI",
+    aboutIntroSubtitle:
+      "Waltajjii Dijitaalaa Beekumsa Kiristaanaa, Barreeffama fi Ijaarsa Hawaasaa",
+    aboutIntroP1:
+      "Rabbi macaafota dubbisuu fi gurguruu qofaaf kan qophaa'e utuu hin taane, hawaasa amantoota wangeelaa Itoophiyaa ijaaruu, guddina biyyaa, ijaarsa nagaa fi beekumsa qooduuf kan hundeeffamedha.",
+    aboutIntroP2:
+      "Waltajjiin kun dubbisa macaafotaa, tajaajila barreessuu fi maxxansaa, barnoota Macaafa Qulqulluu, macaafota sagalee, leenjiilee toora interneetii, oduuwwan kiristaanaa fi qorannoo sirna tokko jalatti walitti fida.",
+    aboutIntroP3:
+      "Kaayyoon guddaan Rabbi guddinni hafuuraa amantoota wangeelaa dhuunfaa fi maatiitti qofa akka hin hafne, gara waldaa, hawaasa fi ijaarsa biyyaatti akka babal'atu gargaaruudha.",
+    servicesTitle: "3. Dameewwan Tajaajilaa Ijoo Rabbi",
     services: [
       {
         title: "3.1. Bakka Dubbisa fi Gurgurtaa Macaafota Hafuuraa",
@@ -385,20 +424,27 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
         desc: "Macaafa Qulqulluu, tiyooloojii, seenaa waldaa fi guddina hawaasummaa irratti qorannoowwan gaggeeffaman jajjabeessuu.",
       },
     ],
-    messageTitle: "9. Ergaa Rebi",
-    messageP1: "Rebi beekumsi fuula macaafaa irraa gara jireenyaatti, dhuunfaa irraa gara hawaasaatti, waldaa irraa gara ijaarsa biyyaatti akka darbuuf hojjeta.",
-    messageP2: "Barreessitoonni yaada isaanii gara macaafaatti akka jijjiiran, dubbistoonni beekumsan akka guddatan, barsiisonni barnoota isaanii bal'inaan akka geessan gargaara.",
-    messageP3: "Kaayyoon Rebi macaafa maxxansuu qofa utuu hin taane, beekumsa guddisuu, namoota walitti fiduu, aadaa nagaa jajjabeessuu fi dhaloota biyyaaf ta'u ijaaruudha.",
-    motto: "Rebi — Beekumsa irraa gara jireenyaatti; Macaafa irraa gara hawaasaatti; Amantii irraa gara tajaajilaatti.",
+    messageTitle: "9. Ergaa Rabbi",
+    messageP1:
+      "Rabbi beekumsi fuula macaafaa irraa gara jireenyaatti, dhuunfaa irraa gara hawaasaatti, waldaa irraa gara ijaarsa biyyaatti akka darbuuf hojjeta.",
+    messageP2:
+      "Barreessitoonni yaada isaanii gara macaafaatti akka jijjiiran, dubbistoonni beekumsan akka guddatan, barsiisonni barnoota isaanii bal'inaan akka geessan gargaara.",
+    messageP3:
+      "Kaayyoon Rabbi macaafa maxxansuu qofa utuu hin taane, beekumsa guddisuu, namoota walitti fiduu, aadaa nagaa jajjabeessuu fi dhaloota biyyaaf ta'u ijaaruudha.",
+    motto:
+      "Rabbi — Beekumsa irraa gara jireenyaatti; Macaafa irraa gara hawaasaatti; Amantii irraa gara tajaajilaatti.",
     principle: "Qajeelfama Ijoo: Dubbisuu, Barachuu, Barreessuu, Walqunnamsiisuu fi Ijaaruu",
 
     visionPart: "Kutaa 2",
     visionHeaderTitle: "Mul'ata fi Ergama — Waan Hojjennuu fi Galma Keenya",
     visionTitle: "1. Mul'ata Keenya",
-    visionHeading: "Dhugaa Macaafa Qulqulluu, beekumsa, ogummaa fi tajaajila qabatamaadhaan hawaasa amantoota wangeelaa ijaaruu!",
-    visionText: "Dhugaa Macaafa Qulqulluu, beekumsa, ogummaa fi tajaajila qabatamaadhaan hawaasa dubbisu, barreessu, qoratu, nagaaf hojjetu fi guddina biyyaaf gumaachu ijaaruudha.",
+    visionHeading:
+      "Dhugaa Macaafa Qulqulluu, beekumsa, ogummaa fi tajaajila qabatamaadhaan hawaasa amantoota wangeelaa ijaaruu!",
+    visionText:
+      "Dhugaa Macaafa Qulqulluu, beekumsa, ogummaa fi tajaajila qabatamaadhaan hawaasa dubbisu, barreessu, qoratu, nagaaf hojjetu fi guddina biyyaaf gumaachu ijaaruudha.",
     missionTitle: "2. Ergama Keenya",
-    missionIntro: "Rebi teeknooloojii dijitaalaa, aadaa barreeffamaa, qabeenya barnootaa fi gamtaa ogeessotaatti fayyadamuun:",
+    missionIntro:
+      "Rabbi teeknooloojii dijitaalaa, aadaa barreeffamaa, qabeenya barnootaa fi gamtaa ogeessotaatti fayyadamuun:",
     missionItems: [
       "Amantoota wangeelaa Itoophiyaa keessatti aadaa beekumsaa fi barreeffamaa guddisuu.",
       "Barnoota Macaafa Qulqulluu umrii, afaan fi fedhii barachuu garaagaraaf mijatuun dhiyeessuu.",
@@ -407,8 +453,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "Dandeettii barreessitootaa, barsiisotaa, qorattootaa fi gulaaltotaa gabbisuu.",
       "Nagaa, haqa, itti gaafatamummaa fi kabaja namaa irratti hirmaannaa hawaasummaa jajjabeessuu.",
     ],
-    goalsTitle: "7. Galmaalee Yeroo Dheeraa Rebi",
-    goalsIntro: "Galmaalee gurguddoo Rebi sadarkaadhaan milkeessuuf karoorfate:",
+    goalsTitle: "7. Galmaalee Yeroo Dheeraa Rabbi",
+    goalsIntro: "Galmaalee gurguddoo Rabbi sadarkaadhaan milkeessuuf karoorfate:",
     goalsItems: [
       "Itoophiyaa keessatti waltajjii dubbisaa fi gurgurtaa barreeffama kiristaanaa dijitaalaa ta'uu.",
       "Barreessitoota haaraaf deeggarsa barreessuu, gulaaluu fi maxxansaa kennuu.",
@@ -417,7 +463,7 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "Nagaa, araara, tajaajila hawaasaa fi ijaarsa biyyaa irratti qabeenya barnootaa gabbisuu.",
       "Hawaasa barreessitoonni, dubbistoonni, barsiisonni fi tajaajiltoonni waloon hojjetan uumuu.",
     ],
-    valuesTitle: "8. Duudhaalee Bu'uuraa Rebi",
+    valuesTitle: "8. Duudhaalee Bu'uuraa Rabbi",
     values: [
       {
         title: "Dhugaa fi Qulqullina",
@@ -444,7 +490,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     teamPart: "Kutaa 3",
     teamHeaderTitle: "Garee Keenya — Tajaajiltoota Nu Waliin Jiran",
     teamIntroTitle: "Hawaasa Barreessitootaa, Dubbistootaa, Barsiisotaa fi Tajaajiltoota Waldaa",
-    teamIntroText: "Rebi carraaqqii nama dhuunfaa qofaan utuu hin taane, lubaawwan waldoota wangeelaa Itoophiyaa, hayyoota tiyooloojii, barreessitootaa fi ogeessota teeknooloojiitiin kan hogganamudha.",
+    teamIntroText:
+      "Rabbi carraaqqii nama dhuunfaa qofaan utuu hin taane, lubaawwan waldoota wangeelaa Itoophiyaa, hayyoota tiyooloojii, barreessitootaa fi ogeessota teeknooloojiitiin kan hogganamudha.",
     ministryGroupsTitle: "Dameewwan Tajaajilaa fi Tajaajiltoota Nu Waliin Jiran",
     ministryGroups: [
       {
@@ -469,14 +516,16 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       },
     ],
     serveCallTitle: "Nu Waliin Tajaajiluu Barbaadduu?",
-    serveCallText: "Barreessummaan, hiikkaan, dubbisa sagaleen ykn deeggarsa teeknooloojiitiin hirmaannaan keessan simatamaadha.",
+    serveCallText:
+      "Barreessummaan, hiikkaan, dubbisa sagaleen ykn deeggarsa teeknooloojiitiin hirmaannaan keessan simatamaadha.",
     contactNowBtn: "Amma Nu Qunnamaa",
 
     partnerPart: "Kutaa 4",
     partnerHeaderTitle: "Michummaa — Michuu Ta'uu fi Hojii Waliinii",
-    nationRoleTag: "4. Gahee Rebi Ijaarsa Biyyaa Keessatti",
+    nationRoleTag: "4. Gahee Rabbi Ijaarsa Biyyaa Keessatti",
     nationRoleTitle: "Guddina Hafuuraa Itti Gaafatamummaa Biyyaalessaa Waliin Walitti Fiduu",
-    nationRoleText: "Rebi guddina hafuuraa amantootaa itti gaafatamummaa biyyaalessaa waliin walitti qabsiisuun, waldaan ijaarsa biyyaa keessatti gumaacha ishee akka cimsituuf hojjeta:",
+    nationRoleText:
+      "Rabbi guddina hafuuraa amantootaa itti gaafatamummaa biyyaalessaa waliin walitti qabsiisuun, waldaan ijaarsa biyyaa keessatti gumaacha ishee akka cimsituuf hojjeta:",
     nationRoles: [
       {
         label: "Ijaarsa Beekumsaatiin",
@@ -499,9 +548,11 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
         text: "Namoota rakkoo fi buqqa'iinsa keessa jiraniif barnoota fi jajjabina dhiyeessuu.",
       },
     ],
-    nationRoleCallout: "Ilaalchi Rebi eenyummaa hafuuraa waldaa eegaa, nageenya ilma namaa fi guddina biyyaatiif hawaasa itti gaafatamummaadhaan hirmaatu ijaaruudha.",
+    nationRoleCallout:
+      "Ilaalchi Rabbi eenyummaa hafuuraa waldaa eegaa, nageenya ilma namaa fi guddina biyyaatiif hawaasa itti gaafatamummaadhaan hirmaatu ijaaruudha.",
     bridgeTitle: "5. Riqicha Waldaa fi Hawaasa Gidduu Uumuu",
-    bridgeIntro: "Rebi waldaan hawaasa waliin kan itti yaadan, baratan fi hojjetan babal'isuuf carraaqaa:",
+    bridgeIntro:
+      "Rabbi waldaan hawaasa waliin kan itti yaadan, baratan fi hojjetan babal'isuuf carraaqaa:",
     bridgePoints: [
       "Nagaa, araara, dhiifama fi itti gaafatamummaa hawaasummaa irratti macaafota fi koorasoota dhiyeessuu.",
       "Hawaasa adda addaatiif waltajjii marii fi qorannoo waliinii jajjabeessuu.",
@@ -509,7 +560,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "Namoota amantii fi duudhaa garaagaraa qaban gidduutti kabaja fi waliin jireenya nagaa cimsuu.",
     ],
     partnerInstitutionsTitle: "Dhaabbilee fi Tajaajiltoota Michuu Ta'uu Barbaadan",
-    partnerInstitutionsText: "Waldootni, barreessitoonni, maxxansitoonni, koolleejjiin tiyooloojii fi waldaaleen sivikii nu waliin hojjechuuf qophiidha.",
+    partnerInstitutionsText:
+      "Waldootni, barreessitoonni, maxxansitoonni, koolleejjiin tiyooloojii fi waldaaleen sivikii nu waliin hojjechuuf qophiidha.",
     telegramPartnerBtn: "Telegram irratti Michuu Ta'uuf (@rabbi_admin)",
     fillFormBtn: "Unka Ergaa Guutaa",
 
@@ -517,7 +569,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     contactHeaderTitle: "Nu Qunnamaa — Yaada fi Gaaffiidhaaf",
     accessTag: "6. Waltajjii Barnootaa Hundaaf Qaqqabu",
     accessTitle: "Fayyadama Teeknooloojii Fedhii fi Garaagarummaa Namaa Kabajuun Dhiyeessuu",
-    accessText: "Rebi teeknooloojiitti fayyadamuun fedhii fi garaagarummaa namaa kabajuun hojjeta.",
+    accessText:
+      "Rabbi teeknooloojiitti fayyadamuun fedhii fi garaagarummaa namaa kabajuun hojjeta.",
     accessPoints: [
       "Bilbila irratti dubbisaa fi barnoota salphaatti dhiyaatu.",
       "Bakkeewwan interneetiin daangeffametti macaafota buufatamanii fi sagaleewwan.",
@@ -534,7 +587,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     locationCity: "Finfinnee, Itoophiyaa",
     locationSubtitle: "RABBI Christian Digital Platform",
     formTitle: "Yaada fi Gaaffiidhaaf Nu Qunnamaa",
-    formDesc: "Gaaffii, yaada ykn yaada kamiyyuu yoo qabaattan unka armaan gadii guutuun nuuf ergaa.",
+    formDesc:
+      "Gaaffii, yaada ykn yaada kamiyyuu yoo qabaattan unka armaan gadii guutuun nuuf ergaa.",
     formSuccess: "Galatoomaa! Yaanni keessan milkaa'inaan nu ga'eera. Dhiyootti deebii kennina.",
     formNameLabel: "Maqaa Guutuu",
     formNamePlaceholder: "Maqaa keessan galchaa",
@@ -550,17 +604,38 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
   },
 
   en: {
-    heroBadge: "REBI • Christian Knowledge & Literature Digital Platform",
+    heroBadge: "RABBI • Christian Knowledge & Literature Digital Platform",
     heroTitle: "About RABBI",
-    heroSubtitle: "A comprehensive digital platform established to contribute to the Evangelical community building, national development, peace-building, and knowledge dissemination in Ethiopia.",
+    heroSubtitle:
+      "A comprehensive digital platform established to contribute to the Evangelical community building, national development, peace-building, and knowledge dissemination in Ethiopia.",
     heroPillars: ["Read", "Learn", "Write", "Connect", "Edify"],
 
     subSections: {
-      about: { title: "About Us", desc: "About RABBI ministry and history", badge: "Platform & Ministries" },
-      vision: { title: "Vision & Mission", desc: "Our work and destination", badge: "Vision, Mission & Values" },
-      team: { title: "Our Team", desc: "Ministers serving with us", badge: "Community of Servants" },
-      partnership: { title: "Partnership", desc: "Partner with us", badge: "Nation Building & Unity" },
-      contact: { title: "Contact Us", desc: "Inquiries and feedback", badge: "Direct Communication & Support" },
+      about: {
+        title: "About Us",
+        desc: "About RABBI ministry and history",
+        badge: "Platform & Ministries",
+      },
+      vision: {
+        title: "Vision & Mission",
+        desc: "Our work and destination",
+        badge: "Vision, Mission & Values",
+      },
+      team: {
+        title: "Our Team",
+        desc: "Ministers serving with us",
+        badge: "Community of Servants",
+      },
+      partnership: {
+        title: "Partnership",
+        desc: "Partner with us",
+        badge: "Nation Building & Unity",
+      },
+      contact: {
+        title: "Contact Us",
+        desc: "Inquiries and feedback",
+        badge: "Direct Communication & Support",
+      },
     },
 
     activeLabel: "Active",
@@ -568,12 +643,15 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
 
     aboutPart: "Section I",
     aboutHeaderTitle: "About Us — About RABBI Ministry and History",
-    aboutIntroTitle: "REBI",
+    aboutIntroTitle: "RABBI",
     aboutIntroSubtitle: "Digital Platform for Christian Knowledge, Literature & Community Building",
-    aboutIntroP1: "REBI is not merely an app for reading and buying books; it is a holistic digital platform established to contribute to the growth of the Ethiopian evangelical Christian community, national development, peacebuilding, and the spread of biblical knowledge.",
-    aboutIntroP2: "The platform integrates reading, authoring and publishing services, biblical instruction, audiobooks, online courses, Christian news, research resources, and fellowship in a single unified ecosystem.",
-    aboutIntroP3: "The primary mission of REBI is to ensure that spiritual growth is not confined to individuals or homes, but blossoms into practical transformation for local churches, communities, and nation building.",
-    servicesTitle: "3. Primary Service Divisions of REBI",
+    aboutIntroP1:
+      "RABBI is not merely an app for reading and buying books; it is a holistic digital platform established to contribute to the growth of the Ethiopian evangelical Christian community, national development, peacebuilding, and the spread of biblical knowledge.",
+    aboutIntroP2:
+      "The platform integrates reading, authoring and publishing services, biblical instruction, audiobooks, online courses, Christian news, research resources, and fellowship in a single unified ecosystem.",
+    aboutIntroP3:
+      "The primary mission of RABBI is to ensure that spiritual growth is not confined to individuals or homes, but blossoms into practical transformation for local churches, communities, and nation building.",
+    servicesTitle: "3. Primary Service Divisions of RABBI",
     services: [
       {
         title: "3.1. Spiritual Books Reading & Bookstore",
@@ -608,20 +686,26 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
         desc: "Promoting scholarly research in biblical studies, theology, church history, and socio-economic contributions of the Christian faith in Ethiopia.",
       },
     ],
-    messageTitle: "9. The REBI Message",
-    messageP1: "REBI works to translate knowledge from printed pages into living reality, from the individual to the community, and from the sanctuary into national transformation.",
-    messageP2: "We help authors turn ideas into published books, readers grow in biblical wisdom, teachers share insights with thousands, and churches deepen their civic and spiritual impact.",
-    messageP3: "Our aim is not merely publishing books, but fostering lifelong learning, connecting faithful servants, championing a culture of peace, and raising a generation that blesses the nation.",
-    motto: "REBI — From Knowledge to Life; From Books to Community; From Faith to Action.",
+    messageTitle: "9. The RABBI Message",
+    messageP1:
+      "RABBI works to translate knowledge from printed pages into living reality, from the individual to the community, and from the sanctuary into national transformation.",
+    messageP2:
+      "We help authors turn ideas into published books, readers grow in biblical wisdom, teachers share insights with thousands, and churches deepen their civic and spiritual impact.",
+    messageP3:
+      "Our aim is not merely publishing books, but fostering lifelong learning, connecting faithful servants, championing a culture of peace, and raising a generation that blesses the nation.",
+    motto: "RABBI — From Knowledge to Life; From Books to Community; From Faith to Action.",
     principle: "Guiding Principles: Read, Learn, Write, Connect, and Edify",
 
     visionPart: "Section II",
     visionHeaderTitle: "Vision & Mission — What We Do and Where We Are Going",
     visionTitle: "1. Our Vision",
-    visionHeading: "Building a vibrant evangelical community grounded in biblical truth, knowledge, wisdom, and practical service!",
-    visionText: "To see a thriving evangelical community grounded in biblical truth, knowledge, wisdom, and practical service that reads, writes, investigates, works for peace, and contributes meaningfully to national growth.",
+    visionHeading:
+      "Building a vibrant evangelical community grounded in biblical truth, knowledge, wisdom, and practical service!",
+    visionText:
+      "To see a thriving evangelical community grounded in biblical truth, knowledge, wisdom, and practical service that reads, writes, investigates, works for peace, and contributes meaningfully to national growth.",
     missionTitle: "2. Our Mission",
-    missionIntro: "Utilizing digital technology, literature, educational resources, and ministerial collaboration to:",
+    missionIntro:
+      "Utilizing digital technology, literature, educational resources, and ministerial collaboration to:",
     missionItems: [
       "Cultivate a rich reading and literary culture among Ethiopian evangelical Christians.",
       "Deliver Bible teachings adapted for diverse age groups, languages, and learning preferences.",
@@ -630,8 +714,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "Equip and uplift authors, theological teachers, researchers, and editors.",
       "Inspire active community participation founded on peace, justice, stewardship, and human dignity.",
     ],
-    goalsTitle: "7. Long-Term Objectives of REBI",
-    goalsIntro: "Strategic goals being realized progressively by REBI:",
+    goalsTitle: "7. Long-Term Objectives of RABBI",
+    goalsIntro: "Strategic goals being realized progressively by RABBI:",
     goalsItems: [
       "Establishing the premier digital library and bookstore for Ethiopian Christian literature.",
       "Offering comprehensive writing, editing, and publishing incubation for emerging authors.",
@@ -640,7 +724,7 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "Developing educational manuals focused on peace, reconciliation, community service, and nation-building.",
       "Nurturing a supportive community of authors, readers, educators, researchers, and church leaders.",
     ],
-    valuesTitle: "8. Core Values of REBI",
+    valuesTitle: "8. Core Values of RABBI",
     values: [
       {
         title: "Truth & Quality",
@@ -667,7 +751,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     teamPart: "Section III",
     teamHeaderTitle: "Our Team — Servants Partnering With Us",
     teamIntroTitle: "A Community of Authors, Readers, Teachers, Scholars & Church Ministers",
-    teamIntroText: "REBI is not guided by solitary effort, but by a collaborative fellowship of evangelical pastors, theologians, literary writers, and digital technologists across Ethiopia.",
+    teamIntroText:
+      "RABBI is not guided by solitary effort, but by a collaborative fellowship of evangelical pastors, theologians, literary writers, and digital technologists across Ethiopia.",
     ministryGroupsTitle: "Service Divisions & Collaborative Teams",
     ministryGroups: [
       {
@@ -692,14 +777,16 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       },
     ],
     serveCallTitle: "Would You Like to Serve With Us?",
-    serveCallText: "Whether through writing, translation, voice recording, or technical contributions, your partnership in this ministry is always welcomed with joy.",
+    serveCallText:
+      "Whether through writing, translation, voice recording, or technical contributions, your partnership in this ministry is always welcomed with joy.",
     contactNowBtn: "Contact Us Now",
 
     partnerPart: "Section IV",
     partnerHeaderTitle: "Partnership — Partnering for Kingdom Impact",
-    nationRoleTag: "4. REBI's Role in Nation Building",
+    nationRoleTag: "4. RABBI's Role in Nation Building",
     nationRoleTitle: "Connecting Spiritual Growth with National Responsibility",
-    nationRoleText: "REBI strengthens the church's constructive impact on nation building by linking spiritual maturity to civic responsibility through several key avenues:",
+    nationRoleText:
+      "RABBI strengthens the church's constructive impact on nation building by linking spiritual maturity to civic responsibility through several key avenues:",
     nationRoles: [
       {
         label: "Knowledge Cultivation",
@@ -722,9 +809,11 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
         text: "Extending accessible education and spiritual comfort to displaced, vulnerable, and underserved communities.",
       },
     ],
-    nationRoleCallout: "REBI's approach preserves the spiritual identity of the church while empowering believers to participate responsibly in the welfare and development of society.",
+    nationRoleCallout:
+      "RABBI's approach preserves the spiritual identity of the church while empowering believers to participate responsibly in the welfare and development of society.",
     bridgeTitle: "5. Building Bridges Between Church & Society",
-    bridgeIntro: "REBI broadens how the church and society reflect, learn, and collaborate through:",
+    bridgeIntro:
+      "RABBI broadens how the church and society reflect, learn, and collaborate through:",
     bridgePoints: [
       "Providing courses and publications on peace, reconciliation, forgiveness, and social responsibility.",
       "Facilitating public study and discussion forums for diverse communities.",
@@ -732,7 +821,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
       "Fostering mutual respect and peaceful coexistence across varied faith and cultural backgrounds.",
     ],
     partnerInstitutionsTitle: "Institutions & Ministries Seeking Partnership",
-    partnerInstitutionsText: "We welcome partnerships with local churches, denominations, publishers, Bible colleges, and civil society organizations.",
+    partnerInstitutionsText:
+      "We welcome partnerships with local churches, denominations, publishers, Bible colleges, and civil society organizations.",
     telegramPartnerBtn: "Connect on Telegram for Partnership (@rabbi_admin)",
     fillFormBtn: "Complete Message Form",
 
@@ -740,7 +830,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     contactHeaderTitle: "Contact Us — For Inquiries and Feedback",
     accessTag: "6. An Universally Accessible Educational Platform",
     accessTitle: "Deploying Technology with Respect for Human Diversity and Needs",
-    accessText: "REBI designs digital solutions tailored to varied user circumstances and regional realities:",
+    accessText:
+      "RABBI designs digital solutions tailored to varied user circumstances and regional realities:",
     accessPoints: [
       "Streamlined mobile reading and study experience.",
       "Downloadable books and audio lessons for low-bandwidth environments.",
@@ -757,7 +848,8 @@ export const ABOUT_CONTENT: Record<Language, AboutSectionData> = {
     locationCity: "Addis Ababa, Ethiopia",
     locationSubtitle: "RABBI Christian Digital Platform",
     formTitle: "Send Inquiries & Feedback",
-    formDesc: "If you have questions, feedback, or collaboration proposals, please submit the form below.",
+    formDesc:
+      "If you have questions, feedback, or collaboration proposals, please submit the form below.",
     formSuccess: "Thank you! Your message has been submitted successfully. We will reply shortly.",
     formNameLabel: "Full Name",
     formNamePlaceholder: "Enter your name",

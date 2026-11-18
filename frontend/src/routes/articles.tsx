@@ -19,6 +19,59 @@ import { fetchApi } from "@/lib/api";
 import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/articles")({
+  head: () => ({
+    meta: [
+      { title: "RABBI Digital | መንፈሳዊ ጽሑፎች — እምነት፣ ቤተሰብ፣ አገልግሎት" },
+      {
+        name: "description",
+        content:
+          "RABBI Digital ጽሑፎች — በእምነት፣ በቤተሰብ፣ በአገልግሎትና በዕለታዊ መንፈሳዊ እድገት ላይ ጥልቅ ትምህርቶችና ቃለ-እግዚአብሔር ያንብቡ።",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | መንፈሳዊ ጽሑፎች" },
+      {
+        property: "og:description",
+        content:
+          "እምነት፣ ቤተሰብ፣ አገልግሎትና ዕለታዊ ሕይወት ላይ ጥልቅ ጽሑፎች — RABBI Digital።",
+      },
+      { property: "og:url", content: "https://www.rabbidigital.com/articles" },
+      { property: "og:locale", content: "am_ET" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | ጽሑፎች" },
+      {
+        name: "twitter:description",
+        content:
+          "መንፈሳዊ ጽሑፎችና ቃለ-ሕይወት — RABBI Digital።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/articles" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Blog",
+          "@id": "https://www.rabbidigital.com/articles",
+          "url": "https://www.rabbidigital.com/articles",
+          "name": "RABBI Digital — መንፈሳዊ ጽሑፎች",
+          "description": "እምነት፣ ቤተሰብ፣ አገልግሎትና ዕለታዊ ሕይወት ላይ ጥልቅ ጽሑፎች",
+          "inLanguage": "am",
+          "publisher": { "@id": "https://www.rabbidigital.com/#organization" },
+          "isPartOf": { "@id": "https://www.rabbidigital.com/#website" },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" },
+              { "@type": "ListItem", "position": 2, "name": "ጽሑፎች", "item": "https://www.rabbidigital.com/articles" }
+            ]
+          }
+        })
+      }
+    ],
+  }),
   component: ArticlesRoute,
 });
 

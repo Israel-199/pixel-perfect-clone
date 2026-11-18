@@ -23,6 +23,57 @@ import { fetchApi } from "@/lib/api";
 import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/prayer")({
+  head: () => ({
+    meta: [
+      { title: "RABBI Digital | ጸሎት — የጸሎትና የምልጃ ማዕከል" },
+      {
+        name: "description",
+        content:
+          "RABBI Digital ጸሎት ሞጁል — የጋራ ጸሎቶች፣ ወቅታዊ የጸሎት ርዕሶች፣ የጸሎት መመሪያና ለእግዚአብሔር ምስጢራዊ ልዩ ቃለ-ምህረት ቀርቡ።",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | ጸሎት ማዕከል" },
+      {
+        property: "og:description",
+        content:
+          "የጋራ ጸሎቶች፣ የጸሎት ርዕሶችና የጸሎት መመሪያ — RABBI Digital።",
+      },
+      { property: "og:url", content: "https://www.rabbidigital.com/prayer" },
+      { property: "og:locale", content: "am_ET" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | ጸሎት" },
+      {
+        name: "twitter:description",
+        content: "የጋራና የግል ጸሎቶች፣ ወቅታዊ ጥያቄዎች — RABBI Digital።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/prayer" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "@id": "https://www.rabbidigital.com/prayer",
+          "url": "https://www.rabbidigital.com/prayer",
+          "name": "RABBI Digital — ጸሎትና ምልጃ ማዕከል",
+          "description": "የጋራ ጸሎቶች፣ የጸሎት ርዕሶችና የጸሎት መመሪያ",
+          "inLanguage": "am",
+          "isPartOf": { "@id": "https://www.rabbidigital.com/#website" },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" },
+              { "@type": "ListItem", "position": 2, "name": "ጸሎት", "item": "https://www.rabbidigital.com/prayer" }
+            ]
+          }
+        })
+      }
+    ],
+  }),
   component: PrayerRoute,
 });
 

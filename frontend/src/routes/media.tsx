@@ -7,6 +7,58 @@ import { BookItem, BookModal } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 
 export const Route = createFileRoute("/media")({
+  head: () => ({
+    meta: [
+      { title: "RABBI Digital | መንፈሳዊ ሚዲያ — ቪዲዮዎች፣ ኦዲዮዎች፣ ስብከቶችና መዝሙሮች" },
+      {
+        name: "description",
+        content:
+          "RABBI Digital ሚዲያ ሞጁል — የተመረጡ የቪዲዮ እና ኦዲዮ ትምህርቶች፣ ስብከቶች፣ የወንጌል መዝሙሮችና መንፈሳዊ ውይይቶች ያለ ምንም ቅድመ-ሁኔታ ያዳምጡ።",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | መንፈሳዊ ሚዲያ" },
+      {
+        property: "og:description",
+        content:
+          "ቪዲዮዎች፣ ኦዲዮዎች፣ ስብከቶችና መዝሙሮች — RABBI Digital ሚዲያ።",
+      },
+      { property: "og:url", content: "https://www.rabbidigital.com/media" },
+      { property: "og:locale", content: "am_ET" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | ሚዲያ" },
+      {
+        name: "twitter:description",
+        content:
+          "የቪዲዮ እና ኦዲዮ ስብከቶችና ትምህርቶች — RABBI Digital።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/media" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "@id": "https://www.rabbidigital.com/media",
+          "url": "https://www.rabbidigital.com/media",
+          "name": "RABBI Digital — መንፈሳዊ ሚዲያ",
+          "description": "ቪዲዮዎች፣ ኦዲዮዎች፣ ስብከቶችና መዝሙሮች",
+          "inLanguage": "am",
+          "isPartOf": { "@id": "https://www.rabbidigital.com/#website" },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" },
+              { "@type": "ListItem", "position": 2, "name": "ሚዲያ", "item": "https://www.rabbidigital.com/media" }
+            ]
+          }
+        })
+      }
+    ],
+  }),
   component: MediaRoute,
 });
 

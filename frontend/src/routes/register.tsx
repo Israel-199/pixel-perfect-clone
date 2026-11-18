@@ -11,6 +11,13 @@ import {
 } from "@/lib/inputValidation";
 
 export const Route = createFileRoute("/register")({
+  head: () => ({
+    meta: [
+      { title: "ምዝገባ — RABBI Digital" },
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "googlebot", content: "noindex, nofollow" },
+    ],
+  }),
   component: RegisterRoute,
 });
 

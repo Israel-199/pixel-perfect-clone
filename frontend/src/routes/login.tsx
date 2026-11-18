@@ -6,6 +6,13 @@ import { fetchApi } from "@/lib/api";
 import { validateEmail } from "@/lib/inputValidation";
 
 export const Route = createFileRoute("/login")({
+  head: () => ({
+    meta: [
+      { title: "ግባ — RABBI Digital" },
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "googlebot", content: "noindex, nofollow" },
+    ],
+  }),
   component: LoginRoute,
 });
 

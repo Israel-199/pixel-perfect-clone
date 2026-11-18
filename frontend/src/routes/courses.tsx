@@ -27,6 +27,56 @@ import { PlatformReader } from "@/components/rabbi/PlatformReader";
 import { BookItem } from "@/components/rabbi/BookModal";
 
 export const Route = createFileRoute("/courses")({
+  head: () => ({
+    meta: [
+      { title: "RABBI Digital | ኮርሶችና ስልጠናዎች — ዶርቃ ኮሌጅ" },
+      {
+        name: "description",
+        content:
+          "ዶርቃ ኮሌጅ — ጥልቅ ሥነ-መለኮታዊ ኮርሶች፣ ተግባራዊ ስልጠናዎችና የፒዲኤፍ ማቴሪያሎች። ለማኅበረሰብ ግንባታ፣ ለሰላምና ለአምልኮ አዘጋጅነት ያስፈልጉ ትምህርቶች ሁሉ RABBI Digital ላይ።",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | ኮርሶች — ዶርቃ ኮሌጅ" },
+      {
+        property: "og:description",
+        content:
+          "ዶርቃ ኮሌጅ ሥነ-መለኮታዊ ኮርሶችና ተግባራዊ ስልጠናዎች — RABBI Digital።",
+      },
+      { property: "og:url", content: "https://www.rabbidigital.com/courses" },
+      { property: "og:locale", content: "am_ET" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | ኮርሶች" },
+      {
+        name: "twitter:description",
+        content: "ዶርቃ ኮሌጅ ሥነ-መለኮታዊ ኮርሶችና ስልጠናዎች — RABBI Digital።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/courses" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "EducationalOrganization",
+          "name": "ዶርቃ ኮሌጅ — RABBI Digital",
+          "url": "https://www.rabbidigital.com/courses",
+          "description": "ሥነ-መለኮታዊ ኮርሶችና ተግባራዊ ስልጠናዎች የሚቀርቡበት የዶርቃ ኮሌጅ ዲጂታል ቅርንጫፍ",
+          "inLanguage": "am",
+          "isPartOf": { "@id": "https://www.rabbidigital.com/#website" },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" },
+              { "@type": "ListItem", "position": 2, "name": "ኮርሶች", "item": "https://www.rabbidigital.com/courses" }
+            ]
+          }
+        })
+      }
+    ],
+  }),
   component: CoursesRoute,
 });
 
@@ -252,7 +302,7 @@ The historical evidence for the Resurrection and the reliability of Scripture.
     pageCount: "56 ገጾች",
     modules: "ተግባራዊ ፒዲኤፍ ሞጁል",
     sampleContent: `[ፒዲኤፍ ሰነድ ናሙና / PDF Preview]
-ረቢ (REBI) የሰላም፣ የእርቅና የማኅበረሰብ ግንባታ ስልጠና
+ረቢ (RABBI) የሰላም፣ የእርቅና የማኅበረሰብ ግንባታ ስልጠና
 ፋይል ቅርጸት፡ የተጠበቀ PDF (56 ገጾች)
 
 ክፍል 1፡ የሰላም መጽሐፍ ቅዱሳዊ ትርጓሜ (Shalom)
@@ -284,7 +334,7 @@ The historical evidence for the Resurrection and the reliability of Scripture.
     pageCount: "42 ገጾች",
     modules: "ተግባራዊ ፒዲኤፍ ሞጁል",
     sampleContent: `[ፒዲኤፍ ሰነድ ናሙና / PDF Preview]
-ረቢ (REBI) የማኅበረሰብ ድጋፍና ልማት ስልጠና
+ረቢ (RABBI) የማኅበረሰብ ድጋፍና ልማት ስልጠና
 ፋይል ቅርጸት፡ የተጠበቀ PDF (42 ገጾች)
 
 ምዕራፍ 1: የአገልግሎት ተደራሽነት መርሆዎች

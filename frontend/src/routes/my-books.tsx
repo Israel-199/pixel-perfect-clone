@@ -8,6 +8,13 @@ import { BookItem } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 
 export const Route = createFileRoute("/my-books")({
+  head: () => ({
+    meta: [
+      { title: "የእኔ መጻሕፍት — RABBI Digital" },
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "googlebot", content: "noindex, nofollow" },
+    ],
+  }),
   component: MyBooksRoute,
 });
 

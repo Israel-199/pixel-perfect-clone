@@ -29,6 +29,58 @@ import { useLanguage } from "@/lib/language";
 import { ABOUT_CONTENT } from "@/lib/aboutContent";
 
 export const Route = createFileRoute("/about")({
+  head: () => ({
+    meta: [
+      { title: "RABBI Digital | ስለ እኛ — ተልእኮ፣ ራዕይና አጋርነት" },
+      {
+        name: "description",
+        content:
+          "RABBI Digital ስለ እኛ — ተልእኮ፣ ራዕይ፣ አጋርነት። RABBI ዲጂታሉን ቦታ ወደ ሚሊዮን ኢትዮጵያዊ ምዕምናን ቃሉን ለማድረስ ያለውን ቁርጠኝነት ያውቁ።",
+      },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | ስለ እኛ" },
+      {
+        property: "og:description",
+        content:
+          "RABBI Digital ተልእኮ፣ ራዕይ፣ አጋርነት — ቃሉን ለሁሉም ለማድረስ።",
+      },
+      { property: "og:url", content: "https://www.rabbidigital.com/about" },
+      { property: "og:locale", content: "am_ET" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | ስለ እኛ" },
+      {
+        name: "twitter:description",
+        content: "ተልእኮ፣ ራዕይ፣ አጋርነት — RABBI Digital።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/about" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          "@id": "https://www.rabbidigital.com/about",
+          "url": "https://www.rabbidigital.com/about",
+          "name": "ስለ RABBI Digital",
+          "description": "RABBI Digital ተልእኮ፣ ራዕይ፣ አጋርነት",
+          "inLanguage": "am",
+          "isPartOf": { "@id": "https://www.rabbidigital.com/#website" },
+          "publisher": { "@id": "https://www.rabbidigital.com/#organization" },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" },
+              { "@type": "ListItem", "position": 2, "name": "ስለ እኛ", "item": "https://www.rabbidigital.com/about" }
+            ]
+          }
+        })
+      }
+    ],
+  }),
   component: AboutRoute,
 });
 
@@ -278,7 +330,7 @@ function AboutRoute() {
                 <div className="grid gap-4 md:grid-cols-2">
                   {content.services.map((item, idx) => {
                     const icons = [BookOpen, PenTool, GraduationCap, Volume2, HeartHandshake, Newspaper, Compass, FileSearch];
-                    const SvcIcon = icons[idx % icons.length];
+                    const SvcIcon = icons[idx % icons.length] || BookOpen;
                     return (
                       <div key={idx} className="rounded-2xl border border-gold/20 bg-background p-5 hover:border-gold/50 transition-all shadow-sm">
                         <div className="flex items-start gap-3.5">

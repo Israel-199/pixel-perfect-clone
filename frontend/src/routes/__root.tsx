@@ -162,10 +162,6 @@ export const Route =
           content: SEO_DESCRIPTION,
         },
         {
-          property: "og:url",
-          content: SITE_URL,
-        },
-        {
           property: "og:locale",
           content: "am_ET",
         },
@@ -186,11 +182,8 @@ export const Route =
       ],
 
       links: [
-        // Canonical URL
-        {
-          rel: "canonical",
-          href: SITE_URL,
-        },
+        // NOTE: canonical is intentionally omitted here.
+        // Each route declares its own canonical via head().
 
         // Stylesheet
         {
@@ -220,6 +213,53 @@ export const Route =
           type: "image/x-icon",
         },
       ],
+
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                "@id": "https://www.rabbidigital.com/#organization",
+                "name": "RABBI Digital",
+                "url": "https://www.rabbidigital.com",
+                "description": "RABBI Digital — የኢትዮጵያ ዲጂታል ክርስቲያን መድረክ። መጻሕፍት፣ ኮርሶች፣ ሚዲያ፣ ጽሑፎችና ጸሎት በአንድ ቦታ።",
+                "inLanguage": ["am", "or", "en"],
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://www.rabbidigital.com/favicon.ico"
+                },
+                "sameAs": [
+                  "https://www.facebook.com/rabbidigital",
+                  "https://www.youtube.com/@rabbidigital",
+                  "https://t.me/rabbi_admin"
+                ]
+              },
+              {
+                "@type": "WebSite",
+                "@id": "https://www.rabbidigital.com/#website",
+                "url": "https://www.rabbidigital.com",
+                "name": "RABBI Digital",
+                "publisher": {
+                  "@id": "https://www.rabbidigital.com/#organization"
+                },
+                "inLanguage": "am",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": {
+                    "@type": "EntryPoint",
+                    "urlTemplate": "https://www.rabbidigital.com/books?q={search_term_string}"
+                  },
+                  "query-input": "required name=search_term_string"
+                }
+              }
+            ]
+          })
+        }
+      ],
+
     }),
 
     shellComponent: RootShell,

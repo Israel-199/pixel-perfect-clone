@@ -5,6 +5,13 @@ import { fetchApi } from "@/lib/api";
 import { validateEmail } from "@/lib/inputValidation";
 
 export const Route = createFileRoute("/forgot-password")({
+  head: () => ({
+    meta: [
+      { title: "ይለፍ ቃልዎን ያድሱ — RABBI Digital" },
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "googlebot", content: "noindex, nofollow" },
+    ],
+  }),
   component: ForgotPasswordRoute,
 });
 

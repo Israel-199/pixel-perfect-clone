@@ -39,19 +39,56 @@ import { useLanguage } from "@/lib/language";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "RABBI — ጌታና መምህር | መጻሕፍት፣ ጥናት፣ ጸሎት" },
+      { title: "RABBI Digital | መንፈሳዊ መጻሕፍት፣ ኮርሶችና የክርስቲያን ትምህርት በኢትዮጵያ" },
       {
         name: "description",
         content:
-          "RABBI — ቃሉን አንብብ፣ እምነትን ተረዳ፣ በሕይወትህ ኑር። መጻሕፍት፣ ጥናት፣ RABBI Academy፣ ሚዲያ፣ ጽሑፎች እና ጸሎት በአንድ ቦታ።",
+          "RABBI Digital — ቃሉን አንብብ፣ እምነትን ተረዳ፣ በሕይወትህ ኑር። የኢትዮጵያ ዲጂታል ክርስቲያን መድረክ — መጻሕፍት፣ ዶርቃ ኮሌጅ ኮርሶች፣ ሚዲያ፣ ጽሑፎችና ጸሎት በአንድ ቦታ።",
       },
-      { property: "og:title", content: "RABBI — ጌታና መምህር" },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { name: "googlebot", content: "index, follow, max-image-preview:large" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "RABBI Digital | መንፈሳዊ መጻሕፍት፣ ኮርሶችና ትምህርት" },
       {
         property: "og:description",
-        content: "ቃሉን አንብብ፣ እምነትን ተረዳ፣ በሕይወትህ ኑር።",
+        content:
+          "ቃሉን አንብብ፣ እምነትን ተረዳ፣ በሕይወትህ ኑር — RABBI Digital፣ የኢትዮጵያ ዲጂታል ክርስቲያን መድረክ።",
       },
-      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://www.rabbidigital.com/" },
+      { property: "og:locale", content: "am_ET" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "RABBI Digital | ቃሉን አንብብ፣ እምነትን ተረዳ" },
+      {
+        name: "twitter:description",
+        content:
+          "የኢትዮጵያ ዲጂታል ክርስቲያን መድረክ — መጻሕፍት፣ ኮርሶች፣ ሚዲያ፣ ጸሎት።",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: "https://www.rabbidigital.com/" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "@id": "https://www.rabbidigital.com/",
+          "url": "https://www.rabbidigital.com/",
+          "name": "RABBI Digital — ዋና ገጽ",
+          "description":
+            "ቃሉን አንብብ፣ እምነትን ተረዳ፣ በሕይወትህ ኑር። የኢትዮጵያ ዲጂታል ክርስቲያን መድረክ።",
+          "inLanguage": "am",
+          "isPartOf": { "@id": "https://www.rabbidigital.com/#website" },
+          "publisher": { "@id": "https://www.rabbidigital.com/#organization" },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "ዋና ገጽ", "item": "https://www.rabbidigital.com/" }
+            ]
+          }
+        })
+      }
     ],
   }),
   component: Index,
