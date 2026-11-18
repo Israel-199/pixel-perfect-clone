@@ -8,7 +8,15 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const JWT_SECRET = process.env.JWT_SECRET || "rabbi_church_secret_key_2026";
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers["authorization"];
-    const token = authHeader && authHeader.split(" ")[1];
+    let token = authHeader
+        ? (authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : authHeader)
+        : undefined;
+    if (!token && req.headers["x-auth-token"]) {
+        token = req.headers["x-auth-token"];
+    }
+    if (!token && req.query?.token) {
+        token = req.query.token;
+    }
     if (!token) {
         res.status(401).json({ error: "Access denied. No token provided." });
         return;

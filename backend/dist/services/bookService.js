@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookService = void 0;
 const prisma_1 = require("../config/prisma");
 class BookService {
-    static async getAllBooks(currentUserId, options) {
+    static async getAllBooks(currentUserId, options, isAdmin = false) {
         const where = {};
         if (options?.mediaType && options.mediaType !== "ALL") {
             where.mediaType = options.mediaType;
@@ -31,7 +31,7 @@ class BookService {
         });
         return books.map((book) => {
             const status = userRequests[book.id] || "NONE";
-            const isPermitted = status === "PERMITTED";
+            const isPermitted = isAdmin || status === "PERMITTED";
             return {
                 id: book.id,
                 title: book.title,
@@ -50,7 +50,7 @@ class BookService {
             };
         });
     }
-    static async getBookById(id, currentUserId) {
+    static async getBookById(id, currentUserId, isAdmin = false) {
         const [book, reqRecord] = await Promise.all([
             prisma_1.prisma.book.findUnique({ where: { id } }),
             currentUserId
@@ -64,7 +64,7 @@ class BookService {
         if (reqRecord) {
             requestStatus = reqRecord.status;
         }
-        const isPermitted = requestStatus === "PERMITTED";
+        const isPermitted = isAdmin || requestStatus === "PERMITTED";
         return {
             id: book.id,
             title: book.title,

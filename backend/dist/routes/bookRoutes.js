@@ -4,5 +4,6 @@ const express_1 = require("express");
 const bookController_1 = require("../controllers/bookController");
 const router = (0, express_1.Router)();
 router.get("/", bookController_1.BookController.getAll);
+router.get("/pdf-proxy", bookController_1.BookController.proxyPdf);
 router.get("/:id", bookController_1.BookController.getById);
 exports.default = router;

@@ -127,6 +127,8 @@ class AdminController {
                 const uniqueSuffix = Date.now() + "_" + Math.round(Math.random() * 1e4);
                 uploadOptions.public_id = `${baseName || "doc"}_${uniqueSuffix}${ext}`;
                 uploadOptions.resource_type = "raw";
+                uploadOptions.access_mode = "public";
+                uploadOptions.type = "upload";
                 // For raw/documents, disable any image transformations
                 delete uploadOptions.eager;
             }

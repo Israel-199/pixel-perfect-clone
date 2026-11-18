@@ -3,7 +3,8 @@ import { prisma } from "../config/prisma";
 export class BookService {
   static async getAllBooks(
     currentUserId?: string | null,
-    options?: { mediaType?: string; search?: string }
+    options?: { mediaType?: string; search?: string },
+    isAdmin: boolean = false
   ) {
     const where: any = {};
     if (options?.mediaType && options.mediaType !== "ALL") {
@@ -35,7 +36,7 @@ export class BookService {
 
     return books.map((book) => {
       const status = userRequests[book.id] || "NONE";
-      const isPermitted = status === "PERMITTED";
+      const isPermitted = isAdmin || status === "PERMITTED";
 
       return {
         id: book.id,
@@ -56,7 +57,7 @@ export class BookService {
     });
   }
 
-  static async getBookById(id: string, currentUserId?: string | null) {
+  static async getBookById(id: string, currentUserId?: string | null, isAdmin: boolean = false) {
     const [book, reqRecord] = await Promise.all([
       prisma.book.findUnique({ where: { id } }),
       currentUserId
@@ -73,7 +74,7 @@ export class BookService {
       requestStatus = reqRecord.status;
     }
 
-    const isPermitted = requestStatus === "PERMITTED";
+    const isPermitted = isAdmin || requestStatus === "PERMITTED";
 
     return {
       id: book.id,
