@@ -84,6 +84,7 @@ export interface ChapterItem {
   title: string;
   startPage: number;
   startPageLabel?: string;
+  level?: number; // 1 = Chapter, 2 = Subchapter, 3 = Sub-subchapter
 }
 
 export interface DocxAnalysis {
@@ -188,6 +189,80 @@ export function fromAlpha(str: string): number | null {
  */
 export const CHAPTER_HEADING_REGEX =
   /^(?:#+\s*|(?:ምዕራፍ|ክፍል|ትምህርት|Chapter|Section|Part|Unit)\s*(?:[0-9]+|[፩-፱]+|[IVXLCDMivxlcdm]+|[A-Za-z]+)?[:\s\-—.]|^(?:[IVXLCDM]+|[፩-፱]+|[0-9]+)[\.\:\-—]\s+[^\n]+)/i;
+
+/**
+ * Common regex for subchapters (e.g. 1.1, 1.2, 2.1, ንዑስ ርዕስ, Subsection)
+ */
+export const SUBCHAPTER_HEADING_REGEX =
+  /^(?:#+#+\s*|(?:\d+\.\d+|\b[a-z]\b|[፩-፱]+\.[፩-፱]+)[\.\:\s\-—]|(?:ንዑስ\s*(?:ክፍል|ርዕስ)|Sub-?chapter|Subsection)\s*(?:[0-9]+|[A-Za-z]+)?[:\s\-—.]|(?:\d+\.\d+)\s+[^\n]+)/i;
+
+/**
+ * Robust Table of Contents ("ማውጫ") parser for both PDF text and DOCX text.
+ * Automatically parses chapter titles, subchapters (level 1 vs level 2 vs level 3),
+ * and maps each to its exact target page and label.
+ */
+export function parseTableOfContentsText(
+  tocText: string,
+  totalPagesCount = 9999,
+  pageLabels?: string[]
+): ChapterItem[] {
+  if (!tocText) return [];
+  const lines = tocText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const items: ChapterItem[] = [];
+
+  // Match: Title + separator (dots, dashes, spaces, tabs) + Page number / Roman numeral
+  const tocLineRegex = /^(.*?)(?:[\s\.\-—_]{2,}|\t+)([0-9]+|[ivxlcdm]+|[፩-፱]+)\s*$/i;
+
+  const parseNum = (val: string): number => {
+    if (/^\d+$/.test(val)) return parseInt(val, 10);
+    const roman = fromRoman(val);
+    if (roman !== null) return roman;
+    return parseInt(val, 10) || 1;
+  };
+
+  let inToc = false;
+
+  for (const line of lines) {
+    if (/^(?:#+\s*)?(?:ማውጫ|የርዕስ\s*ማውጫ|Table\s*of\s*Contents|Contents|Index)\b/i.test(line)) {
+      inToc = true;
+      continue;
+    }
+
+    if (!inToc && items.length === 0) {
+      if (!tocLineRegex.test(line)) continue;
+    }
+
+    const match = line.match(tocLineRegex);
+    if (match) {
+      const rawTitle = (match[1] || "").replace(/^[#\*\-•\s]+/, "").trim();
+      const rawPage = (match[2] || "").trim();
+      const pageNo = Math.min(totalPagesCount, Math.max(1, parseNum(rawPage)));
+
+      if (!rawTitle || rawTitle.length < 2) continue;
+
+      const isSub =
+        /^(?:\d+\.\d+|[a-z]\b|[፩-፱]+\.[፩-፱]+|ንዑስ|Sub)/i.test(rawTitle) ||
+        line.startsWith(" ") ||
+        line.startsWith("\t");
+
+      const isSubSub = /^\d+\.\d+\.\d+/i.test(rawTitle);
+      const level = isSubSub ? 3 : isSub ? 2 : 1;
+
+      items.push({
+        id: items.length + 1,
+        title: rawTitle,
+        startPage: pageNo,
+        startPageLabel: pageLabels?.[pageNo - 1] || rawPage,
+        level,
+      });
+    } else if (inToc && items.length > 0 && /^(?:መቅድም|መግቢያ|ምዕራፍ|ክፍል|Chapter|Part|Section)\b/i.test(line)) {
+      if (line.length > 80) break;
+    }
+  }
+
+  return items;
+}
+
 
 export async function loadJSZip(): Promise<any> {
   if (typeof window === "undefined") return null;
@@ -373,27 +448,43 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
     }
   }
 
-  // 7. Extract Chapters with starting page mapping:
-  const chapters: ChapterItem[] = [];
-  pages.forEach((pageContent, pageIdx) => {
-    const lines = pageContent
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    for (const line of lines) {
-      if (line.length <= 100 && CHAPTER_HEADING_REGEX.test(line)) {
-        const title = line.replace(/^#+\s*/, "").trim();
-        if (!chapters.some((c) => c.title.toLowerCase() === title.toLowerCase())) {
-          chapters.push({
-            id: chapters.length + 1,
-            title,
-            startPage: pageIdx + 1,
-            startPageLabel: pageLabels[pageIdx] || String(pageIdx + 1),
-          });
+  // 7. Extract Chapters & Subchapters with starting page mapping:
+  // First, check if document has an explicit Table of Contents section ("ማውጫ" / "Table of Contents")
+  const extractedToc = parseTableOfContentsText(rawText, pages.length, pageLabels);
+  let chapters: ChapterItem[] = [];
+
+  if (extractedToc.length >= 2) {
+    // Exact Table of Contents found in document!
+    chapters = extractedToc;
+  } else {
+    // Scan pages for Chapter (Level 1) and Subchapter (Level 2) headings
+    pages.forEach((pageContent, pageIdx) => {
+      const lines = pageContent
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      for (const line of lines) {
+        if (line.length <= 110) {
+          const isChap = CHAPTER_HEADING_REGEX.test(line);
+          const isSub = !isChap && SUBCHAPTER_HEADING_REGEX.test(line);
+
+          if (isChap || isSub) {
+            const cleanTitle = line.replace(/^[#\*\-•\s]+/, "").trim();
+            if (!chapters.some((c) => c.title.toLowerCase() === cleanTitle.toLowerCase())) {
+              chapters.push({
+                id: chapters.length + 1,
+                title: cleanTitle,
+                startPage: pageIdx + 1,
+                startPageLabel: pageLabels[pageIdx] || String(pageIdx + 1),
+                level: isSub ? 2 : 1,
+              });
+            }
+          }
         }
       }
-    }
-  });
+    });
+  }
 
   // If no explicit chapters matched, add a default chapter
   if (chapters.length === 0) {
@@ -402,6 +493,7 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
       title: paragraphs[0] && paragraphs[0].length <= 80 ? paragraphs[0] : "ምዕራፍ 1",
       startPage: 1,
       startPageLabel: pageLabels[0] || "1",
+      level: 1,
     });
   }
 

@@ -28,7 +28,7 @@ import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { filterNumberInput } from "@/lib/inputValidation";
-import { parseDocx } from "@/lib/bookUtils";
+import { parseDocx, fromRoman, fromAlpha, parseTableOfContentsText, SUBCHAPTER_HEADING_REGEX } from "@/lib/bookUtils";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -40,6 +40,7 @@ interface ChapterItem {
   title: string;
   startPage: number;
   startPageLabel?: string | undefined;
+  level?: number; // 1 = Chapter, 2 = Subchapter, 3 = Sub-subchapter
 }
 
 interface BookPage {
@@ -490,12 +491,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         }
 
         // 2. Fetch exact PDF Outline / Bookmarks for Table of Contents ("ማውጫ")
+        let outlineFound = false;
         try {
           const outline = await loadedPdf.getOutline();
           if (isMounted && outline && outline.length > 0) {
             const parsedOutlineChapters: ChapterItem[] = [];
 
-            const traverseOutline = async (items: any[]) => {
+            const traverseOutline = async (items: any[], currentLevel = 1) => {
               for (const item of items) {
                 let dest = item.dest;
                 if (typeof dest === "string") {
@@ -517,22 +519,64 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       title: item.title,
                       startPage: pageNumber,
                       startPageLabel: pageLabel,
+                      level: currentLevel,
                     });
                   } catch (e) {}
                 }
                 if (item.items && item.items.length > 0) {
-                  await traverseOutline(item.items);
+                  await traverseOutline(item.items, Math.min(3, currentLevel + 1));
                 }
               }
             };
 
-            await traverseOutline(outline);
+            await traverseOutline(outline, 1);
             if (isMounted && parsedOutlineChapters.length > 0) {
               setPdfOutlineChapters(parsedOutlineChapters);
+              outlineFound = true;
             }
           }
         } catch (e) {
           console.warn("Could not retrieve PDF outline:", e);
+        }
+
+        // 3. Fallback: Scan printed Table of Contents ("ማውጫ") on preliminary pages (pages 1-8)
+        if (!outlineFound && isMounted && loadedPdf.numPages > 1) {
+          try {
+            let tocAccumulatedText = "";
+            let sawTocTitle = false;
+            const maxScanPages = Math.min(8, loadedPdf.numPages);
+
+            for (let p = 1; p <= maxScanPages; p++) {
+              const pageObj = await loadedPdf.getPage(p);
+              const textContent = await pageObj.getTextContent();
+              const pageStrings = (textContent.items || [])
+                .map((it: any) => it.str || "")
+                .filter(Boolean);
+              const fullPageStr = pageStrings.join(" ");
+
+              if (/ማውጫ|የርዕስ\s*ማውጫ|Table\s*of\s*Contents|Contents\b/i.test(fullPageStr)) {
+                sawTocTitle = true;
+              }
+
+              if (sawTocTitle) {
+                tocAccumulatedText += "\n" + pageStrings.join("\n");
+                if (tocAccumulatedText.length > 3000) break;
+              }
+            }
+
+            if (tocAccumulatedText.trim()) {
+              const extractedItems = parseTableOfContentsText(
+                tocAccumulatedText,
+                loadedPdf.numPages,
+                pageLabels || undefined
+              );
+              if (isMounted && extractedItems.length >= 2) {
+                setPdfOutlineChapters(extractedItems);
+              }
+            }
+          } catch (e) {
+            console.warn("PDF printed TOC scan notice:", e);
+          }
         }
 
         setPdfLoading(false);
@@ -1208,15 +1252,17 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               </button>
             </div>
 
-            {/* Tab 1: Chapters list */}
+            {/* Tab 1: Chapters & Subchapters list */}
             {tocTab === "chapters" && (
-              <div className="space-y-1.5">
-                {effectiveChapters.map((chap) => {
+              <div className="space-y-1">
+                {effectiveChapters.map((chap, idx) => {
+                  const nextChap = effectiveChapters[idx + 1];
                   const isActive =
                     currentPage >= chap.startPage &&
-                    (chap.id === effectiveChapters.length ||
-                      currentPage < (effectiveChapters[chap.id]?.startPage || 9999));
+                    (!nextChap || currentPage < nextChap.startPage);
                   const label = chap.startPageLabel || getPageLabel(chap.startPage);
+                  const level = chap.level || 1;
+
                   return (
                     <button
                       key={chap.id}
@@ -1224,16 +1270,50 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         handleSelectChapter(chap.startPage);
                         if (!pinToc) setShowToc(false);
                       }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
-                        isActive
-                          ? "bg-gold text-navy-deep font-bold shadow-xs"
-                          : "text-on-navy-muted hover:bg-gold/15 hover:text-gold"
+                      className={`w-full text-left rounded-xl transition-all flex items-center justify-between cursor-pointer group ${
+                        level === 1
+                          ? `p-2.5 text-xs font-bold border ${
+                              isActive
+                                ? "bg-gold text-navy-deep border-gold shadow-md"
+                                : "text-white/90 bg-navy/40 border-gold/15 hover:bg-gold/15 hover:text-gold"
+                            }`
+                          : level === 2
+                          ? `py-2 pr-2.5 pl-6 text-[11px] font-medium border-l-2 ml-1 ${
+                              isActive
+                                ? "bg-gold/90 text-navy-deep border-gold font-bold shadow-xs"
+                                : "text-on-navy-muted border-gold/30 hover:bg-gold/10 hover:text-gold"
+                            }`
+                          : `py-1.5 pr-2.5 pl-9 text-[10px] font-normal border-l-2 ml-2 ${
+                              isActive
+                                ? "bg-gold/80 text-navy-deep border-gold font-bold"
+                                : "text-on-navy-muted/80 border-gold/20 hover:bg-gold/10 hover:text-gold"
+                            }`
                       }`}
                     >
-                      <span className="line-clamp-1 pr-2">{chap.title}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                        {level === 1 ? (
+                          <BookOpen
+                            className={`h-3.5 w-3.5 shrink-0 ${
+                              isActive ? "text-navy-deep" : "text-gold"
+                            }`}
+                          />
+                        ) : (
+                          <span
+                            className={`font-mono text-xs shrink-0 ${
+                              isActive ? "text-navy-deep" : "text-gold/70"
+                            }`}
+                          >
+                            ↳
+                          </span>
+                        )}
+                        <span className="truncate">{chap.title}</span>
+                      </div>
+
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
-                          isActive ? "bg-navy-deep/20 text-navy-deep font-bold" : "bg-navy/40 text-gold"
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                          isActive
+                            ? "bg-navy-deep/20 text-navy-deep font-bold"
+                            : "bg-navy/60 text-gold border border-gold/20"
                         }`}
                       >
                         {t("page")} {label}
