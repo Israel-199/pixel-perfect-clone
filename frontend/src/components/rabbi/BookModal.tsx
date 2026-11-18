@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { useNavigate } from "@tanstack/react-router";
-import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount, parseDocx } from "@/lib/bookUtils";
+import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount } from "@/lib/bookUtils";
 
 export interface BookItem {
   id: string;
@@ -44,35 +44,19 @@ export const BookModal: React.FC<BookModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string>(book?.requestStatus || "NONE");
   const [pageCount, setPageCount] = useState<number>(0);
-  const [docxSamplePages, setDocxSamplePages] = useState<string[]>([]);
-  const [docxPageIndex, setDocxPageIndex] = useState<number>(0);
-  const [docxLoading, setDocxLoading] = useState<boolean>(false);
 
-  // ── Accurate DOCX / PDF Page Count & Lossless Sample Extraction ────────────
+  // ── Accurate Page Count Estimation ──────────────────────────────────────────
   useEffect(() => {
     if (!book) return;
     const content = (book.fullContent || book.sampleContent || "").trim();
     const isDocx = /\.docx?(\?|$)/i.test(content);
     const isPdfUrl = (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf")) && !isDocx;
 
-    if (isDocx && (content.startsWith("http://") || content.startsWith("https://"))) {
-      setDocxLoading(true);
-      parseDocx(content)
-        .then((analysis) => {
-          setPageCount(analysis.pageCount);
-          setDocxSamplePages(analysis.pages);
-        })
-        .catch((e) => {
-          console.error("BookModal docx parse error:", e);
-        })
-        .finally(() => {
-          setDocxLoading(false);
-        });
-    } else if (isPdfUrl) {
+    if (isPdfUrl) {
       getPdfPageCount(content).then((cnt) => {
         if (cnt > 0) setPageCount(cnt);
       });
-    } else if (content) {
+    } else if (content && !content.startsWith("http")) {
       const cnt = estimateTextPageCount(content);
       setPageCount(cnt);
     }
@@ -184,57 +168,17 @@ export const BookModal: React.FC<BookModalProps> = ({
               <p className="text-sm text-gold font-medium mb-3">ደራሲ / መጋቢ: {book.author || "RABBI"}</p>
               <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{book.description}</p>
 
-              {/* Sample Content Section */}
+              {/* Sample Content Section - Only display text typed by admin */}
               <div className="mb-5 rounded-xl bg-navy-deep/5 p-4 border border-navy/10">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-semibold text-navy uppercase tracking-wider flex items-center gap-1.5">
                     <BookOpen className="h-4 w-4 text-gold" />
-                    <span>የነፃ ናሙና ንባብ (Sample Preview)</span>
-                    {docxSamplePages.length > 0 && (
-                      <span className="text-[11px] font-mono text-gold bg-gold/15 px-2 py-0.5 rounded-full border border-gold/30">
-                        ገጽ {docxPageIndex + 1} / {docxSamplePages.length}
-                      </span>
-                    )}
+                    <span>{t("samplePreview")}</span>
                   </h4>
-                  {docxSamplePages.length > 1 && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        disabled={docxPageIndex <= 0}
-                        onClick={() => setDocxPageIndex((p) => Math.max(0, p - 1))}
-                        className="px-2 py-0.5 text-xs font-bold rounded bg-gold/20 text-gold hover:bg-gold hover:text-navy-deep disabled:opacity-40 cursor-pointer"
-                        title="ቀዳሚ ገጽ"
-                      >
-                        ‹
-                      </button>
-                      <button
-                        type="button"
-                        disabled={docxPageIndex >= docxSamplePages.length - 1}
-                        onClick={() => setDocxPageIndex((p) => Math.min(docxSamplePages.length - 1, p + 1))}
-                        className="px-2 py-0.5 text-xs font-bold rounded bg-gold/20 text-gold hover:bg-gold hover:text-navy-deep disabled:opacity-40 cursor-pointer"
-                        title="ቀጣይ ገጽ"
-                      >
-                        ›
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div className="max-h-56 overflow-y-auto pr-2 text-xs text-navy/85 leading-relaxed font-sans scrollbar-thin">
-                  {docxLoading ? (
-                    <div className="py-4 text-center text-xs text-gold flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-                      <span>የDOCX ገጾችን በማዘጋጀት ላይ...</span>
-                    </div>
-                  ) : docxSamplePages.length > 0 ? (
-                    <div className="text-justify leading-relaxed space-y-3 font-sans">
-                      {(docxSamplePages[docxPageIndex] || "").split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
-                        <p key={pIdx} className="mb-3 text-navy/90 leading-relaxed">
-                          {para}
-                        </p>
-                      ))}
-                    </div>
-                  ) : book.sampleContent && !book.sampleContent.startsWith("http") ? (
+                  {book.sampleContent && !book.sampleContent.startsWith("http://") && !book.sampleContent.startsWith("https://") ? (
                     <div className="text-justify leading-relaxed space-y-3 font-sans">
                       {book.sampleContent.split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
                         <p key={pIdx} className="mb-3 text-navy/90 leading-relaxed">
@@ -242,10 +186,18 @@ export const BookModal: React.FC<BookModalProps> = ({
                         </p>
                       ))}
                     </div>
-                  ) : /\.docx?(\?|$)/i.test(book.fullContent || "") ? (
-                    "የተዘጋጀ የተጠበቀ የዲጂታል ዎርድ / DOCX መጽሐፍ (Word/DOCX Book)። ክፍያውን ፈጽመው አስተዳዳሪው ሲያጸድቅልዎ ሙሉውን መጽሐፍ በከፍተኛ ጥራት በዲጂታል አንባቢው ማንበብ ይችላሉ።"
+                  ) : book.description ? (
+                    <div className="text-justify leading-relaxed space-y-3 font-sans">
+                      {book.description.split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
+                        <p key={pIdx} className="mb-3 text-navy/90 leading-relaxed">
+                          {para}
+                        </p>
+                      ))}
+                    </div>
                   ) : (
-                    "የተዘጋጀ የተጠበቀ የዲጂታል ፒዲኤፍ መጽሐፍ (PDF Book)። ክፍያውን ፈጽመው አስተዳዳሪው ሲያጸድቅልዎ ሙሉውን መጽሐፍ በከፍተኛ ጥራት በዲጂታል አንባቢው ማንበብ ይችላሉ።"
+                    <p className="text-muted-foreground italic">
+                      {t("samplePreview")}
+                    </p>
                   )}
                 </div>
               </div>

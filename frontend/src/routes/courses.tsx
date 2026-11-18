@@ -702,14 +702,14 @@ function CoursesRoute() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-navy flex items-center gap-1.5 mr-1">
                 <Globe2 className="h-4 w-4 text-gold" />
-                ቋንቋ ይምረጡ፦
+                {t("selectLanguageLabel")}
               </span>
 
               {[
-                { id: "all", label: "ሁሉም (All)" },
-                { id: "amharic", label: "አማርኛ" },
-                { id: "oromo", label: "Afaan Oromoo" },
-                { id: "english", label: "English" },
+                { id: "all", label: t("filterLangAll") },
+                { id: "amharic", label: t("filterLangAm") },
+                { id: "oromo", label: t("filterLangOr") },
+                { id: "english", label: t("filterLangEn") },
               ].map(({ id, label }) => {
                 const isSelected = selectedLanguage === id;
                 return (
@@ -736,7 +736,7 @@ function CoursesRoute() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="በርዕስ፣ በመምህር ወይም በይዘት ይፈልጉ..."
+                placeholder={t("courseSearchPlaceholder")}
                 className="w-full rounded-xl border border-navy/20 pl-9 pr-4 py-2 text-xs focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold bg-background"
               />
             </div>
@@ -753,8 +753,8 @@ function CoursesRoute() {
             )}
             <h3 className="font-display text-xl md:text-2xl font-bold text-navy">
               {activeCategory === "dorcas"
-                ? `ዶርቃ ኮሌጅ — የኮርስ መጽሐፍት (${filteredCourses.length})`
-                : `ስልጠናዎች — የፒዲኤፍ (PDF) ማቴሪያሎች (${filteredCourses.length})`}
+                ? `${t("dorcasCourseBooks")} (${filteredCourses.length})`
+                : `${t("trainingsPdfMaterials")} (${filteredCourses.length})`}
             </h3>
           </div>
         </div>
@@ -764,10 +764,10 @@ function CoursesRoute() {
           <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center">
             <School className="h-10 w-10 text-gold/60 mx-auto mb-3" />
             <h4 className="font-display text-base font-bold text-navy mb-1">
-              ምንም ኮርስ ወይም ስልጠና አልተገኘም
+              {t("noCoursesFound")}
             </h4>
             <p className="text-xs text-muted-foreground">
-              እባክዎ የተመረጠውን ቋንቋ ወይም የፍለጋ ቃል ይቀይሩ።
+              {t("noCoursesFoundDesc")}
             </p>
           </div>
         ) : (
@@ -802,7 +802,7 @@ function CoursesRoute() {
                         {course.isPdf ? (
                           <>
                             <FileText className="h-3 w-3 text-red-400" />
-                            <span>PDF ሰነድ</span>
+                            <span>{t("pdfDoc")}</span>
                           </>
                         ) : (
                           <>
@@ -815,12 +815,12 @@ function CoursesRoute() {
                       {/* Status Overlay Badge */}
                       {isPermitted && (
                         <div className="absolute bottom-3 left-3 rounded-md bg-green-600 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow">
-                          ✓ ተፈቅዷል (Unlocked)
+                          {t("unlockedBadge")}
                         </div>
                       )}
                       {isPending && (
                         <div className="absolute bottom-3 left-3 rounded-md bg-amber-500 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow">
-                          ⏳ ጥያቄ ተልኳል (Pending)
+                          {t("pendingBadge")}
                         </div>
                       )}
                     </div>
@@ -856,7 +856,7 @@ function CoursesRoute() {
                   {/* Card Footer with Price & Action Button (Book Style) */}
                   <div className="p-5 pt-0 flex items-center justify-between border-t border-gold/10 mt-3 pt-3">
                     <span className="text-base font-bold text-navy-deep font-display">
-                      {course.price > 0 ? `${course.price} ETB` : "ነፃ (Free)"}
+                      {course.price > 0 ? `${course.price} ETB` : t("freePrice")}
                     </span>
 
                     <button
@@ -866,12 +866,12 @@ function CoursesRoute() {
                       {isPermitted ? (
                         <>
                           <BookOpen className="h-3.5 w-3.5" />
-                          <span>{course.isPdf ? "PDF አንብብ" : "ኮርስ ክፈት"}</span>
+                          <span>{course.isPdf ? t("readPdfAction") : t("openCourseAction")}</span>
                         </>
                       ) : (
                         <>
                           <Lock className="h-3.5 w-3.5" />
-                          <span>{course.isPdf ? "PDF ናሙና / ጠይቅ" : "ናሙና / ጠይቅ"}</span>
+                          <span>{course.isPdf ? t("sampleOrRequestPdf") : t("sampleOrRequestCourse")}</span>
                         </>
                       )}
                     </button>
@@ -908,7 +908,7 @@ function CoursesRoute() {
                     {selectedCourse.isPdf ? (
                       <>
                         <FileText className="h-3.5 w-3.5 text-red-400" />
-                        <span>PDF ስልጠና</span>
+                        <span>{t("pdfTraining")}</span>
                       </>
                     ) : (
                       <>
@@ -921,7 +921,7 @@ function CoursesRoute() {
 
                 <div className="mt-3 sm:mt-4 w-full text-center">
                   <span className="text-xl sm:text-2xl font-bold text-navy-deep font-display">
-                    {selectedCourse.price > 0 ? `${selectedCourse.price} ETB` : "ነፃ (Free)"}
+                    {selectedCourse.price > 0 ? `${selectedCourse.price} ETB` : t("freePrice")}
                   </span>
                   {selectedCourse.isPdf && (
                     <div className="mt-1 flex items-center justify-center gap-2 text-xs text-muted-foreground font-semibold">
@@ -938,14 +938,14 @@ function CoursesRoute() {
                 <div>
                   <div className="inline-block rounded-md bg-gold/15 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-navy-deep border border-gold/30 mb-2">
                     {selectedCourse.languageLabel} •{" "}
-                    {selectedCourse.category === "dorcas" ? "ዶርቃ ኮሌጅ" : "ተግባራዊ ስልጠና"}
+                    {selectedCourse.category === "dorcas" ? t("dorcasTitle") : t("practicalTraining")}
                   </div>
 
                   <h2 className="text-xl sm:text-2xl font-bold text-navy font-display mb-1">
                     {selectedCourse.title}
                   </h2>
                   <p className="text-sm text-gold font-medium mb-3">
-                    አቅራቢ / መምህር: {selectedCourse.provider}
+                    {t("instructorLabel")} {selectedCourse.provider}
                   </p>
                   <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
                     {selectedCourse.description}
@@ -955,9 +955,7 @@ function CoursesRoute() {
                   <div className="mb-5 rounded-xl bg-navy-deep/5 p-4 border border-navy/10">
                     <h4 className="text-xs font-semibold text-navy uppercase tracking-wider mb-2 flex items-center gap-1.5">
                       <BookOpen className="h-4 w-4 text-gold" />
-                      {selectedCourse.isPdf
-                        ? "የፒዲኤፍ (PDF) ማጠቃለያና ናሙና ንባብ"
-                        : "የነፃ ናሙና ንባብ (Course Sample)"}
+                      {selectedCourse.isPdf ? t("pdfSamplePreview") : t("courseSamplePreview")}
                     </h4>
                     <div className="max-h-36 overflow-y-auto pr-2 text-xs text-navy/80 whitespace-pre-line leading-relaxed font-sans scrollbar-thin">
                       {selectedCourse.sampleContent}
@@ -1026,7 +1024,7 @@ function CoursesRoute() {
                     >
                       <BookOpen className="h-4 w-4" />
                       <span>
-                        {selectedCourse.isPdf ? "አሁን ያንብቡ / PDF ክፈት" : "አሁን ኮርሱን ይጀምሩ"}
+                        {selectedCourse.isPdf ? t("readPdfNow") : t("startCourseNow")}
                       </span>
                     </button>
                   ) : userRequests[selectedCourse.id] === "PENDING" ? (

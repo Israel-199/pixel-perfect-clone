@@ -73,6 +73,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [isScreenBlackout, setIsScreenBlackout] = useState<boolean>(false);
   const [securityNotice, setSecurityNotice] = useState<string | null>(null);
   const isBlackoutActiveRef = useRef<boolean>(false);
+  const blackoutTimerRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
 
   // ── Mobile Touch Guard (Hardware Screenshot Prevention) ─────────────────────
@@ -663,26 +664,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     });
   }, []);
 
-  // Synchronous, zero-latency blackout across both DOM and canvases
-  const activateBlackout = useCallback(() => {
-    isBlackoutActiveRef.current = true;
-    setIsScreenBlackout(true);
-    wipeCanvasesBlack();
-    if (contentAreaRef.current) {
-      contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
-      contentAreaRef.current.style.opacity = "0";
-      contentAreaRef.current.style.pointerEvents = "none";
-    }
-    try {
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(
-          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
-        );
-      }
-    } catch {}
-  }, [wipeCanvasesBlack, user]);
-
+  // Synchronous, zero-latency blackout across DOM, canvases, and clipboard
   const deactivateBlackout = useCallback(() => {
+    if (blackoutTimerRef.current) {
+      clearTimeout(blackoutTimerRef.current);
+      blackoutTimerRef.current = null;
+    }
     isBlackoutActiveRef.current = false;
     setIsScreenBlackout(false);
     setSecurityNotice(null);
@@ -698,32 +685,45 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (twoPageView && currentPage < pdfNumPages) {
           renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
         }
-      }, 80);
+      }, 50);
     }
   }, [pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
-  // RAF loop: runs every frame; keeps content hidden while blackout is active
+  const activateBlackout = useCallback((durationMs: number = 1200) => {
+    isBlackoutActiveRef.current = true;
+    setIsScreenBlackout(true);
+    wipeCanvasesBlack();
+    if (contentAreaRef.current) {
+      contentAreaRef.current.style.filter = "blur(80px) brightness(0)";
+      contentAreaRef.current.style.opacity = "0";
+      contentAreaRef.current.style.pointerEvents = "none";
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(
+          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
+        );
+      }
+    } catch {}
+
+    // Auto-restore after transient duration so user never gets stuck in a permanent black screen
+    if (blackoutTimerRef.current) clearTimeout(blackoutTimerRef.current);
+    if (durationMs > 0) {
+      blackoutTimerRef.current = setTimeout(() => {
+        deactivateBlackout();
+      }, durationMs);
+    }
+  }, [wipeCanvasesBlack, user, deactivateBlackout]);
+
+  // RAF loop: keeps canvas wiped black only while active blackout is triggered
   useEffect(() => {
     const loop = () => {
       if (isBlackoutActiveRef.current) {
         wipeCanvasesBlack();
         if (contentAreaRef.current && contentAreaRef.current.style.opacity !== "0") {
-          contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
+          contentAreaRef.current.style.filter = "blur(80px) brightness(0)";
           contentAreaRef.current.style.opacity = "0";
           contentAreaRef.current.style.pointerEvents = "none";
-        }
-      }
-      // Check focus every frame (60fps = catches Snipping Tool, Game Bar, Alt-Tab)
-      if (!document.hasFocus() || document.hidden) {
-        if (!isBlackoutActiveRef.current) {
-          isBlackoutActiveRef.current = true;
-          setIsScreenBlackout(true);
-          wipeCanvasesBlack();
-          if (contentAreaRef.current) {
-            contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
-            contentAreaRef.current.style.opacity = "0";
-            contentAreaRef.current.style.pointerEvents = "none";
-          }
         }
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -743,21 +743,34 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       if (ctrl && ["c", "a", "p", "s", "u", "x"].includes(e.key.toLowerCase())) {
         e.preventDefault();
         setSecurityNotice(t("copyBlockedMsg"));
-        activateBlackout();
-        setTimeout(() => setSecurityNotice(null), 3000);
+        activateBlackout(1500);
         return;
       }
 
-      if (
+      // Detect screenshot shortcuts synchronously (PrintScreen, Win+Shift+S, Cmd+Shift+3/4/5, DevTools F12)
+      const isPrintScreen =
         e.key === "PrintScreen" ||
         e.code === "PrintScreen" ||
         e.keyCode === 44 ||
-        (e as any).which === 44 ||
-        e.key === "F12" ||
-        ((ctrl || e.altKey) && e.shiftKey && ["i", "j", "c", "s"].includes(e.key.toLowerCase()))
-      ) {
+        (e as any).which === 44;
+
+      const isSnippingTool =
+        (ctrl || e.altKey) && e.shiftKey && ["s", "i", "j", "c", "3", "4", "5"].includes(e.key.toLowerCase());
+
+      const isF12 = e.key === "F12" || e.code === "F12";
+
+      if (isPrintScreen || isSnippingTool || isF12) {
         e.preventDefault();
-        activateBlackout();
+        // Synchronously blank content immediately before OS capture grab
+        if (contentAreaRef.current) {
+          contentAreaRef.current.style.filter = "blur(80px) brightness(0)";
+          contentAreaRef.current.style.opacity = "0";
+        }
+        wipeCanvasesBlack();
+        try {
+          navigator.clipboard?.writeText("⚠️ Protected by RABBI Digital");
+        } catch {}
+        activateBlackout(1500);
         setSecurityNotice(t("screenshotBlockedMsg"));
       }
 
@@ -767,7 +780,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Windows Chromium fires PrintScreen on KEYUP, not keydown
+    // Windows Chromium fires PrintScreen on KEYUP
     const handleKeyUp = (e: KeyboardEvent) => {
       if (
         e.key === "PrintScreen" ||
@@ -776,83 +789,47 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         (e as any).which === 44
       ) {
         e.preventDefault();
-        activateBlackout();
+        try {
+          navigator.clipboard?.writeText("⚠️ Protected by RABBI Digital");
+        } catch {}
+        activateBlackout(1500);
         setSecurityNotice(t("screenshotBlockedMsg"));
-        // Overwrite clipboard which may have received the screenshot data
-        try { navigator.clipboard?.writeText(""); } catch {}
       }
     };
 
-    // Window blur — fires when ANY external tool (Snipping Tool, Game Bar,
-    // ADB screencap, scrcpy, Android screen recorder) pulls focus away.
-    // We do NOT auto-restore on focus — user must tap the black screen.
-    // This eliminates the race condition where JS restores content before the
-    // OS screenshot has finished writing to disk.
-    const handleBlur = () => { activateBlackout(); };
-    // handleFocus intentionally does NOT call deactivateBlackout automatically.
-    // The user clicks the black overlay to restore (see onClick on the veil div).
-
+    // Visibility change - only blank when tab is actually hidden, auto-restore when visible
     const handleVisibilityChange = () => {
       if (document.hidden || document.visibilityState !== "visible") {
-        activateBlackout();
+        activateBlackout(0); // hold blackout while hidden (e.g. app switcher thumbnail)
+      } else {
+        deactivateBlackout(); // instantly restore when user returns
       }
-      // No auto-restore on visible — user must tap the black screen.
     };
 
     const blockContextMenu = (e: MouseEvent) => e.preventDefault();
 
-    // Slower poll (80ms) catches tools the event system misses
-    const focusPoll = setInterval(() => {
-      if (!document.hasFocus() || document.hidden) {
-        if (!isBlackoutActiveRef.current) activateBlackout();
-      }
-    }, 80);
-
-    // ── Android / Mobile Screenshot Protection ────────────────────────────────
-    // 1. Multi-touch (≥2 fingers) — covers Power+VolDown & 3-finger swipe
+    // ── Mobile Screenshot Gestures (Android / iOS) ────────────────────────────
     const handleTouchStart = (e: TouchEvent) => {
+      // Multi-touch gestures (e.g. 3-finger swipe or power+vol-down grip)
       if (e.touches && e.touches.length >= 2) {
-        activateBlackout();
+        activateBlackout(1200);
         setSecurityNotice(t("screenshotBlockedMsg"));
       }
     };
 
-    // 2. touchcancel fires on Android when hardware buttons interrupt a touch
-    //    session (Power+Vol-Down shortcut on many OEMs)
     const handleTouchCancel = () => {
-      activateBlackout();
-      setSecurityNotice(t("screenshotBlockedMsg"));
+      activateBlackout(1000);
     };
 
-    // 3. touchend with sudden 0-finger state after multi-touch
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.changedTouches.length >= 2 && e.touches.length === 0) {
-        activateBlackout();
-      }
+    const handlePageHide = () => {
+      activateBlackout(0);
     };
 
-    // 4. pagehide fires on Android recents / app-switcher (screen captured as thumbnail)
-    const handlePageHide = () => { activateBlackout(); };
-
-    // 5. freeze event fires on Android when Chrome freezes the page (e.g. screenshot
-    //    assistants, Nearby Share, Google Assistant screen capture)
-    const handleFreeze = () => { activateBlackout(); };
-
-    // 6. Screen orientation change — some Android screenshot flows trigger a
-    //    transient orientation shift (assistive tools, screen recorders)
-    const handleOrientationChange = () => { activateBlackout(); };
-
-    // 7. Pointer capture loss (stylus screenshot on Samsung DeX / tablets)
-    const handlePointerCancel = () => { activateBlackout(); };
-
-    // 8. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-        activateBlackout();
-      }
+    const handleFreeze = () => {
+      activateBlackout(0);
     };
 
-    // Print prevention CSS (also blocks Ctrl+P on PC)
+    // Print prevention CSS
     const printStyle = document.createElement("style");
     printStyle.id = "rabbi-drm-print-guard";
     printStyle.innerHTML =
@@ -861,36 +838,25 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("blur", handleBlur);
     window.addEventListener("contextmenu", blockContextMenu);
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
     window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
-    window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("freeze", handleFreeze);
-    window.addEventListener("pointercancel", handlePointerCancel);
-    screen.orientation?.addEventListener("change", handleOrientationChange);
-    document.addEventListener("mouseleave", handleMouseLeave);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      clearInterval(focusPoll);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("blur", handleBlur);
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchcancel", handleTouchCancel);
-      window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("freeze", handleFreeze);
-      window.removeEventListener("pointercancel", handlePointerCancel);
-      screen.orientation?.removeEventListener("change", handleOrientationChange);
-      document.removeEventListener("mouseleave", handleMouseLeave);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.getElementById("rabbi-drm-print-guard")?.remove();
     };
-  }, [activateBlackout, isVideo, t]);
+  }, [activateBlackout, deactivateBlackout, isVideo, t]);
 
   // ============================================================================
   // 5. PAGE CONTROLS
@@ -1020,20 +986,19 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       onCut={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      {/* ── PITCH-BLACK SCREENSHOT VEIL ─────────────────────────────────────────
-          z-[999999] sits above EVERYTHING. When active the user (and any screen
-          capture tool) sees only #000000. The div itself has no children so
-          there's nothing to capture even with accessibility APIs.             */}
+      {/* ── SCREENSHOT PROTECTION OVERLAY ───────────────────────────────────────── */}
       {isScreenBlackout && (
         <div
-          className="fixed inset-0 flex flex-col items-center justify-center select-none cursor-pointer"
+          className="fixed inset-0 flex flex-col items-center justify-center select-none cursor-pointer transition-opacity backdrop-blur-3xl animate-in fade-in"
           style={{ zIndex: 999999, backgroundColor: "#000000" }}
           onClick={deactivateBlackout}
         >
-          {/* Minimal feedback so user knows to click to resume */}
-          <ShieldAlert className="h-10 w-10 text-red-500 mb-4 opacity-80" />
-          <p className="text-gold text-sm font-bold opacity-70">
-            {t("protectedContent")} — {t("clickToResume")}
+          <ShieldAlert className="h-12 w-12 text-red-500 mb-3 opacity-90 animate-pulse" />
+          <p className="text-gold text-sm font-bold opacity-90 mb-1">
+            {t("screenshotBlockedMsg")}
+          </p>
+          <p className="text-white/60 text-xs">
+            {t("clickToResume")}
           </p>
         </div>
       )}

@@ -450,6 +450,63 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: "Downloadable PDF materials designed for community building, peace, reconciliation, leadership, and ministry.",
   },
   openTrainingsList: { am: "የፒዲኤፍ ስልጠናዎች ዝርዝር ክፈት", or: "Tarree Leenjiilee PDF Bani", en: "Open PDF Trainings List" },
+  dorcasCourseBooks: {
+    am: "ዶርቃ ኮሌጅ — የኮርስ መጽሐፍት",
+    or: "Koolleejii Dorqaas — Macaafota Koorasii",
+    en: "Dorcas College — Course Books",
+  },
+  trainingsPdfMaterials: {
+    am: "ስልጠናዎች — የፒዲኤፍ (PDF) ማቴሪያሎች",
+    or: "Leenjiilee — Meeshaalee PDF",
+    en: "Trainings — PDF Materials",
+  },
+  courseSearchPlaceholder: {
+    am: "በርዕስ፣ በመምህር ወይም በይዘት ይፈልጉ...",
+    or: "Mata dureen, barsiisaan ykn qabiyyee barbaadaa...",
+    en: "Search by title, instructor, or content...",
+  },
+  selectLanguageLabel: {
+    am: "ቋንቋ ይምረጡ፦",
+    or: "Afaan Filadhaa:",
+    en: "Select Language:",
+  },
+  filterLangAll: { am: "ሁሉም (All)", or: "Hunda (All)", en: "All" },
+  filterLangAm: { am: "አማርኛ", or: "Afaan Amaaraa", en: "Amharic" },
+  filterLangOr: { am: "Afaan Oromoo", or: "Afaan Oromoo", en: "Afaan Oromoo" },
+  filterLangEn: { am: "English", or: "Ingiliffa", en: "English" },
+  noCoursesFound: {
+    am: "ምንም ኮርስ ወይም ስልጠና አልተገኘም",
+    or: "Koorasiin ykn leenjiin hin argamne",
+    en: "No course or training found",
+  },
+  noCoursesFoundDesc: {
+    am: "እባክዎ የተመረጠውን ቋንቋ ወይም የፍለጋ ቃል ይቀይሩ።",
+    or: "Maaloo afaan filatame ykn jecha barbaachaa jijjiiraa.",
+    en: "Please change selected language or search term.",
+  },
+  pdfDoc: { am: "PDF ሰነድ", or: "Waraqaa PDF", en: "PDF Document" },
+  pdfTraining: { am: "PDF ስልጠና", or: "Leenjii PDF", en: "PDF Training" },
+  unlockedBadge: { am: "✓ ተፈቅዷል (Unlocked)", or: "✓ Eeyyamameera (Unlocked)", en: "✓ Unlocked" },
+  pendingBadge: { am: "⏳ ጥያቄ ተልኳል (Pending)", or: "⏳ Gaaffiin ergameera (Pending)", en: "⏳ Pending Approval" },
+  freePrice: { am: "ነፃ (Free)", or: "Bilaasha (Free)", en: "Free" },
+  readPdfAction: { am: "PDF አንብብ", or: "PDF Dubbisi", en: "Read PDF" },
+  openCourseAction: { am: "ኮርስ ክፈት", or: "Koorasii Bani", en: "Open Course" },
+  sampleOrRequestPdf: { am: "PDF ናሙና / ጠይቅ", or: "PDF Fakkeenya / Gaafadhu", en: "PDF Sample / Request" },
+  sampleOrRequestCourse: { am: "ናሙና / ጠይቅ", or: "Fakkeenya / Gaafadhu", en: "Sample / Request" },
+  instructorLabel: { am: "አቅራቢ / መምህር:", or: "Dhiyeessaa / Barsiisaa:", en: "Provider / Instructor:" },
+  pdfSamplePreview: {
+    am: "የፒዲኤፍ (PDF) ማጠቃለያና ናሙና ንባብ",
+    or: "Gabaabaa fi Fakkeenya Dubbisa PDF",
+    en: "PDF Summary & Sample Preview",
+  },
+  courseSamplePreview: {
+    am: "የነፃ ናሙና ንባብ (Course Sample)",
+    or: "Fakkeenya Dubbisa Bilaashaa (Course Sample)",
+    en: "Free Course Sample Preview",
+  },
+  startCourseNow: { am: "አሁን ኮርሱን ይጀምሩ", or: "Amma Koorasii Jalqabaa", en: "Start Course Now" },
+  readPdfNow: { am: "አሁን ያንብቡ / PDF ክፈት", or: "Amma Dubbisi / PDF Bani", en: "Read Now / Open PDF" },
+  practicalTraining: { am: "ተግባራዊ ስልጠና", or: "Leenjii Qabatamaa", en: "Practical Training" },
 };
 
 const LanguageContext = createContext<LanguageContextType>({
