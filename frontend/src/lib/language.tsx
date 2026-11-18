@@ -21,7 +21,7 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   navAdmin: { am: "ADMIN PANEL", or: "GABAASA ADMIN", en: "Admin Panel" },
 
   // ── Auth & Header Controls ──────────────────────────────────────────────────
-  login: { am: "ግባ / Login", or: "Seeni / Login", en: "Sign In" },
+  login: { am: "ግባ / Login", or: "Seeni / Login", en: "Log In" },
   logout: { am: "ውጣ (Logout)", or: "Ba'i (Logout)", en: "Log Out" },
   register: { am: "ተመዝገብ", or: "Galmaa'i", en: "Register" },
   logoutConfirmTitle: {
@@ -32,7 +32,7 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   logoutConfirmDesc: {
     am: "ከወጡ በኋላ መጽሐፍትንና ይዘቶችን ለማግኘት እንደገና መግባት ይኖርብዎታል።",
     or: "Erga baatanii booda macaafota argachuuf lammata seenuu qabdu.",
-    en: "You will need to sign in again to access your permitted books and media.",
+    en: "You will need to log in again to access your permitted books and media.",
   },
   cancel: { am: "ይቅር", or: "Dhiisi", en: "Cancel" },
   confirmLogout: { am: "አዎ ውጣ", or: "Eeyyee Ba'i", en: "Yes, Log Out" },
@@ -264,18 +264,18 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   subContactDesc: { am: "አድራሻና ግንኙነት", or: "Teessoo fi qunnamtii", en: "Address and inquiries" },
 
   // ── Auth Pages (Login / Register / Forgot Password) ─────────────────────────
-  loginTitle: { am: "ወደ መለያዎ ይግቡ", or: "Gara Akkaawuntii Seenaa", en: "Sign In to Your Account" },
-  loginSubtitle: { am: "የተፈቀዱ መጽሐፍትንና ይዘቶችን ለማግኘት ይግቡ", or: "Macaafota eeyyamaman argachuuf seenaa", en: "Sign in to access your permitted books and media" },
+  loginTitle: { am: "ወደ መለያዎ ይግቡ", or: "Gara Akkaawuntii Seenaa", en: "Log In to Your Account" },
+  loginSubtitle: { am: "የተፈቀዱ መጽሐፍትንና ይዘቶችን ለማግኘት ይግቡ", or: "Macaafota eeyyamaman argachuuf seenaa", en: "Log in to access your permitted books and media" },
   registerTitle: { am: "አዲስ መለያ ይክፈቱ", or: "Akkaawuntii Haaraa Banaa", en: "Create an Account" },
   registerSubtitle: { am: "የRABBI ዲጂታል ቤተ-መጽሐፍት አባል ይሁኑ", or: "Miseensa Mana Macaafa Dijitaalaa RABBI ta'aa", en: "Join the RABBI Digital Library community" },
   emailLabel: { am: "ኢሜይል (Email)", or: "Imeelii (Email)", en: "Email Address" },
   passwordLabel: { am: "የይለፍ ቃል (Password)", or: "Jecha Darbii (Password)", en: "Password" },
   fullNameLabel: { am: "ሙሉ ስም", or: "Maqaa Guutuu", en: "Full Name" },
   phoneLabel: { am: "ስልክ ቁጥር", or: "Lakkoofsa Bilbilaa", en: "Phone Number" },
-  signInBtn: { am: "ግባ (Sign In)", or: "Seeni (Sign In)", en: "Sign In" },
+  signInBtn: { am: "ግባ (Log In)", or: "Seeni (Log In)", en: "Log In" },
   registerBtn: { am: "ተመዝገብ (Register)", or: "Galmaa'i (Register)", en: "Create Account" },
   noAccountPrompt: { am: "መለያ የለዎትም? ተመዝገብ", or: "Akkaawuntii hin qabdan? Galmaa'aa", en: "Don't have an account? Sign Up" },
-  haveAccountPrompt: { am: "መለያ አለዎት? ይግቡ", or: "Akkaawuntii qabdu? Seenaa", en: "Already have an account? Sign In" },
+  haveAccountPrompt: { am: "መለያ አለዎት? ይግቡ", or: "Akkaawuntii qabdu? Seenaa", en: "Already have an account? Log In" },
   forgotPasswordPrompt: { am: "የይለፍ ቃል ረሱ?", or: "Jecha darbii irraanfattanii?", en: "Forgot password?" },
 
   // ── Footer ──────────────────────────────────────────────────────────────────
