@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminService = void 0;
 const prisma_1 = require("../config/prisma");
+const cloudinary_1 = require("../config/cloudinary");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const validation_1 = require("../middlewares/validation");
@@ -188,6 +189,43 @@ class AdminService {
         if (!id || !id.trim()) {
             throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
         }
+        // 1. Fetch existing book to detect replaced media files
+        const existing = await prisma_1.prisma.book.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                coverUrl: true,
+                sampleContent: true,
+                fullContent: true,
+                videoUrl: true,
+                audioUrl: true,
+            },
+        });
+        if (!existing) {
+            throw new Error("ይዘቱ አልተገኘም (Content not found).");
+        }
+        // Collect previous Cloudinary URLs that are being replaced
+        const replacedUrls = [];
+        if (data.coverUrl !== undefined && data.coverUrl.trim() !== existing.coverUrl) {
+            if (existing.coverUrl)
+                replacedUrls.push(existing.coverUrl);
+        }
+        if (data.fullContent !== undefined && data.fullContent.trim() !== existing.fullContent) {
+            if (existing.fullContent)
+                replacedUrls.push(existing.fullContent);
+        }
+        if (data.sampleContent !== undefined && data.sampleContent.trim() !== existing.sampleContent) {
+            if (existing.sampleContent)
+                replacedUrls.push(existing.sampleContent);
+        }
+        if (data.videoUrl !== undefined && (data.videoUrl?.trim() || null) !== existing.videoUrl) {
+            if (existing.videoUrl)
+                replacedUrls.push(existing.videoUrl);
+        }
+        if (data.audioUrl !== undefined && (data.audioUrl?.trim() || null) !== existing.audioUrl) {
+            if (existing.audioUrl)
+                replacedUrls.push(existing.audioUrl);
+        }
         let parsedPrice = undefined;
         if (data.price !== undefined && data.price !== null && data.price !== "") {
             const num = parseFloat(data.price.toString());
@@ -225,16 +263,45 @@ class AdminService {
                 updatePayload.mediaType = mt;
             }
         }
-        return prisma_1.prisma.book.update({
+        const updated = await prisma_1.prisma.book.update({
             where: { id },
             data: updatePayload,
         });
+        // 2. Non-blocking background deletion of replaced Cloudinary files (zero lag for user)
+        if (replacedUrls.length > 0) {
+            (0, cloudinary_1.deleteFilesFromCloudinaryAsync)(replacedUrls);
+        }
+        return updated;
     }
     static async deleteBook(id) {
         if (!id || !id.trim()) {
             throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
         }
-        return prisma_1.prisma.book.delete({ where: { id } });
+        // 1. Fetch existing content to find all attached Cloudinary assets
+        const existing = await prisma_1.prisma.book.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                coverUrl: true,
+                sampleContent: true,
+                fullContent: true,
+                videoUrl: true,
+                audioUrl: true,
+            },
+        });
+        // 2. Delete database record
+        const deleted = await prisma_1.prisma.book.delete({ where: { id } });
+        // 3. Immediately trigger background non-blocking deletion of all media from Cloudinary
+        if (existing) {
+            (0, cloudinary_1.deleteFilesFromCloudinaryAsync)([
+                existing.coverUrl,
+                existing.sampleContent,
+                existing.fullContent,
+                existing.videoUrl,
+                existing.audioUrl,
+            ]);
+        }
+        return deleted;
     }
     // ---- Admin Management CRUD ----
     static async getAllAdmins(excludeUserId) {

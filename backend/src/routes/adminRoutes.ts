@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AdminController } from "../controllers/adminController";
+import { AdminController, handleMulterError } from "../controllers/adminController";
 import { authenticateToken, requireAdmin } from "../middlewares/authMiddleware";
 import { upload } from "../config/cloudinary";
 
@@ -15,7 +15,9 @@ router.put("/profile", AdminController.updateProfile);
 router.post("/books", AdminController.createBook);
 router.put("/books/:id", AdminController.updateBook);
 router.delete("/books/:id", AdminController.deleteBook);
-router.post("/upload", upload.single("file"), AdminController.uploadFile);
+// Upload: multer error handler comes right after to surface size/type errors properly
+router.post("/upload", upload.single("file"), handleMulterError, AdminController.uploadFile);
+router.post("/delete-file", AdminController.deleteFile);
 router.get("/admins", AdminController.getAllAdmins);
 router.post("/admins", AdminController.createAdmin);
 router.put("/admins/:id", AdminController.updateAdmin);

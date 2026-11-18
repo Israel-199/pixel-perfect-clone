@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { deleteFilesFromCloudinaryAsync } from "../config/cloudinary";
 import bcrypt from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
 import {
@@ -193,7 +194,7 @@ export class AdminService {
     author?: string;
     description?: string;
     price?: number | string;
-    coverUrl: string;
+    coverUrl?: string;
     sampleContent?: string;
     fullContent?: string;
     videoUrl?: string;
@@ -204,8 +205,6 @@ export class AdminService {
     const author = data.author ? validateName(data.author, "Author", false) || "RABBI" : "RABBI";
     const description = stripHtml(validateString(data.description, "Description", { max: 2000 }));
     const numPrice = validatePositiveNumber(data.price ?? 0, "Price");
-    const coverUrl = validateUrl(data.coverUrl, "Cover Image URL");
-    if (!coverUrl) throw new Error("Cover image URL is required.");
     const sampleContent = validateString(data.sampleContent, "Sample Content", { max: 50000 });
     const fullContent = validateString(data.fullContent, "Full Content", { max: 500000 });
     const videoUrl = validateUrl(data.videoUrl, "Video URL");
@@ -215,6 +214,21 @@ export class AdminService {
     const mediaType = (data.mediaType || "BOOK").toUpperCase().trim();
     if (!validMediaTypes.includes(mediaType)) {
       throw new Error("Invalid content/media type.");
+    }
+
+    // Default spiritual cover placeholder by media type if admin chooses not to upload one
+    const defaultCovers: Record<string, string> = {
+      BOOK: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop",
+      VIDEO: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=600&auto=format&fit=crop",
+      AUDIO: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop",
+      COURSE: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop",
+      ARTICLE: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&auto=format&fit=crop",
+      PRAYER: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop",
+    };
+
+    let coverUrl: string = (data.coverUrl && data.coverUrl.trim()) ? (validateUrl(data.coverUrl, "Cover Image URL") || "") : "";
+    if (!coverUrl) {
+      coverUrl = defaultCovers[mediaType] || defaultCovers.BOOK;
     }
 
     return prisma.book.create({
@@ -252,6 +266,42 @@ export class AdminService {
       throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
     }
 
+    // 1. Fetch existing book to detect replaced media files
+    const existing = await prisma.book.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        coverUrl: true,
+        sampleContent: true,
+        fullContent: true,
+        videoUrl: true,
+        audioUrl: true,
+      },
+    });
+
+    if (!existing) {
+      throw new Error("ይዘቱ አልተገኘም (Content not found).");
+    }
+
+    // Collect previous Cloudinary URLs that are being replaced
+    const replacedUrls: string[] = [];
+
+    if (data.coverUrl !== undefined && data.coverUrl.trim() !== existing.coverUrl) {
+      if (existing.coverUrl) replacedUrls.push(existing.coverUrl);
+    }
+    if (data.fullContent !== undefined && data.fullContent.trim() !== existing.fullContent) {
+      if (existing.fullContent) replacedUrls.push(existing.fullContent);
+    }
+    if (data.sampleContent !== undefined && data.sampleContent.trim() !== existing.sampleContent) {
+      if (existing.sampleContent) replacedUrls.push(existing.sampleContent);
+    }
+    if (data.videoUrl !== undefined && (data.videoUrl?.trim() || null) !== existing.videoUrl) {
+      if (existing.videoUrl) replacedUrls.push(existing.videoUrl);
+    }
+    if (data.audioUrl !== undefined && (data.audioUrl?.trim() || null) !== existing.audioUrl) {
+      if (existing.audioUrl) replacedUrls.push(existing.audioUrl);
+    }
+
     let parsedPrice: number | undefined = undefined;
     if (data.price !== undefined && data.price !== null && data.price !== "") {
       const num = parseFloat(data.price.toString());
@@ -268,7 +318,9 @@ export class AdminService {
     if (data.author !== undefined) updatePayload.author = data.author.trim() || "RABBI";
     if (data.description !== undefined) updatePayload.description = data.description.trim();
     if (parsedPrice !== undefined) updatePayload.price = parsedPrice;
-    if (data.coverUrl !== undefined) updatePayload.coverUrl = data.coverUrl.trim();
+    if (data.coverUrl !== undefined && data.coverUrl.trim()) {
+      updatePayload.coverUrl = data.coverUrl.trim();
+    }
     if (data.sampleContent !== undefined) updatePayload.sampleContent = data.sampleContent.trim();
     if (data.fullContent !== undefined) updatePayload.fullContent = data.fullContent.trim();
     if (data.videoUrl !== undefined) updatePayload.videoUrl = data.videoUrl ? data.videoUrl.trim() : null;
@@ -281,10 +333,17 @@ export class AdminService {
       }
     }
 
-    return prisma.book.update({
+    const updated = await prisma.book.update({
       where: { id },
       data: updatePayload,
     });
+
+    // 2. Non-blocking background deletion of replaced Cloudinary files (zero lag for user)
+    if (replacedUrls.length > 0) {
+      deleteFilesFromCloudinaryAsync(replacedUrls);
+    }
+
+    return updated;
   }
 
   static async deleteBook(id: string) {
@@ -292,7 +351,34 @@ export class AdminService {
       throw new Error("የመጽሐፍ መታወቂያ ተገቢ ነው (Book ID is required).");
     }
 
-    return prisma.book.delete({ where: { id } });
+    // 1. Fetch existing content to find all attached Cloudinary assets
+    const existing = await prisma.book.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        coverUrl: true,
+        sampleContent: true,
+        fullContent: true,
+        videoUrl: true,
+        audioUrl: true,
+      },
+    });
+
+    // 2. Delete database record
+    const deleted = await prisma.book.delete({ where: { id } });
+
+    // 3. Immediately trigger background non-blocking deletion of all media from Cloudinary
+    if (existing) {
+      deleteFilesFromCloudinaryAsync([
+        existing.coverUrl,
+        existing.sampleContent,
+        existing.fullContent,
+        existing.videoUrl,
+        existing.audioUrl,
+      ]);
+    }
+
+    return deleted;
   }
 
   // ---- Admin Management CRUD ----

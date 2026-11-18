@@ -14,7 +14,9 @@ router.put("/profile", adminController_1.AdminController.updateProfile);
 router.post("/books", adminController_1.AdminController.createBook);
 router.put("/books/:id", adminController_1.AdminController.updateBook);
 router.delete("/books/:id", adminController_1.AdminController.deleteBook);
-router.post("/upload", cloudinary_1.upload.single("file"), adminController_1.AdminController.uploadFile);
+// Upload: multer error handler comes right after to surface size/type errors properly
+router.post("/upload", cloudinary_1.upload.single("file"), adminController_1.handleMulterError, adminController_1.AdminController.uploadFile);
+router.post("/delete-file", adminController_1.AdminController.deleteFile);
 router.get("/admins", adminController_1.AdminController.getAllAdmins);
 router.post("/admins", adminController_1.AdminController.createAdmin);
 router.put("/admins/:id", adminController_1.AdminController.updateAdmin);
