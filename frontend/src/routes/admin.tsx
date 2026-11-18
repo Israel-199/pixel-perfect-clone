@@ -2126,8 +2126,8 @@ function AdminRoute() {
                 )}
               </div>
 
-              {/* Cover Image — hidden for PRAYER */}
-              {mediaType !== "PRAYER" && (
+              {/* Cover Image — completely removed for ARTICLE, PRAYER, AUDIO, VIDEO (only for BOOK and COURSE) */}
+              {(mediaType === "BOOK" || mediaType === "COURSE") && (
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
                     የሽፋን ፎቶ (Cover Image) <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
@@ -3242,39 +3242,42 @@ function AdminRoute() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-navy mb-1">
-                  የከቨር ፎቶ URL <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={editCoverUrl}
-                    onChange={(e) => setEditCoverUrl(e.target.value)}
-                    placeholder="https://... (አማራጭ)"
-                    className="flex-1 rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
-                  />
-                  <label className="rounded-xl bg-gold/15 px-3 py-2 text-xs font-bold text-navy hover:bg-gold transition-all cursor-pointer shrink-0 flex items-center gap-1">
-                    <Upload className="h-3.5 w-3.5" />
-                    <span>{editUploading ? "..." : "ቀይር"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={editUploading}
-                      onChange={(e) => handleFileUpload(e, true)}
-                      className="hidden"
-                    />
+              {/* Cover Image — completely removed for ARTICLE, PRAYER, AUDIO, VIDEO (only for BOOK and COURSE) */}
+              {(editMediaType === "BOOK" || editMediaType === "COURSE") && (
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">
+                    የከቨር ፎቶ URL <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
                   </label>
-                </div>
-                {editUploading && editUploadProgress > 0 && (
-                  <div className="mt-1.5 w-full bg-navy/10 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="h-2 bg-gold rounded-full transition-all duration-150"
-                      style={{ width: `${editUploadProgress}%` }}
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={editCoverUrl}
+                      onChange={(e) => setEditCoverUrl(e.target.value)}
+                      placeholder="https://... (አማራጭ)"
+                      className="flex-1 rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
                     />
+                    <label className="rounded-xl bg-gold/15 px-3 py-2 text-xs font-bold text-navy hover:bg-gold transition-all cursor-pointer shrink-0 flex items-center gap-1">
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>{editUploading ? "..." : "ቀይር"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={editUploading}
+                        onChange={(e) => handleFileUpload(e, true)}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
-                )}
-              </div>
+                  {editUploading && editUploadProgress > 0 && (
+                    <div className="mt-1.5 w-full bg-navy/10 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 bg-gold rounded-full transition-all duration-150"
+                        style={{ width: `${editUploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-navy mb-1">አጭር መግለጫ</label>
