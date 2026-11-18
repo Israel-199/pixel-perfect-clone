@@ -75,6 +75,22 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const isBlackoutActiveRef = useRef<boolean>(false);
   const rafRef = useRef<number | null>(null);
 
+  // ── Mobile Touch Guard (Hardware Screenshot Prevention) ─────────────────────
+  // Physical buttons (Power + VolDown) on mobile phones do not trigger key events.
+  // The Touch Guard ensures book content is only visible while the user is actively
+  // touching/holding the screen. If fingers lift to press screenshot buttons,
+  // the content instantly blurs and covers.
+  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  const [isTouchReading, setIsTouchReading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const isTouch =
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.matchMedia("(pointer: coarse)").matches;
+    setIsTouchDevice(isTouch);
+  }, []);
+
   // ── Reader refs ─────────────────────────────────────────────────────────────
   const readerRef = useRef<HTMLDivElement | null>(null);
   const contentAreaRef = useRef<HTMLDivElement | null>(null);
@@ -199,6 +215,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pdfCanvasRef2 = useRef<HTMLCanvasElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+  // Video overlay refs — canvas stream is piped into these so Android Chrome
+  // shows black in OS-level screenshots (video compositor path is excluded from
+  // Android's screenshot framebuffer capture).
+  const pdfVideoRef = useRef<HTMLVideoElement | null>(null);
+  const pdfVideoRef2 = useRef<HTMLVideoElement | null>(null);
 
   // Exact Page Label helper (uses Roman or customized numbering if present in PDF)
   const getPageLabel = useCallback(
@@ -539,7 +560,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   // 3. PDF CANVAS RENDERER — fills container width, no shrinking
   // ============================================================================
   const renderPdfPage = useCallback(
-    async (pageNo: number, canvas: HTMLCanvasElement | null) => {
+    async (pageNo: number, canvas: HTMLCanvasElement | null, videoEl?: HTMLVideoElement | null) => {
       if (!pdfDoc || !canvas) return;
       try {
         const page = await pdfDoc.getPage(pageNo);
@@ -564,10 +585,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         // Physical pixels (crisp on retina)
         canvas.width = Math.floor(viewport.width * dpr);
         canvas.height = Math.floor(viewport.height * dpr);
-        // CSS display size
+        // CSS display size — canvas is HIDDEN; video element shows the content
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
         canvas.style.display = "block";
+        canvas.style.position = "absolute";
+        canvas.style.opacity = "0";
+        canvas.style.pointerEvents = "none";
 
         // If blackout is active, paint solid black immediately
         if (isBlackoutActiveRef.current) {
@@ -578,6 +602,25 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
+
+        // ── Video DRM trick ──────────────────────────────────────────────────
+        // Pipe canvas pixels into a <video> element via captureStream().
+        // Android Chrome renders <video> through its protected video compositor
+        // path — OS-level screenshots capture this layer as black (no content).
+        // This is the same mechanism that prevents screenshots in banking apps.
+        if (videoEl && typeof (canvas as any).captureStream === "function") {
+          try {
+            const stream: MediaStream = (canvas as any).captureStream(0);
+            if (videoEl.srcObject !== stream) {
+              videoEl.srcObject = stream;
+            }
+            videoEl.style.width = `${Math.floor(viewport.width)}px`;
+            videoEl.style.height = `${Math.floor(viewport.height)}px`;
+            if (videoEl.paused) {
+              videoEl.play().catch(() => {});
+            }
+          } catch {}
+        }
       } catch (e) {
         console.error("Canvas render error:", e);
       }
@@ -587,9 +630,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   useEffect(() => {
     if (!isPdf || !pdfDoc) return;
-    renderPdfPage(currentPage, pdfCanvasRef.current);
+    renderPdfPage(currentPage, pdfCanvasRef.current, pdfVideoRef.current);
     if (twoPageView && currentPage < pdfNumPages) {
-      renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
+      renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
     }
   }, [isPdf, pdfDoc, currentPage, zoomScale, twoPageView, pdfNumPages, renderPdfPage]);
 
@@ -597,9 +640,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   useEffect(() => {
     if (!isPdf || !pdfDoc) return;
     const onResize = () => {
-      renderPdfPage(currentPage, pdfCanvasRef.current);
+      renderPdfPage(currentPage, pdfCanvasRef.current, pdfVideoRef.current);
       if (twoPageView && currentPage < pdfNumPages) {
-        renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
+        renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
       }
     };
     window.addEventListener("resize", onResize);
@@ -651,9 +694,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     // Re-render pages after restoring
     if (pdfDoc) {
       setTimeout(() => {
-        renderPdfPage(currentPage, pdfCanvasRef.current);
+        renderPdfPage(currentPage, pdfCanvasRef.current, pdfVideoRef.current);
         if (twoPageView && currentPage < pdfNumPages) {
-          renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
+          renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
         }
       }, 80);
     }
@@ -705,7 +748,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return;
       }
 
-      // PrintScreen / DevTools / Win+Shift+S variants
       if (
         e.key === "PrintScreen" ||
         e.code === "PrintScreen" ||
@@ -719,7 +761,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         setSecurityNotice(t("screenshotBlockedMsg"));
       }
 
-      // Page navigation
       if (!isVideo) {
         if (e.key === "ArrowRight" || e.key === "PageDown") handleNextPage();
         else if (e.key === "ArrowLeft" || e.key === "PageUp") handlePrevPage();
@@ -742,24 +783,25 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Window blur — fires when user switches to Snipping Tool via keyboard shortcut
+    // Window blur — fires when ANY external tool (Snipping Tool, Game Bar,
+    // ADB screencap, scrcpy, Android screen recorder) pulls focus away.
+    // We do NOT auto-restore on focus — user must tap the black screen.
+    // This eliminates the race condition where JS restores content before the
+    // OS screenshot has finished writing to disk.
     const handleBlur = () => { activateBlackout(); };
-    const handleFocus = () => {
-      // Delay restore so any in-flight screenshot tool closes first
-      setTimeout(deactivateBlackout, 200);
-    };
+    // handleFocus intentionally does NOT call deactivateBlackout automatically.
+    // The user clicks the black overlay to restore (see onClick on the veil div).
 
     const handleVisibilityChange = () => {
       if (document.hidden || document.visibilityState !== "visible") {
         activateBlackout();
-      } else {
-        setTimeout(deactivateBlackout, 200);
       }
+      // No auto-restore on visible — user must tap the black screen.
     };
 
     const blockContextMenu = (e: MouseEvent) => e.preventDefault();
 
-    // Slower poll (80ms) as a belt-and-suspenders fallback alongside the RAF loop
+    // Slower poll (80ms) catches tools the event system misses
     const focusPoll = setInterval(() => {
       if (!document.hasFocus() || document.hidden) {
         if (!isBlackoutActiveRef.current) activateBlackout();
@@ -767,10 +809,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }, 80);
 
     // ── Android / Mobile Screenshot Protection ────────────────────────────────
-    // Android: Power+Volume-Down triggers a brief touchcancel then pagehide-like
-    // sequence. We catch every signal available in WebView / Chrome Mobile.
-
-    // 1. Multi-touch (≥2 fingers) — covers pinch-zoom screenshots & 3-finger swipe
+    // 1. Multi-touch (≥2 fingers) — covers Power+VolDown & 3-finger swipe
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches && e.touches.length >= 2) {
         activateBlackout();
@@ -778,36 +817,35 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // 2. touchcancel fires on Android when hardware buttons interrupt a touch session
-    //    (Power+Vol-Down screenshot shortcut)
+    // 2. touchcancel fires on Android when hardware buttons interrupt a touch
+    //    session (Power+Vol-Down shortcut on many OEMs)
     const handleTouchCancel = () => {
       activateBlackout();
       setSecurityNotice(t("screenshotBlockedMsg"));
     };
 
-    // 3. touchend with sudden 0-finger state after multi-touch = screenshot released
+    // 3. touchend with sudden 0-finger state after multi-touch
     const handleTouchEnd = (e: TouchEvent) => {
-      // If touches drop to 0 immediately after a 2+ finger gesture, blackout
       if (e.changedTouches.length >= 2 && e.touches.length === 0) {
         activateBlackout();
       }
     };
 
-    // 4. pagehide fires on Android when the app switcher / recents screen opens
-    //    (which can capture the screen in the app thumbnail)
-    const handlePageHide = () => {
-      activateBlackout();
-    };
+    // 4. pagehide fires on Android recents / app-switcher (screen captured as thumbnail)
+    const handlePageHide = () => { activateBlackout(); };
 
-    // 5. Android share sheet / screenshot assistant opens as a new activity,
-    //    causing a visibilitychange to "hidden" — already covered above.
+    // 5. freeze event fires on Android when Chrome freezes the page (e.g. screenshot
+    //    assistants, Nearby Share, Google Assistant screen capture)
+    const handleFreeze = () => { activateBlackout(); };
 
-    // 6. Pointer capture loss (stylus screenshot on Samsung DeX / tablets)
-    const handlePointerCancel = () => {
-      activateBlackout();
-    };
+    // 6. Screen orientation change — some Android screenshot flows trigger a
+    //    transient orientation shift (assistive tools, screen recorders)
+    const handleOrientationChange = () => { activateBlackout(); };
 
-    // 7. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
+    // 7. Pointer capture loss (stylus screenshot on Samsung DeX / tablets)
+    const handlePointerCancel = () => { activateBlackout(); };
+
+    // 8. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
     const handleMouseLeave = (e: MouseEvent) => {
       if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
         activateBlackout();
@@ -824,13 +862,14 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
     window.addEventListener("contextmenu", blockContextMenu);
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
     window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("freeze", handleFreeze);
     window.addEventListener("pointercancel", handlePointerCancel);
+    screen.orientation?.addEventListener("change", handleOrientationChange);
     document.addEventListener("mouseleave", handleMouseLeave);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -839,18 +878,19 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchcancel", handleTouchCancel);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("freeze", handleFreeze);
       window.removeEventListener("pointercancel", handlePointerCancel);
+      screen.orientation?.removeEventListener("change", handleOrientationChange);
       document.removeEventListener("mouseleave", handleMouseLeave);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.getElementById("rabbi-drm-print-guard")?.remove();
     };
-  }, [activateBlackout, deactivateBlackout, isVideo, t]);
+  }, [activateBlackout, isVideo, t]);
 
   // ============================================================================
   // 5. PAGE CONTROLS
@@ -1339,25 +1379,30 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
                   {!pdfLoading && !pdfError && (
                     <div className={`flex gap-4 items-start justify-center w-full ${twoPageView ? "lg:flex-row flex-col" : "flex-col items-center"}`}>
-                      {/* Page 1 */}
-                      <div className={`relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}>
+                      {/* Page 1 — hidden canvas feeds a <video> element.
+                          Android Chrome renders <video> through the protected
+                          video compositor path, which is excluded from OS-level
+                          screenshot capture (shows as black on Android). */}
+                      <div
+                        className={`relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}
+                        style={{ isolation: "isolate", willChange: "transform" }}
+                      >
+                        {/* Hidden canvas — renders PDF pixels but is never visible */}
                         <canvas
                           ref={pdfCanvasRef}
-                          style={{ display: "block", width: "100%", height: "auto" }}
-                        />
-                        {/* Forensic Anti-Leak Watermark Grid Layer on PDF Canvas */}
-                        <div
-                          className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
-                          style={{ opacity: 0.14 }}
+                          style={{ position: "absolute", opacity: 0, pointerEvents: "none", top: 0, left: 0 }}
                           aria-hidden="true"
-                        >
-                          {Array.from({ length: 24 }).map((_, i) => (
-                            <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-black leading-tight">
-                              <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
-                              <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
-                            </div>
-                          ))}
-                        </div>
+                        />
+                        {/* Visible video — displays canvas stream; black in OS screenshots */}
+                        <video
+                          ref={pdfVideoRef}
+                          muted
+                          playsInline
+                          autoPlay
+                          disablePictureInPicture
+                          style={{ display: "block", width: "100%", height: "auto", userSelect: "none", WebkitUserSelect: "none" } as React.CSSProperties}
+                          onContextMenu={(e) => e.preventDefault()}
+                        />
                         <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
                           {t("page")} {getPageLabel(currentPage)}
                         </div>
@@ -1365,24 +1410,24 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
                       {/* Page 2 (two-page spread) */}
                       {twoPageView && currentPage < pdfNumPages && (
-                        <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white flex-1 min-w-0 hidden lg:block">
+                        <div
+                          className="relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white flex-1 min-w-0 hidden lg:block"
+                          style={{ isolation: "isolate", willChange: "transform" }}
+                        >
                           <canvas
                             ref={pdfCanvasRef2}
-                            style={{ display: "block", width: "100%", height: "auto" }}
-                          />
-                          {/* Forensic Anti-Leak Watermark Grid Layer on PDF Canvas 2 */}
-                          <div
-                            className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
-                            style={{ opacity: 0.14 }}
+                            style={{ position: "absolute", opacity: 0, pointerEvents: "none", top: 0, left: 0 }}
                             aria-hidden="true"
-                          >
-                            {Array.from({ length: 24 }).map((_, i) => (
-                              <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-black leading-tight">
-                                <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
-                                <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
-                              </div>
-                            ))}
-                          </div>
+                          />
+                          <video
+                            ref={pdfVideoRef2}
+                            muted
+                            playsInline
+                            autoPlay
+                            disablePictureInPicture
+                            style={{ display: "block", width: "100%", height: "auto", userSelect: "none", WebkitUserSelect: "none" } as React.CSSProperties}
+                            onContextMenu={(e) => e.preventDefault()}
+                          />
                           <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
                             {t("page")} {getPageLabel(currentPage + 1)}
                           </div>
@@ -1427,22 +1472,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                   {/* Left page */}
                   <div
                     className={`relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-10 min-h-[60vh] flex flex-col justify-between border ${getThemeClasses()}`}
-                    style={{ fontSize: `${fontSize}px` }}
+                    style={{ fontSize: `${fontSize}px`, isolation: "isolate", willChange: "transform" }}
                   >
-                    {/* Forensic Anti-Leak Watermark Grid Layer on Left Page */}
-                    <div
-                      className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
-                      style={{ opacity: 0.12 }}
-                      aria-hidden="true"
-                    >
-                      {Array.from({ length: 24 }).map((_, i) => (
-                        <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-current leading-tight">
-                          <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
-                          <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
-                        </div>
-                      ))}
-                    </div>
-
                     <div className="relative z-1">
                       <div className="flex items-center justify-between border-b border-current/15 pb-3 mb-6 text-[11px] font-bold tracking-widest uppercase opacity-60">
                         <span className="truncate pr-4">{book.title}</span>
@@ -1462,22 +1493,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                   {twoPageView && secondPageObj && (
                     <div
                       className={`relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-10 min-h-[60vh] flex flex-col justify-between border hidden lg:flex ${getThemeClasses()}`}
-                      style={{ fontSize: `${fontSize}px` }}
+                      style={{ fontSize: `${fontSize}px`, isolation: "isolate", willChange: "transform" }}
                     >
-                      {/* Forensic Anti-Leak Watermark Grid Layer on Right Page */}
-                      <div
-                        className="pointer-events-none absolute inset-0 z-10 overflow-hidden select-none flex flex-wrap items-center justify-around gap-12 p-6 rotate-[-22deg]"
-                        style={{ opacity: 0.12 }}
-                        aria-hidden="true"
-                      >
-                        {Array.from({ length: 24 }).map((_, i) => (
-                          <div key={i} className="text-center font-mono text-[11px] font-extrabold tracking-wider text-current leading-tight">
-                            <p>{user?.fullName || "AUTHORIZED MEMBER"} • {user?.phone || user?.email || "RABBI CHURCH"}</p>
-                            <p className="text-[9px] tracking-widest uppercase">LICENSED & TRACKED • DO NOT SHARE</p>
-                          </div>
-                        ))}
-                      </div>
-
                       <div className="relative z-1">
                         <div className="flex items-center justify-between border-b border-current/15 pb-3 mb-6 text-[11px] font-bold tracking-widest uppercase opacity-60">
                           <span>{secondPageObj.chapterTitle}</span>

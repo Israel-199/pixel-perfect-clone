@@ -64,12 +64,12 @@ const PILLAR_KEYS = [
 ];
 
 const SECTIONS = [
-  { icon: BookOpen, title: "መጽሐፍት", sub: "መንፈሳዊ መጽሐፍት", to: "/books" },
-  { icon: GraduationCap, title: "ኮርሶች", sub: "ዶርቃ ኮሌጅ & ስልጠናዎች", to: "/courses" },
-  { icon: Play, title: "ሚዲያ", sub: "ቪዲዮ፣ ኦዲዮ፣ ስብከቶች", to: "/media" },
-  { icon: Pencil, title: "ጽሑፎች", sub: "መንፈሳዊ ጽሑፎች", to: "/articles" },
-  { icon: HandHeart, title: "ጸሎት ክፍል", sub: "የጸሎት ርዕሶች", to: "/prayer" },
-  { icon: Users, title: "ስለ RABBI", sub: "ስለ እኛ እና አጋርነት", to: "/about" },
+  { icon: BookOpen, titleKey: "secBooksTitle", subKey: "secBooksSub", to: "/books" },
+  { icon: GraduationCap, titleKey: "secCoursesTitle", subKey: "secCoursesSub", to: "/courses" },
+  { icon: Play, titleKey: "secMediaTitle", subKey: "secMediaSub", to: "/media" },
+  { icon: Pencil, titleKey: "secArticlesTitle", subKey: "secArticlesSub", to: "/articles" },
+  { icon: HandHeart, titleKey: "secPrayerTitle", subKey: "secPrayerSub", to: "/prayer" },
+  { icon: Users, titleKey: "secAboutTitle", subKey: "secAboutSub", to: "/about" },
 ];
 
 function Index() {
@@ -438,12 +438,12 @@ function Index() {
       <section className="mx-auto max-w-[1180px] px-4 sm:px-6 pb-12 sm:pb-16">
         <h3 className="mb-4 text-xs sm:text-sm font-bold text-navy flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-gold shrink-0" />
-          <span>ተመራጭ የአገልግሎት ክፍሎች</span>
+          <span>{t("preferredServiceSections")}</span>
         </h3>
         <div className="grid rounded-2xl bg-card shadow-card border border-gold/15 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 overflow-hidden">
-          {SECTIONS.map(({ icon: Icon, title, sub, to }, i) => (
+          {SECTIONS.map(({ icon: Icon, titleKey, subKey, to }, i) => (
             <Link
-              key={title}
+              key={to}
               to={to}
               className={`flex flex-col items-center gap-2 px-3 sm:px-4 py-5 sm:py-7 text-center transition-all hover:bg-gold/10 group ${
                 i > 0 ? "border-t sm:border-t-0 sm:border-l border-border/60" : ""
@@ -453,9 +453,9 @@ function Index() {
                 <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-navy group-hover:text-gold" strokeWidth={1.5} />
               </div>
               <span className="text-xs font-bold text-navy group-hover:text-gold transition-colors">
-                {title}
+                {t(titleKey)}
               </span>
-              <span className="text-[0.65rem] sm:text-[0.68rem] text-muted-foreground line-clamp-1">{sub}</span>
+              <span className="text-[0.65rem] sm:text-[0.68rem] text-muted-foreground line-clamp-1">{t(subKey)}</span>
             </Link>
           ))}
         </div>
@@ -469,9 +469,9 @@ function Index() {
               <Mail className="h-4 w-4 text-gold" />
             </span>
             <p className="text-[0.72rem] leading-5 text-on-navy-muted">
-              የዕለቱን ቃል በኢሜይል ይቀበሉ
+              {t("newsletterHeading")}
               <br />
-              ይመዝገቡ እና ይቀበሉ!
+              {t("newsletterSub")}
             </p>
           </div>
           <form
@@ -480,7 +480,7 @@ function Index() {
           >
             <input
               type="email"
-              placeholder="ደህንነቱ የተጠበቀ ኢሜይል ያስገቡ"
+              placeholder={t("newsletterPlaceholder")}
               aria-label="ኢሜይል"
               className="flex-1 min-w-0 bg-cream px-3.5 py-2.5 text-xs text-foreground outline-none"
             />

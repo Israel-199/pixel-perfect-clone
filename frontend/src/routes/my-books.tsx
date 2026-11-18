@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BookOpen, Lock, CheckCircle2, Clock, XCircle, Send, PlayCircle, PlusCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { BookItem } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
@@ -18,6 +19,7 @@ interface UserRequestItem {
 }
 
 function MyBooksRoute() {
+  const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -177,12 +179,12 @@ function MyBooksRoute() {
                       className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-700 shadow transition-all active:scale-[0.98]"
                     >
                       <BookOpen className="h-4 w-4" />
-                      <span>አሁን ያንብቡ (Read Full Access)</span>
+                      <span>{t("readFullAccessBtn")}</span>
                     </button>
                   ) : isPending ? (
                     <div className="space-y-2">
                       <div className="text-[0.72rem] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 font-medium">
-                        ጥያቄዎ በመታየት ላይ ነው። ክፍያ ደረሰኝ በቴሌግራም መላክ ይችላሉ።
+                        {t("pendingReviewNotice")}
                       </div>
                       <button
                         type="button"
@@ -190,12 +192,12 @@ function MyBooksRoute() {
                         className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-all cursor-pointer"
                       >
                         <Send className="h-3.5 w-3.5" />
-                        <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                        <span>{t("sendReceiptBtn")}</span>
                       </button>
                     </div>
                   ) : (
                     <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200 text-center font-medium">
-                      ጥያቄዎ አልተፈቀደም። እባክዎ አድሚንን ያነጋግሩ።
+                      {t("rejectedNotice")}
                     </div>
                   )}
                 </div>

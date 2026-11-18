@@ -564,14 +564,13 @@ function CoursesRoute() {
         <div className="relative mx-auto max-w-4xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-gold mb-3">
             <School className="h-4 w-4" />
-            <span>RABBI የትምህርትና ስልጠና ማዕከል • Dorcas College & Practical Trainings</span>
+            <span>{t("coursesHeroBadge")}</span>
           </div>
           <h1 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold text-gold tracking-tight">
-            ኮርሶች እና ተግባራዊ ስልጠናዎች
+            {t("coursesTitle")}
           </h1>
           <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-2xl mx-auto leading-relaxed">
-            በዶርቃ ኮሌጅ የተዘጋጁ ጥልቅ የሥነ-መለኮት ኮርሶች እና ለማኅበረሰብ ግንባታ፣ ለሰላም፣ ለአመራርና
-            ለአገልግሎት የተዘጋጁ የፒዲኤፍ ስልጠናዎችን እዚህ ያግኙ።
+            {t("coursesSubtitle")}
           </p>
         </div>
       </div>
@@ -592,7 +591,7 @@ function CoursesRoute() {
             {activeCategory === "dorcas" && (
               <div className="absolute top-4 right-4">
                 <span className="rounded-full bg-gold px-3 py-1 text-[11px] font-bold text-navy-deep flex items-center gap-1 shadow">
-                  <CheckCircle2 className="h-3 w-3" /> የተመረጠ
+                  <CheckCircle2 className="h-3 w-3" /> {t("selectedBadge")}
                 </span>
               </div>
             )}
@@ -607,22 +606,21 @@ function CoursesRoute() {
                 <GraduationCap className="h-8 w-8" />
               </div>
               <span className="block text-xs font-bold uppercase tracking-wider text-gold mb-1">
-                የሥነ-መለኮትና የመጽሐፍ ቅዱስ ኮሌጅ
+                {t("dorcasBadge")}
               </span>
               <h2
                 className={`font-display text-2xl md:text-3xl font-bold mb-2 ${
                   activeCategory === "dorcas" ? "text-gold" : "text-navy"
                 }`}
               >
-                ዶርቃ ኮሌጅ
+                {t("dorcasTitle")}
               </h2>
               <p
                 className={`text-xs md:text-sm leading-relaxed ${
                   activeCategory === "dorcas" ? "text-on-navy-muted" : "text-muted-foreground"
                 }`}
               >
-                በዶርቃ ኮሌጅ የተዘጋጁ ጥልቅ መንፈሳዊና ሥነ-መለኮታዊ የኮርስ መጽሐፍት፣ የስርዓተ-ትምህርት ክፍለ-ጊዜዎች
-                እና የአገልግሎት ዝግጅት ማቴሪያሎች።
+                {t("dorcasDesc")}
               </p>
             </div>
 
@@ -633,7 +631,7 @@ function CoursesRoute() {
                   : "border-navy/10 text-muted-foreground"
               }`}
             >
-              <span>የኮሌጅ ኮርሶች ዝርዝር ክፈት</span>
+              <span>{t("openDorcasList")}</span>
               <ChevronRight className="h-4 w-4" />
             </div>
           </button>
@@ -651,7 +649,7 @@ function CoursesRoute() {
             {activeCategory === "trainings" && (
               <div className="absolute top-4 right-4">
                 <span className="rounded-full bg-gold px-3 py-1 text-[11px] font-bold text-navy-deep flex items-center gap-1 shadow">
-                  <CheckCircle2 className="h-3 w-3" /> የተመረጠ
+                  <CheckCircle2 className="h-3 w-3" /> {t("selectedBadge")}
                 </span>
               </div>
             )}
@@ -666,22 +664,21 @@ function CoursesRoute() {
                 <FileText className="h-8 w-8" />
               </div>
               <span className="block text-xs font-bold uppercase tracking-wider text-gold mb-1">
-                አጫጭር ስልጠናዎች & የጥናት ማኑዋሎች
+                {t("trainingsBadge")}
               </span>
               <h2
                 className={`font-display text-2xl md:text-3xl font-bold mb-2 ${
                   activeCategory === "trainings" ? "text-gold" : "text-navy"
                 }`}
               >
-                ስልጠናዎች (PDF ማቴሪያሎች)
+                {t("trainingsTitle")}
               </h2>
               <p
                 className={`text-xs md:text-sm leading-relaxed ${
                   activeCategory === "trainings" ? "text-on-navy-muted" : "text-muted-foreground"
                 }`}
               >
-                ለማኅበረሰብ ግንባታ፣ ለሰላምና እርቅ፣ ለአመራርና ለአገልግሎት የተዘጋጁ የሚወርዱና የሚጠኑ
-                የፒዲኤፍ (PDF) ማቴሪያሎች።
+                {t("trainingsDesc")}
               </p>
             </div>
 
@@ -692,7 +689,7 @@ function CoursesRoute() {
                   : "border-navy/10 text-muted-foreground"
               }`}
             >
-              <span>የፒዲኤፍ ስልጠናዎች ዝርዝር ክፈት</span>
+              <span>{t("openTrainingsList")}</span>
               <ChevronRight className="h-4 w-4" />
             </div>
           </button>
@@ -971,20 +968,20 @@ function CoursesRoute() {
                   <div className="mb-5 rounded-xl bg-gold/10 p-4 border border-gold/30">
                     <h4 className="text-xs font-bold text-navy-deep uppercase tracking-wider mb-2 flex items-center gap-1.5">
                       <CreditCard className="h-4 w-4 text-gold" />
-                      ክፍያ መፈጸሚያ (CBE Bank Transfer)
+                      {t("cbeBankTransfer")}
                     </h4>
                     <div className="text-xs text-navy space-y-1">
                       <p>
-                        <span className="font-semibold">ባንክ:</span> ኢትዮጵያ ንግድ ባንክ (CBE)
+                        <span className="font-semibold">{t("bankTitle")}</span> {t("bankCbeName")}
                       </p>
                       <p>
-                        <span className="font-semibold">የሂሳብ ቁጥር:</span>{" "}
+                        <span className="font-semibold">{t("accountNumber")}</span>{" "}
                         <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">
                           1000123456789
                         </code>
                       </p>
                       <p>
-                        <span className="font-semibold">የሂሳብ ስም:</span> RABBI Ministry / ዶርቃ ኮሌጅ
+                        <span className="font-semibold">{t("accountHolder")}</span> RABBI Ministry / ዶርቃ ኮሌጅ
                       </p>
                     </div>
                   </div>
@@ -1036,7 +1033,7 @@ function CoursesRoute() {
                     <div className="space-y-2">
                       <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/40 px-5 py-2.5 text-xs font-semibold text-amber-700">
                         <Lock className="h-4 w-4 text-amber-600" />
-                        <span>ጥያቄዎ በመጠባበቅ ላይ ነው (Pending Approval)</span>
+                        <span>{t("requestPendingStatus")}</span>
                       </div>
                       <button
                         type="button"
@@ -1044,7 +1041,7 @@ function CoursesRoute() {
                         className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all cursor-pointer shadow-sm active:scale-[0.99]"
                       >
                         <Send className="h-4 w-4" />
-                        <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                        <span>{t("sendReceiptBtn")}</span>
                       </button>
                     </div>
                   ) : (
@@ -1058,10 +1055,10 @@ function CoursesRoute() {
                         <Lock className="h-4 w-4" />
                         <span>
                           {requestLoading
-                            ? "በመላክ ላይ..."
+                            ? t("requestAccessSending")
                             : selectedCourse.isPdf
-                              ? "ስልጠናውን ጠይቅ (Request Training PDF)"
-                              : "ኮርሱን ጠይቅ (Request Course Access)"}
+                              ? t("requestTrainingPdf")
+                              : t("requestCourseAccess")}
                         </span>
                       </button>
 
@@ -1072,7 +1069,7 @@ function CoursesRoute() {
                         className="w-full flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-navy-deep/5 px-4 py-2.5 text-xs font-semibold text-navy hover:bg-gold/10 transition-all cursor-pointer active:scale-[0.99]"
                       >
                         <Send className="h-4 w-4 text-gold" />
-                        <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                        <span>{t("sendReceiptBtn")}</span>
                       </button>
                     </div>
                   )}

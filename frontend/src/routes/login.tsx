@@ -92,7 +92,7 @@ function LoginRoute() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@mail.com"
+                placeholder="example@gmail.com"
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>

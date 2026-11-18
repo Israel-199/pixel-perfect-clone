@@ -20,6 +20,7 @@ import {
   Plus,
 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/prayer")({
   component: PrayerRoute,
@@ -161,30 +162,31 @@ const SUB_SECTIONS = [
   {
     id: "corporate" as PrayerTab,
     icon: Users,
-    title: "የጋራ ጸሎት",
-    desc: "በህብረት የምንፀልያቸው የጋራ ጸሎቶች",
+    titleKey: "prayCorpTitle",
+    descKey: "prayCorpDesc",
   },
   {
     id: "topics" as PrayerTab,
     icon: ListTodo,
-    title: "የጸሎት ርዕሶች",
-    desc: "ወቅታዊ የፀሎት ርዕሶች & አጠቃላይ ጥያቄዎች",
+    titleKey: "prayTopicsTitle",
+    descKey: "prayTopicsDesc",
   },
   {
     id: "personal" as PrayerTab,
     icon: User,
-    title: "የግል ጸሎት",
-    desc: "የግል ጸሎትዎን በምስጢር ለአስተዳዳሪ ማቅረቢያ",
+    titleKey: "prayPersonalTitle",
+    descKey: "prayPersonalDesc",
   },
   {
     id: "guideline" as PrayerTab,
     icon: BookOpen,
-    title: "የጸሎት መመሪያ",
-    desc: "እንዴት መፀለይ እንዳለብን የሚያስተምር",
+    titleKey: "prayGuidelineTitle",
+    descKey: "prayGuidelineDesc",
   },
 ];
 
 function PrayerRoute() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<PrayerTab>("corporate");
   const [selectedPrayer, setSelectedPrayer] = useState<PrayerItem | null>(null);
   const [amenCounts, setAmenCounts] = useState<Record<string, number>>({});
@@ -298,13 +300,13 @@ function PrayerRoute() {
         <div className="relative mx-auto max-w-4xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 sm:px-4 py-1 text-[11px] sm:text-xs font-semibold text-gold mb-3">
             <Heart className="h-3.5 w-3.5" />
-            <span>የጸሎትና የምልጃ ማዕከል • The Prayer Sanctuary</span>
+            <span>{t("prayerHeroBadge")}</span>
           </div>
           <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">
-            ጸሎት
+            {t("prayerTitle")}
           </h1>
           <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
-            ጸሎት ወደ እግዚአብሔር የምንቀርብበት፣ ኃይልንና ሰላምን የምንቀበልበት ሕያው ድልድይ ነው።
+            {t("prayerSubtitle")}
           </p>
         </div>
       </div>
@@ -312,7 +314,7 @@ function PrayerRoute() {
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* The 4 Category Cards from User Request */}
         <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 mb-8 sm:mb-10">
-          {SUB_SECTIONS.map(({ id, icon: Icon, title, desc }) => {
+          {SUB_SECTIONS.map(({ id, icon: Icon, titleKey, descKey }) => {
             const isSelected = activeTab === id;
             return (
               <button
@@ -332,7 +334,7 @@ function PrayerRoute() {
                 {isSelected && (
                   <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
                     <span className="rounded-full bg-gold px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-navy-deep">
-                      የተመረጠ
+                      {t("selectedBadge")}
                     </span>
                   </div>
                 )}
@@ -351,14 +353,14 @@ function PrayerRoute() {
                       isSelected ? "text-gold" : "text-navy"
                     }`}
                   >
-                    {title}
+                    {t(titleKey)}
                   </h3>
                   <p
                     className={`text-[11px] sm:text-xs leading-relaxed line-clamp-2 ${
                       isSelected ? "text-on-navy-muted" : "text-muted-foreground"
                     }`}
                   >
-                    {desc}
+                    {t(descKey)}
                   </p>
                 </div>
 
@@ -367,7 +369,7 @@ function PrayerRoute() {
                     isSelected ? "border-gold/30 text-gold" : "border-navy/10 text-muted-foreground"
                   }`}
                 >
-                  <span>ይዘቱን ክፈት</span>
+                  <span>{t("openPrayerContent")}</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               </button>
@@ -379,22 +381,22 @@ function PrayerRoute() {
         <div className="rounded-2xl bg-card border border-gold/20 p-4 mb-8 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
             <span className="rounded-md bg-gold/15 px-3 py-1 text-xs font-bold text-navy-deep border border-gold/30">
-              {SUB_SECTIONS.find((s) => s.id === activeTab)?.title}
+              {t(SUB_SECTIONS.find((s) => s.id === activeTab)?.titleKey || "")}
             </span>
             {activeTab !== "personal" ? (
               <span className="text-xs text-muted-foreground">
-                ({filteredPrayers.length} ርዕሶች)
+                ({filteredPrayers.length} {t("topicsCountSuffix")})
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">
                 <Lock className="h-3 w-3" />
-                ምስጢራዊና የግል (100% Confidential)
+                {t("confidentialNotice")}
               </span>
             )}
           </div>
 
           <span className="text-xs text-gold font-semibold hidden sm:inline">
-            {SUB_SECTIONS.find((s) => s.id === activeTab)?.desc}
+            {t(SUB_SECTIONS.find((s) => s.id === activeTab)?.descKey || "")}
           </span>
         </div>
 

@@ -254,12 +254,12 @@ export const BookModal: React.FC<BookModalProps> = ({
               <div className="mb-5 rounded-xl bg-gold/10 p-4 border border-gold/30">
                 <h4 className="text-xs font-bold text-navy-deep uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <CreditCard className="h-4 w-4 text-gold" />
-                  ክፍያ መፈጸሚያ (CBE Bank Transfer)
+                  {t("cbeBankTransfer")}
                 </h4>
                 <div className="text-xs text-navy space-y-1">
-                  <p><span className="font-semibold">ባንክ:</span> ኢትዮጵያ ንግድ ባንክ (CBE)</p>
-                  <p><span className="font-semibold">የሂሳብ ቁጥር:</span> <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">1000123456789</code></p>
-                  <p><span className="font-semibold">የሂሳብ ስም:</span> Kaleb Mesfin</p>
+                  <p><span className="font-semibold">{t("bankTitle")}</span> {t("bankCbeName")}</p>
+                  <p><span className="font-semibold">{t("accountNumber")}</span> <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">1000123456789</code></p>
+                  <p><span className="font-semibold">{t("accountHolder")}</span> Kaleb Mesfin</p>
                 </div>
               </div>
             </div>
@@ -289,13 +289,13 @@ export const BookModal: React.FC<BookModalProps> = ({
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-green-700 transition-all"
                 >
                   <BookOpen className="h-4 w-4" />
-                  <span>አሁን ያንብቡ / ሙሉ ይዘት ክፈት</span>
+                  <span>{t("readNowFull")}</span>
                 </button>
               ) : currentStatus === "PENDING" ? (
                 <div className="space-y-2">
                   <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/40 px-5 py-2.5 text-sm font-semibold text-amber-700">
                     <Lock className="h-4 w-4 text-amber-600" />
-                    <span>ጥያቄዎ በመጠባበቅ ላይ ነው (Pending Approval)</span>
+                    <span>{t("requestPendingStatus")}</span>
                   </div>
                   <button
                     type="button"
@@ -303,7 +303,7 @@ export const BookModal: React.FC<BookModalProps> = ({
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all cursor-pointer shadow-sm active:scale-[0.99]"
                   >
                     <Send className="h-4 w-4" />
-                    <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                    <span>{t("sendReceiptBtn")}</span>
                   </button>
                 </div>
               ) : (
@@ -314,7 +314,7 @@ export const BookModal: React.FC<BookModalProps> = ({
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-bold text-navy-deep shadow-md hover:bg-gold/90 transition-all disabled:opacity-50 active:scale-[0.99]"
                   >
                     <Lock className="h-4 w-4" />
-                    <span>{loading ? "በመላክ ላይ..." : "መጽሐፉን ጠይቅ (Request Access)"}</span>
+                    <span>{loading ? t("requestAccessSending") : t("requestBookAccess")}</span>
                   </button>
 
                   <button
@@ -323,7 +323,7 @@ export const BookModal: React.FC<BookModalProps> = ({
                     className="w-full flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-navy-deep/5 px-4 py-2.5 text-xs font-semibold text-navy hover:bg-gold/10 transition-all cursor-pointer active:scale-[0.99]"
                   >
                     <Send className="h-4 w-4 text-gold" />
-                    <span>የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)</span>
+                    <span>{t("sendReceiptBtn")}</span>
                   </button>
                 </div>
               )}

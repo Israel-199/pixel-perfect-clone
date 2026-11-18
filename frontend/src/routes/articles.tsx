@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/articles")({
   component: ArticlesRoute,
@@ -173,13 +174,14 @@ const DEFAULT_ARTICLES: ArticleItem[] = [
 ];
 
 const SUB_SECTIONS = [
-  { id: "all" as ArticleTab, icon: FileText, title: "ሁሉም ጽሑፎች", desc: "ሁሉንም መንፈሳዊ ጽሑፎች ያንብቡ" },
-  { id: "categories" as ArticleTab, icon: FolderTree, title: "የምድብ ጽሑፎች", desc: "በተለያዩ ርዕሶች የተከፈል" },
-  { id: "popular" as ArticleTab, icon: TrendingUp, title: "ታዋቂ ጽሑፎች", desc: "ብዙ የተነበቡ እና የተወደዱ" },
-  { id: "daily" as ArticleTab, icon: CalendarDays, title: "የዕለት ጽሑፍ", desc: "የእለቱ ልዩ መልእክት" },
+  { id: "all" as ArticleTab, icon: FileText, titleKey: "artAllTitle", descKey: "artAllDesc" },
+  { id: "categories" as ArticleTab, icon: FolderTree, titleKey: "artCategoriesTitle", descKey: "artCategoriesDesc" },
+  { id: "popular" as ArticleTab, icon: TrendingUp, titleKey: "artPopularTitle", descKey: "artPopularDesc" },
+  { id: "daily" as ArticleTab, icon: CalendarDays, titleKey: "artDailyTitle", descKey: "artDailyDesc" },
 ];
 
 function ArticlesRoute() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<ArticleTab>("all");
   const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
   const [adminArticles, setAdminArticles] = useState<ArticleItem[]>([]);
@@ -241,13 +243,13 @@ function ArticlesRoute() {
         <div className="relative mx-auto max-w-4xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 sm:px-4 py-1 text-[11px] sm:text-xs font-semibold text-gold mb-3">
             <Sparkles className="h-3.5 w-3.5" />
-            <span>መንፈሳዊ ጽሑፎችና የሕይወት ቃል • Spiritual Articles & Insights</span>
+            <span>{t("articlesHeroBadge")}</span>
           </div>
           <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">
-            መንፈሳዊ ጽሑፎች
+            {t("articlesTitle")}
           </h1>
           <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
-            በእምነት፣ በቤተሰብ፣ በአገልግሎትና በዕለታዊ መንፈሳዊ እድገት ላይ የተዘጋጁ ጥልቅ ጽሑፎችን ያንብቡ።
+            {t("articlesSubtitle")}
           </p>
         </div>
       </div>
@@ -255,7 +257,7 @@ function ArticlesRoute() {
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* The 4 Category Cards from User Request */}
         <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 mb-8 sm:mb-10">
-          {SUB_SECTIONS.map(({ id, icon: Icon, title, desc }) => {
+          {SUB_SECTIONS.map(({ id, icon: Icon, titleKey, descKey }) => {
             const isSelected = activeTab === id;
             return (
               <button
@@ -271,7 +273,7 @@ function ArticlesRoute() {
                 {isSelected && (
                   <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
                     <span className="rounded-full bg-gold px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-navy-deep">
-                      የተመረጠ
+                      {t("selectedBadge")}
                     </span>
                   </div>
                 )}
@@ -290,14 +292,14 @@ function ArticlesRoute() {
                       isSelected ? "text-gold" : "text-navy"
                     }`}
                   >
-                    {title}
+                    {t(titleKey)}
                   </h3>
                   <p
                     className={`text-[11px] sm:text-xs leading-relaxed line-clamp-2 ${
                       isSelected ? "text-on-navy-muted" : "text-muted-foreground"
                     }`}
                   >
-                    {desc}
+                    {t(descKey)}
                   </p>
                 </div>
 
@@ -306,7 +308,7 @@ function ArticlesRoute() {
                     isSelected ? "border-gold/30 text-gold" : "border-navy/10 text-muted-foreground"
                   }`}
                 >
-                  <span>ይዘቱን ይመልከቱ</span>
+                  <span>{t("viewArticleContent")}</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               </button>
@@ -318,10 +320,10 @@ function ArticlesRoute() {
         <div className="rounded-2xl bg-card border border-gold/20 p-4 mb-8 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="rounded-md bg-gold/15 px-3 py-1 text-xs font-bold text-navy-deep border border-gold/30">
-              {SUB_SECTIONS.find((s) => s.id === activeTab)?.title}
+              {t(SUB_SECTIONS.find((s) => s.id === activeTab)?.titleKey || "")}
             </span>
             <span className="text-xs text-muted-foreground">
-              ({filteredArticles.length} ጽሑፎች ተገኝተዋል)
+              ({filteredArticles.length} {t("articlesFoundSuffix")})
             </span>
           </div>
 
@@ -331,7 +333,7 @@ function ArticlesRoute() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ጽሑፎችን በርዕስ ይፈልጉ..."
+              placeholder={t("searchArticlesPlaceholder")}
               className="w-full rounded-xl border border-navy/20 pl-8 pr-4 py-1.5 text-xs focus:border-gold focus:outline-none bg-background"
             />
           </div>

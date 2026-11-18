@@ -1015,7 +1015,7 @@ function AboutRoute() {
                             type="text"
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
-                            placeholder="example@mail.com / +251 9XX..."
+                            placeholder="example@gmail.com / +251 9XX..."
                             className="w-full rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold bg-background"
                           />
                         </div>

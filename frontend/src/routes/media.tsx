@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Video, Headphones, Mic, Sparkles, Radio, PlayCircle, Music, Lock, BookOpen } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import { useLanguage } from "@/lib/language";
 import { BookItem, BookModal } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 
@@ -10,12 +11,13 @@ export const Route = createFileRoute("/media")({
 });
 
 const SUB_SECTIONS = [
-  { icon: Video, type: "ALL", title: "ሁሉም ሚዲያዎች", desc: "ቪዲዮዎችና ኦዲዮዎች" },
-  { icon: Video, type: "VIDEO", title: "ቪዲዮዎች", desc: "የቪዲዮ ትምህርቶች እና መዝሙሮች" },
-  { icon: Headphones, type: "AUDIO", title: "ኦዲዮዎች", desc: "የድምፅ ትምህርቶች" },
+  { icon: Video, type: "ALL", titleKey: "filterAllMedia", descKey: "filterAllMediaDesc" },
+  { icon: Video, type: "VIDEO", titleKey: "filterVideos", descKey: "filterVideosDesc" },
+  { icon: Headphones, type: "AUDIO", titleKey: "filterAudios", descKey: "filterAudiosDesc" },
 ];
 
 function MediaRoute() {
+  const { t } = useLanguage();
   const [mediaItems, setMediaItems] = useState<BookItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedFilter, setSelectedFilter] = useState<string>("ALL");
@@ -50,18 +52,18 @@ function MediaRoute() {
     <div className="animate-in fade-in pb-20">
       {/* Header Banner */}
       <div className="bg-navy-deep px-4 sm:px-6 py-10 sm:py-16 text-center border-b border-gold/20">
-        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">መንፈሳዊ ሚዲያዎች</h1>
+        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold text-gold">{t("mediaTitle")}</h1>
         <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-on-navy-muted max-w-xl mx-auto leading-relaxed">
-          የተመረጡ የቪዲዮና ኦዲዮ ትምህርቶች፣ መዝሙሮችና መንፈሳዊ ውይይቶች።
+          {t("mediaSubtitle")}
         </p>
       </div>
 
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6 mt-8 sm:mt-10">
         {/* Category Filters */}
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3 mb-8 sm:mb-10">
-          {SUB_SECTIONS.map(({ icon: Icon, type, title, desc }) => (
+          {SUB_SECTIONS.map(({ icon: Icon, type, titleKey, descKey }) => (
             <div
-              key={title}
+              key={type}
               onClick={() => setSelectedFilter(type)}
               className={`group cursor-pointer rounded-2xl p-4 sm:p-5 shadow-card transition-all border ${
                 selectedFilter === type
@@ -76,13 +78,13 @@ function MediaRoute() {
               >
                 <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />
               </div>
-              <h3 className="font-display text-sm sm:text-base font-bold">{title}</h3>
+              <h3 className="font-display text-sm sm:text-base font-bold">{t(titleKey)}</h3>
               <p
                 className={`mt-1 text-xs ${
                   selectedFilter === type ? "text-on-navy-muted" : "text-muted-foreground"
                 }`}
               >
-                {desc}
+                {t(descKey)}
               </p>
             </div>
           ))}
@@ -91,7 +93,7 @@ function MediaRoute() {
         {/* Media Grid */}
         <h2 className="font-display text-xl sm:text-2xl font-bold text-navy mb-5 sm:mb-6 flex items-center gap-2">
           <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6 text-gold shrink-0" />
-          <span>ያሉ ሚዲያዎች ({filteredItems.length})</span>
+          <span>{t("availableMedia")} ({filteredItems.length})</span>
         </h2>
 
         {loading ? (
@@ -101,8 +103,8 @@ function MediaRoute() {
         ) : filteredItems.length === 0 ? (
           <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center shadow-card">
             <Video className="mx-auto h-12 w-12 text-gold/60 mb-3" />
-            <h3 className="text-base font-bold text-navy">ምንም የተጫነ ሚዲያ የለም</h3>
-            <p className="text-xs text-muted-foreground mt-1">አድሚን አዲስ ቪዲዮ ወይም ኦዲዮ ሲጭን እዚህ ይገኛሉ።</p>
+            <h3 className="text-base font-bold text-navy">{t("noMediaFound")}</h3>
+            <p className="text-xs text-muted-foreground mt-1">{t("noMediaFoundDesc")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -142,12 +144,12 @@ function MediaRoute() {
                       {/* Status Badges */}
                       {isPermitted && (
                         <div className="absolute bottom-3 left-3 rounded-md bg-green-600 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow">
-                          ✓ ተፈቅዷል
+                          {t("statusPermitted")}
                         </div>
                       )}
                       {isPending && (
                         <div className="absolute bottom-3 left-3 rounded-md bg-amber-500 px-2.5 py-1 text-[0.7rem] font-bold text-white shadow">
-                          ⏳ ጥያቄ ተልኳል
+                          {t("statusPendingBadge")}
                         </div>
                       )}
                     </div>

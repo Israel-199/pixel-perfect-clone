@@ -339,6 +339,117 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   pillarReadBody: { am: "መጽሐፍ ቅዱስን አንብብ፤\nመጽሐፍትን አግኝ፤", or: "Macaafa Qulqulluu dubbisi;\nMacaafota argi;", en: "Read the Bible;\nFind books;" },
   pillarLearnBody: { am: "ተረዳ፣ ጥናት አድርግ፤\nእውቀትን አሳድግ፤", or: "Hubadhu, qoradhu;\nBeekumsa guddisuuf;", en: "Understand, Study;\nGrow in knowledge;" },
   pillarPrayerBody: { am: "በጸሎት ተገናኝ፤\nበእምነት ኑር፤", or: "Kadhannaadhaan walitti dhufuu;\nAmantiidhaan jiraadhu;", en: "Connect through prayer;\nLive in faith;" },
+
+  // ── Home Service Sections Strip ──────────────────────────────────────────────
+  preferredServiceSections: {
+    am: "ተመራጭ የአገልግሎት ክፍሎች",
+    or: "Kutaalee Tajaajilaa Filataman",
+    en: "Preferred Ministry Sections",
+  },
+  secBooksTitle: { am: "መጽሐፍት", or: "Macaafota", en: "Books" },
+  secBooksSub: { am: "መንፈሳዊ መጽሐፍት", or: "Macaafota Hafuuraa", en: "Spiritual Books" },
+  secCoursesTitle: { am: "ኮርሶች", or: "Leenjiilee", en: "Courses" },
+  secCoursesSub: { am: "ዶርቃ ኮሌጅ & ስልጠናዎች", or: "Koolleejii Dorqaas & Leenjiilee", en: "Dorcas College & Trainings" },
+  secMediaTitle: { am: "ሚዲያ", or: "Miidiyaa", en: "Media" },
+  secMediaSub: { am: "ቪዲዮ፣ ኦዲዮ፣ ስብከቶች", or: "Viidiyoo, Sagalee, Lallaba", en: "Video, Audio, Sermons" },
+  secArticlesTitle: { am: "ጽሑፎች", or: "Barreeffamoota", en: "Articles" },
+  secArticlesSub: { am: "መንፈሳዊ ጽሑፎች", or: "Barreeffamoota Hafuuraa", en: "Spiritual Articles" },
+  secPrayerTitle: { am: "ጸሎት ክፍል", or: "Kutaa Kadhannaa", en: "Prayer Sanctuary" },
+  secPrayerSub: { am: "የጸሎት ርዕሶች", or: "Mata Dureewwan Kadhannaa", en: "Prayer Topics" },
+  secAboutTitle: { am: "ስለ RABBI", or: "Waa'ee RABBI", en: "About RABBI" },
+  secAboutSub: { am: "ስለ እኛ እና አጋርነት", or: "Waa'ee Keenya fi Michummaa", en: "About Us & Partnership" },
+
+  // ── Home Newsletter ─────────────────────────────────────────────────────────
+  newsletterHeading: { am: "የዕለቱን ቃል በኢሜይል ይቀበሉ", or: "Dubbii guyyaa imeelii keessaniin argadhaa", en: "Receive the daily word by email" },
+  newsletterSub: { am: "ይመዝገቡ እና ይቀበሉ!", or: "Galmaa'aa fi argadhaa!", en: "Subscribe and stay blessed!" },
+  newsletterPlaceholder: { am: "የእርስዎን ኢሜይል ያስገቡ...", or: "Imeelii keessan galchaa...", en: "Enter your email address..." },
+  subscribeBtn: { am: "ተቀላቀሉ", or: "Makamaa", en: "Subscribe" },
+
+  // ── Request Access & Receipts (All Sections) ────────────────────────────────
+  requestCourseAccess: {
+    am: "ኮርሱን ጠይቅ (Request Course Access)",
+    or: "Koorasii Gaafadhu (Request Access)",
+    en: "Request Course Access",
+  },
+  requestTrainingPdf: {
+    am: "ስልጠናውን ጠይቅ (Request Training PDF)",
+    or: "Leenjii Gaafadhu (Request PDF)",
+    en: "Request Training PDF",
+  },
+  requestAccessSending: {
+    am: "በመላክ ላይ...",
+    or: "Ergamaa jira...",
+    en: "Sending request...",
+  },
+  bankTitle: { am: "ባንክ:", or: "Baankii:", en: "Bank:" },
+  bankCbeName: { am: "ኢትዮጵያ ንግድ ባንክ (CBE)", or: "Baankii Daldala Itoophiyaa (CBE)", en: "Commercial Bank of Ethiopia (CBE)" },
+  accountNumber: { am: "የሂሳብ ቁጥር:", or: "Lakkoofsa Herregaa:", en: "Account Number:" },
+  accountHolder: { am: "የሂሳብ ስም:", or: "Maqaa Herregaa:", en: "Account Name:" },
+  filterAllMediaDesc: { am: "ቪዲዮዎችና ኦዲዮዎች", or: "Viidiyoowwan fi Sagaleewwan", en: "Videos and Audios" },
+  noMediaFound: { am: "ምንም የተጫነ ሚዲያ የለም", or: "Miidiyaan fe'ame hin jiru", en: "No media available" },
+  noMediaFoundDesc: { am: "አድሚን አዲስ ቪዲዮ ወይም ኦዲዮ ሲጭን እዚህ ይገኛሉ።", or: "Yeroo admin viidiyoo ykn sagalee haaraa fe'u asitti argamu.", en: "New video or audio uploaded by admin will appear here." },
+  statusPermitted: { am: "✓ ተፈቅዷል", or: "✓ Eeyyamameera", en: "✓ Permitted" },
+  statusPendingBadge: { am: "⏳ ጥያቄ ተልኳል", or: "⏳ Gaaffiin ergameera", en: "⏳ Requested" },
+
+  // ── Articles Page Details ───────────────────────────────────────────────────
+  articlesHeroBadge: {
+    am: "መንፈሳዊ ጽሑፎችና የሕይወት ቃል • Spiritual Articles & Insights",
+    or: "Barreeffamoota Hafuuraa & Dubbii Jireenyaa • Spiritual Articles & Insights",
+    en: "Spiritual Articles & Insights",
+  },
+  selectedBadge: { am: "የተመረጠ", or: "Filatame", en: "Selected" },
+  artAllTitle: { am: "ሁሉም ጽሑፎች", or: "Barreeffamoota Hunda", en: "All Articles" },
+  artAllDesc: { am: "ሁሉንም መንፈሳዊ ጽሑፎች ያንብቡ", or: "Barreeffamoota hafuuraa hunda dubbisaa", en: "Read all spiritual articles" },
+  artCategoriesTitle: { am: "የምድብ ጽሑፎች", or: "Barreeffamoota Ramaddii", en: "Category Articles" },
+  artCategoriesDesc: { am: "በተለያዩ ርዕሶች የተከፈል", or: "Mata duree garaagaraan kan qoodame", en: "Divided by various topics" },
+  artPopularTitle: { am: "ታዋቂ ጽሑፎች", or: "Barreeffamoota Bebbeekamoo", en: "Popular Articles" },
+  artPopularDesc: { am: "ብዙ የተነበቡ እና የተወደዱ", or: "Hedduu kan dubbifamanii fi jaallataman", en: "Most read and favored" },
+  artDailyTitle: { am: "የዕለት ጽሑፍ", or: "Barreeffama Guyyaa", en: "Daily Article" },
+  artDailyDesc: { am: "የእለቱ ልዩ መልእክት", or: "Ergaa addaa guyyichaa", en: "Special daily message" },
+  viewArticleContent: { am: "ይዘቱን ይመልከቱ", or: "Qabiyyee ilaalaa", en: "View Content" },
+  articlesFoundSuffix: { am: "ጽሑፎች ተገኝተዋል", or: "barreeffamoonni argamaniiru", en: "articles found" },
+  searchArticlesPlaceholder: { am: "ጽሑፎችን በርዕስ ይፈልጉ...", or: "Barreeffamoota mata dureen barbaadaa...", en: "Search articles by title..." },
+
+  // ── Prayer Page Details ─────────────────────────────────────────────────────
+  prayerHeroBadge: {
+    am: "የጸሎትና የምልጃ ማዕከል • The Prayer Sanctuary",
+    or: "Wiirtuu Kadhannaa fi Araarsaa • The Prayer Sanctuary",
+    en: "The Prayer Sanctuary",
+  },
+  prayCorpTitle: { am: "የጋራ ጸሎት", or: "Kadhannaa Waliinii", en: "Corporate Prayer" },
+  prayCorpDesc: { am: "በህብረት የምንፀልያቸው የጋራ ጸሎቶች", or: "Kadhannaawwan tokkummaan kadhannu", en: "Corporate prayers we pray together" },
+  prayTopicsTitle: { am: "የጸሎት ርዕሶች", or: "Mata Dureewwan Kadhannaa", en: "Prayer Topics" },
+  prayTopicsDesc: { am: "ወቅታዊ የፀሎት ርዕሶች & አጠቃላይ ጥያቄዎች", or: "Mata dureewwan yeroo & gaaffilee waliigalaa", en: "Current prayer topics & general requests" },
+  prayPersonalTitle: { am: "የግል ጸሎት", or: "Kadhannaa Dhuunfaa", en: "Personal Prayer" },
+  prayPersonalDesc: { am: "የግል ጸሎትዎን በምስጢር ለአስተዳዳሪ ማቅረቢያ", or: "Kadhannaa dhuunfaa iccitiin adminitti dhiyeessuuf", en: "Privately submit personal prayer to admin" },
+  prayGuidelineTitle: { am: "የጸሎት መመሪያ", or: "Qajeelfama Kadhannaa", en: "Prayer Guidelines" },
+  prayGuidelineDesc: { am: "እንዴት መፀለይ እንዳለብን የሚያስተምር", or: "Akkaataa itti kadhachuu qabnu kan barsiisu", en: "Teaching how we ought to pray" },
+  openPrayerContent: { am: "ይዘቱን ክፈት", or: "Qabiyyee bani", en: "Open Content" },
+  topicsCountSuffix: { am: "ርዕሶች", or: "mata dureewwan", en: "topics" },
+  confidentialNotice: { am: "ምስጢራዊና የግል (100% Confidential)", or: "Iccitii fi Dhuunfaa (100% Confidential)", en: "100% Confidential & Private" },
+
+  // ── Courses Page Details ────────────────────────────────────────────────────
+  coursesHeroBadge: {
+    am: "RABBI የትምህርትና ስልጠና ማዕከል • Dorcas College & Practical Trainings",
+    or: "Wiirtuu Barnootaa fi Leenjii RABBI • Koolleejii Dorqaas & Leenjiilee",
+    en: "RABBI Center for Education & Training • Dorcas College & Practical Trainings",
+  },
+  dorcasBadge: { am: "የሥነ-መለኮትና የመጽሐፍ ቅዱስ ኮሌጅ", or: "Koolleejii Tiyooloojii fi Macaafa Qulqulluu", en: "Theology & Bible College" },
+  dorcasTitle: { am: "ዶርቃ ኮሌጅ", or: "Koolleejii Dorqaas", en: "Dorcas College" },
+  dorcasDesc: {
+    am: "በዶርቃ ኮሌጅ የተዘጋጁ ጥልቅ መንፈሳዊና ሥነ-መለኮታዊ የኮርስ መጽሐፍት፣ የስርዓተ-ትምህርት ክፍለ-ጊዜዎች እና የአገልግሎት ዝግጅት ማቴሪያሎች።",
+    or: "Macaafota koorasii hafuuraa fi tiyooloojii gadi fageenya qaban, sirna barnootaa fi meeshaalee qophii tajaajilaa Koolleejii Dorqaasiin qophaa'an.",
+    en: "Deep spiritual and theological course books, syllabus sessions, and ministry preparation materials by Dorcas College.",
+  },
+  openDorcasList: { am: "የኮሌጅ ኮርሶች ዝርዝር ክፈት", or: "Tarree Koorasoota Koolleejii Bani", en: "Open College Courses List" },
+  trainingsBadge: { am: "አጫጭር ስልጠናዎች & የጥናት ማኑዋሎች", or: "Leenjiilee Gaggabaaboo & Qajeelfama Qorannoo", en: "Short Trainings & Study Manuals" },
+  trainingsTitle: { am: "ስልጠናዎች (PDF ማቴሪያሎች)", or: "Leenjiilee (Meeshaalee PDF)", en: "Trainings (PDF Materials)" },
+  trainingsDesc: {
+    am: "ለማኅበረሰብ ግንባታ፣ ለሰላምና እርቅ፣ ለአመራርና ለአገልግሎት የተዘጋጁ የሚወርዱና የሚጠኑ የፒዲኤፍ (PDF) ማቴሪያሎች።",
+    or: "Meeshaalee PDF buufatanii fi qorataman kan ijaarsa hawaasaa, nagaa fi araaraa, hoggansaa fi tajaajilaaf qophaa'an.",
+    en: "Downloadable PDF materials designed for community building, peace, reconciliation, leadership, and ministry.",
+  },
+  openTrainingsList: { am: "የፒዲኤፍ ስልጠናዎች ዝርዝር ክፈት", or: "Tarree Leenjiilee PDF Bani", en: "Open PDF Trainings List" },
 };
 
 const LanguageContext = createContext<LanguageContextType>({
