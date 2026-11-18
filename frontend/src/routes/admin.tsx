@@ -220,6 +220,8 @@ function AdminRoute() {
   };
 
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [editUploadProgress, setEditUploadProgress] = useState(0);
   const [formMsg, setFormMsg] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -448,6 +450,61 @@ function AdminRoute() {
     }
   };
 
+  // ── Fast XHR upload with real progress ────────────────────────────────────────
+  const xhrUpload = useCallback(
+    (
+      file: File,
+      resourceType: string,
+      onProgress: (pct: number) => void,
+      token: string | null
+    ): Promise<{ url: string }> =>
+      new Promise((resolve, reject) => {
+        const API_BASE =
+          typeof window !== "undefined" && (window as any).__API_BASE__
+            ? (window as any).__API_BASE__
+            : (import.meta as any).env?.VITE_API_URL ||
+              "https://rabbi-backend.onrender.com/api";
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API_BASE}/admin/upload`, true);
+        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable) {
+            onProgress(Math.round((evt.loaded / evt.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { reject(new Error("Invalid server response")); }
+          } else {
+            try {
+              const err = JSON.parse(xhr.responseText);
+              reject(new Error(err.error || `Upload failed (${xhr.status})`));
+            } catch {
+              reject(new Error(`Upload failed (${xhr.status})`));
+            }
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+        xhr.timeout = 120000; // 2 min
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("resourceType", resourceType);
+        xhr.send(fd);
+      }),
+    []
+  );
+
+  // Delete orphaned or replaced Cloudinary asset in background (0ms lag)
+  const deleteCloudinaryAsset = useCallback((url?: string | null) => {
+    if (!url || typeof url !== "string" || !url.includes("cloudinary.com")) return;
+    fetchApi("/admin/delete-file", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }).catch((e) => console.warn("Background file cleanup warning:", e));
+  }, []);
+
   // Upload Cover Image via Cloudinary
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -456,35 +513,55 @@ function AdminRoute() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Client-side size check (10 MB for images)
+    if (file.size > 10 * 1024 * 1024) {
+      const msg = "የምስሉ ፋይል ከ10MB አይበልጥ። (Image must be under 10 MB.)";
+      if (isEdit) setEditError(msg); else setFormError(msg);
+      return;
+    }
+
     if (isEdit) {
       setEditUploading(true);
+      setEditUploadProgress(0);
       setEditError(null);
     } else {
       setUploading(true);
+      setUploadProgress(0);
       setFormError(null);
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("resourceType", "image");
-
     try {
-      const data = await fetchApi<{ url: string }>("/admin/upload", {
-        method: "POST",
-        body: formData,
-      });
-
+      const token = typeof localStorage !== "undefined"
+        ? localStorage.getItem("rabbi_token") : null;
+      const data = await xhrUpload(
+        file,
+        "image",
+        (pct) => { if (isEdit) setEditUploadProgress(pct); else setUploadProgress(pct); },
+        token
+      );
       if (isEdit) {
+        const oldUrl = editCoverUrl;
         setEditCoverUrl(data.url);
         setEditMsg("የከቨር ፎቶ በተሳካ ሁኔታ ተጭኗል!");
+        setEditUploadProgress(0);
+        // If an intermediate file was uploaded before saving, delete previous one from Cloudinary immediately
+        if (oldUrl && oldUrl !== data.url && oldUrl !== editingItem?.coverUrl) {
+          deleteCloudinaryAsset(oldUrl);
+        }
       } else {
+        const oldUrl = coverUrl;
         setCoverUrl(data.url);
         setFormMsg("የከቨር ፎቶ በተሳካ ሁኔታ ተጭኗል!");
+        setUploadProgress(0);
+        // Delete previous uploaded cover image so it's not orphaned
+        if (oldUrl && oldUrl !== data.url) {
+          deleteCloudinaryAsset(oldUrl);
+        }
       }
     } catch (err: any) {
       const msg = err.message || "ፎቶ መጫን አልተሳካም።";
-      if (isEdit) setEditError(msg);
-      else setFormError(msg);
+      if (isEdit) setEditError(msg); else setFormError(msg);
+      if (isEdit) setEditUploadProgress(0); else setUploadProgress(0);
     } finally {
       if (isEdit) setEditUploading(false);
       else setUploading(false);
@@ -499,40 +576,60 @@ function AdminRoute() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Client-side size check (50 MB for documents)
+    if (file.size > 50 * 1024 * 1024) {
+      const msg = "ፋይሉ ከ50MB አይበልጥ። (File must be under 50 MB.)";
+      if (isEdit) setEditError(msg); else setFormError(msg);
+      return;
+    }
+
     if (isEdit) {
       setEditUploading(true);
+      setEditUploadProgress(0);
       setEditError(null);
     } else {
       setUploading(true);
+      setUploadProgress(0);
       setFormError(null);
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("resourceType", "raw");
+    const isDocx = /\.docx?$/i.test(file.name);
+    const successMessage = isDocx
+      ? "የመጽሐፉ DOCX ፋይል በተሳካ ሁኔታ ተጭኗል! (DOCX uploaded successfully)"
+      : "የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)";
 
     try {
-      const data = await fetchApi<{ url: string }>("/admin/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const isDocx = /\.docx?$/i.test(file.name);
-      const successMessage = isDocx
-        ? "የመጽሐፉ DOCX ፋይል በተሳካ ሁኔታ ተጭኗል! (DOCX uploaded successfully)"
-        : "የመጽሐፉ PDF በተሳካ ሁኔታ ተጭኗል! (PDF uploaded successfully)";
-
+      const token = typeof localStorage !== "undefined"
+        ? localStorage.getItem("rabbi_token") : null;
+      const data = await xhrUpload(
+        file,
+        "raw",
+        (pct) => { if (isEdit) setEditUploadProgress(pct); else setUploadProgress(pct); },
+        token
+      );
       if (isEdit) {
+        const oldUrl = editFullContent;
         setEditFullContent(data.url);
         setEditMsg(successMessage);
+        setEditUploadProgress(0);
+        // If an intermediate file was uploaded before saving, delete previous one from Cloudinary immediately
+        if (oldUrl && oldUrl !== data.url && oldUrl !== editingItem?.fullContent) {
+          deleteCloudinaryAsset(oldUrl);
+        }
       } else {
+        const oldUrl = fullContent;
         setFullContent(data.url);
         setFormMsg(successMessage);
+        setUploadProgress(0);
+        // Delete previous uploaded PDF/DOCX so it's not orphaned
+        if (oldUrl && oldUrl !== data.url) {
+          deleteCloudinaryAsset(oldUrl);
+        }
       }
     } catch (err: any) {
       const msg = err.message || "ፋይል መጫን አልተሳካም።";
-      if (isEdit) setEditError(msg);
-      else setFormError(msg);
+      if (isEdit) setEditError(msg); else setFormError(msg);
+      if (isEdit) setEditUploadProgress(0); else setUploadProgress(0);
     } finally {
       if (e.target) e.target.value = "";
       if (isEdit) setEditUploading(false);
@@ -2062,6 +2159,14 @@ function AdminRoute() {
                       />
                     </label>
                   </div>
+                  {uploading && uploadProgress > 0 && (
+                    <div className="mt-1.5 w-full bg-navy/10 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 bg-gold rounded-full transition-all duration-150"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2215,6 +2320,14 @@ function AdminRoute() {
                         />
                       </label>
                     </div>
+                    {uploading && uploadProgress > 0 && (
+                      <div className="mb-2 w-full bg-navy/10 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-2 bg-gold rounded-full transition-all duration-150"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    )}
                     <textarea
                       rows={5}
                       value={fullContent}
@@ -3158,6 +3271,14 @@ function AdminRoute() {
                     />
                   </label>
                 </div>
+                {editUploading && editUploadProgress > 0 && (
+                  <div className="mt-1.5 w-full bg-navy/10 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-2 bg-gold rounded-full transition-all duration-150"
+                      style={{ width: `${editUploadProgress}%` }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -3241,6 +3362,14 @@ function AdminRoute() {
                     </label>
                   )}
                 </div>
+                {editUploading && editUploadProgress > 0 && (
+                  <div className="mb-2 w-full bg-navy/10 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-2 bg-gold rounded-full transition-all duration-150"
+                      style={{ width: `${editUploadProgress}%` }}
+                    />
+                  </div>
+                )}
                 <textarea
                   rows={5}
                   value={editFullContent}
