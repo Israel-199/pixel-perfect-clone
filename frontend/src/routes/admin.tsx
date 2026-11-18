@@ -648,10 +648,7 @@ function AdminRoute() {
       return;
     }
 
-    if (!coverUrl.trim()) {
-      setFormError("እባክዎ መጀመሪያ የከቨር ፎቶ ይጫኑ ወይም ምስል URL ያስገቡ።");
-      return;
-    }
+
 
     if (author.trim()) {
       const authorErr = validateName(author, "ደራሲ / አቅራቢ (Author/Speaker)");
@@ -728,10 +725,7 @@ function AdminRoute() {
       return;
     }
 
-    if (!editCoverUrl.trim()) {
-      setEditError("እባክዎ የከቨር ፎቶ ያስገቡ።");
-      return;
-    }
+
 
     setEditError(null);
     setEditMsg(null);
@@ -2136,15 +2130,14 @@ function AdminRoute() {
               {mediaType !== "PRAYER" && (
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
-                    የሽፋን ፎቶ (Cover Image) <span className="text-red-500">*</span>
+                    የሽፋን ፎቶ (Cover Image) <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
                   </label>
                   <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                     <input
                       type="url"
-                      required
                       value={coverUrl}
                       onChange={(e) => setCoverUrl(e.target.value)}
-                      placeholder="https://images.unsplash.com/photo-..."
+                      placeholder="https://... ወይም 'ፎቶ ስቀል' የሚለውን ይጫኑ (አማራጭ)"
                       className="flex-1 rounded-xl border border-navy/20 px-3.5 py-2.5 text-xs text-navy focus:border-gold focus:outline-none bg-background font-mono"
                     />
                     <label className="rounded-xl bg-gold/15 border border-gold/40 px-4 py-2.5 text-xs font-bold text-navy hover:bg-gold hover:text-navy-deep transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0">
@@ -3250,13 +3243,15 @@ function AdminRoute() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-navy mb-1">የከቨር ፎቶ URL</label>
+                <label className="block text-xs font-bold text-navy mb-1">
+                  የከቨር ፎቶ URL <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="url"
-                    required
                     value={editCoverUrl}
                     onChange={(e) => setEditCoverUrl(e.target.value)}
+                    placeholder="https://... (አማራጭ)"
                     className="flex-1 rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono"
                   />
                   <label className="rounded-xl bg-gold/15 px-3 py-2 text-xs font-bold text-navy hover:bg-gold transition-all cursor-pointer shrink-0 flex items-center gap-1">
