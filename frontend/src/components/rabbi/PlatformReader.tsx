@@ -28,7 +28,7 @@ import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { filterNumberInput } from "@/lib/inputValidation";
-import { parseDocx, fromRoman, fromAlpha } from "@/lib/bookUtils";
+import { parseDocx } from "@/lib/bookUtils";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -73,7 +73,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [isScreenBlackout, setIsScreenBlackout] = useState<boolean>(false);
   const [securityNotice, setSecurityNotice] = useState<string | null>(null);
   const isBlackoutActiveRef = useRef<boolean>(false);
-  const blackoutTimerRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
 
   // ── Mobile Touch Guard (Hardware Screenshot Prevention) ─────────────────────
@@ -177,8 +176,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [docxError, setDocxError] = useState<string | null>(null);
   const [docxText, setDocxText] = useState<string>("");
   const [docxPages, setDocxPages] = useState<string[]>([]);
-  const [docxChapters, setDocxChapters] = useState<ChapterItem[]>([]);
-  const [docxPageLabels, setDocxPageLabels] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isDocx || !docxUrl) return;
@@ -192,8 +189,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (!isMounted) return;
         setDocxText(analysis.fullText);
         setDocxPages(analysis.pages);
-        setDocxChapters(analysis.chapters || []);
-        setDocxPageLabels(analysis.pageLabels || []);
         setDocxLoading(false);
       } catch (err: any) {
         console.error("DOCX loading error:", err);
@@ -226,19 +221,15 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const pdfVideoRef = useRef<HTMLVideoElement | null>(null);
   const pdfVideoRef2 = useRef<HTMLVideoElement | null>(null);
 
-  // Exact Page Label helper (uses Roman or customized numbering if present in PDF or DOCX)
+  // Exact Page Label helper (uses Roman or customized numbering if present in PDF)
   const getPageLabel = useCallback(
     (pageNo: number): string => {
-      if (pageNo < 1) return "1";
       if (isPdf && pdfPageLabels && pdfPageLabels[pageNo - 1]) {
         return String(pdfPageLabels[pageNo - 1]);
       }
-      if (isDocx && docxPageLabels && docxPageLabels[pageNo - 1]) {
-        return String(docxPageLabels[pageNo - 1]);
-      }
       return String(pageNo);
     },
-    [isPdf, pdfPageLabels, isDocx, docxPageLabels]
+    [isPdf, pdfPageLabels]
   );
 
   // ── Video player state ───────────────────────────────────────────────────────
@@ -257,34 +248,21 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const { chapters, pages, totalTextPages } = useMemo(() => {
     if (isPdf) return { chapters: [], pages: [], totalTextPages: 0 };
 
-    // For DOCX files: use lossless pages with preserved gaps, chapters, and true page count!
+    // For DOCX files: use the lossless pages with preserved gaps and true page count!
     if (isDocx && docxPages.length > 0) {
-      const effectiveDocxChaps =
-        docxChapters.length > 0
-          ? docxChapters
-          : [{ id: 1, title: book.title, startPage: 1, startPageLabel: getPageLabel(1) }];
-
-      const generatedPages: BookPage[] = docxPages.map((pageText, idx) => {
-        const pageNum = idx + 1;
-        // Determine active chapter for this page
-        const chap = [...effectiveDocxChaps]
-          .reverse()
-          .find((c) => pageNum >= c.startPage);
-        return {
-          pageNumber: pageNum,
-          chapterTitle: chap ? chap.title : book.title,
-          text: pageText,
-        };
-      });
-
+      const generatedPages: BookPage[] = docxPages.map((pageText, idx) => ({
+        pageNumber: idx + 1,
+        chapterTitle: book.title,
+        text: pageText,
+      }));
       return {
-        chapters: effectiveDocxChaps,
+        chapters: [{ id: 1, title: book.title, startPage: 1 }],
         pages: generatedPages,
         totalTextPages: generatedPages.length,
       };
     }
 
-    const rawText = docxText || book.fullContent || book.sampleContent || "";
+    const rawText = (docxText || book.fullContent || book.sampleContent || "").trim();
     if (!rawText) {
       return {
         chapters: [{ id: 1, title: "መግቢያ", startPage: 1 }],
@@ -344,7 +322,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
       generatedChapters.push({ id: cIdx + 1, title: chapTitle, startPage: pageCounter });
 
-      // Split chapter into natural paragraphs
       const paragraphs = trimmedChap.split(/\r?\n\s*\r?\n/);
       let currentPageParas: string[] = [];
       let currentPageWordCount = 0;
@@ -403,17 +380,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   const totalPages = isPdf ? pdfNumPages : totalTextPages;
 
-  // ── Unified Table of Contents Chapters (combines PDF outline / labels / text chapters) ──
   const effectiveChapters: ChapterItem[] = useMemo(() => {
-    if (isDocx && docxChapters.length > 0) {
-      return docxChapters;
-    }
     if (isPdf) {
       if (pdfOutlineChapters.length > 0) {
         return pdfOutlineChapters;
       }
 
-      // If PDF has custom page labels (e.g. Roman numerals for preface and 1,2,3 for content)
       if (pdfPageLabels && pdfPageLabels.length > 0) {
         const generated: ChapterItem[] = [];
         let firstRomanIdx = -1;
@@ -446,7 +418,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (generated.length > 0) return generated;
       }
 
-      // Fallback for PDF: group by sections of 10-20 pages
       if (pdfNumPages > 0) {
         const step = pdfNumPages > 40 ? 20 : 10;
         const generated: ChapterItem[] = [];
@@ -491,7 +462,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         pdfjs.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-        // Fetch as binary to bypass Cloudinary's application/octet-stream MIME
         const response = await fetch(pdfUrl);
         if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
@@ -688,12 +658,26 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     });
   }, []);
 
-  // Synchronous, zero-latency blackout across DOM, canvases, and clipboard
-  const deactivateBlackout = useCallback(() => {
-    if (blackoutTimerRef.current) {
-      clearTimeout(blackoutTimerRef.current);
-      blackoutTimerRef.current = null;
+  // Synchronous, zero-latency blackout across both DOM and canvases
+  const activateBlackout = useCallback(() => {
+    isBlackoutActiveRef.current = true;
+    setIsScreenBlackout(true);
+    wipeCanvasesBlack();
+    if (contentAreaRef.current) {
+      contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
+      contentAreaRef.current.style.opacity = "0";
+      contentAreaRef.current.style.pointerEvents = "none";
     }
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(
+          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
+        );
+      }
+    } catch {}
+  }, [wipeCanvasesBlack, user]);
+
+  const deactivateBlackout = useCallback(() => {
     isBlackoutActiveRef.current = false;
     setIsScreenBlackout(false);
     setSecurityNotice(null);
@@ -709,45 +693,32 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (twoPageView && currentPage < pdfNumPages) {
           renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
         }
-      }, 50);
+      }, 80);
     }
   }, [pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
-  const activateBlackout = useCallback((durationMs: number = 1200) => {
-    isBlackoutActiveRef.current = true;
-    setIsScreenBlackout(true);
-    wipeCanvasesBlack();
-    if (contentAreaRef.current) {
-      contentAreaRef.current.style.filter = "blur(80px) brightness(0)";
-      contentAreaRef.current.style.opacity = "0";
-      contentAreaRef.current.style.pointerEvents = "none";
-    }
-    try {
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(
-          `⚠️ ማስጠንቀቂያ፡ ከመጽሐፉ ይዘት ስክሪንሾት ማንሳት ወይም ማጋራት በጥብቅ የተከለከለ ነው! (Unauthorized capture prohibited - Licensed to: ${user?.fullName || "User"})`
-        );
-      }
-    } catch {}
-
-    // Auto-restore after transient duration so user never gets stuck in a permanent black screen
-    if (blackoutTimerRef.current) clearTimeout(blackoutTimerRef.current);
-    if (durationMs > 0) {
-      blackoutTimerRef.current = setTimeout(() => {
-        deactivateBlackout();
-      }, durationMs);
-    }
-  }, [wipeCanvasesBlack, user, deactivateBlackout]);
-
-  // RAF loop: keeps canvas wiped black only while active blackout is triggered
+  // RAF loop: runs every frame; keeps content hidden while blackout is active
   useEffect(() => {
     const loop = () => {
       if (isBlackoutActiveRef.current) {
         wipeCanvasesBlack();
         if (contentAreaRef.current && contentAreaRef.current.style.opacity !== "0") {
-          contentAreaRef.current.style.filter = "blur(80px) brightness(0)";
+          contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
           contentAreaRef.current.style.opacity = "0";
           contentAreaRef.current.style.pointerEvents = "none";
+        }
+      }
+      // Check focus every frame (60fps = catches Snipping Tool, Game Bar, Alt-Tab)
+      if (!document.hasFocus() || document.hidden) {
+        if (!isBlackoutActiveRef.current) {
+          isBlackoutActiveRef.current = true;
+          setIsScreenBlackout(true);
+          wipeCanvasesBlack();
+          if (contentAreaRef.current) {
+            contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
+            contentAreaRef.current.style.opacity = "0";
+            contentAreaRef.current.style.pointerEvents = "none";
+          }
         }
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -767,34 +738,21 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       if (ctrl && ["c", "a", "p", "s", "u", "x"].includes(e.key.toLowerCase())) {
         e.preventDefault();
         setSecurityNotice(t("copyBlockedMsg"));
-        activateBlackout(1500);
+        activateBlackout();
+        setTimeout(() => setSecurityNotice(null), 3000);
         return;
       }
 
-      // Detect screenshot shortcuts synchronously (PrintScreen, Win+Shift+S, Cmd+Shift+3/4/5, DevTools F12)
-      const isPrintScreen =
+      if (
         e.key === "PrintScreen" ||
         e.code === "PrintScreen" ||
         e.keyCode === 44 ||
-        (e as any).which === 44;
-
-      const isSnippingTool =
-        (ctrl || e.altKey) && e.shiftKey && ["s", "i", "j", "c", "3", "4", "5"].includes(e.key.toLowerCase());
-
-      const isF12 = e.key === "F12" || e.code === "F12";
-
-      if (isPrintScreen || isSnippingTool || isF12) {
+        (e as any).which === 44 ||
+        e.key === "F12" ||
+        ((ctrl || e.altKey) && e.shiftKey && ["i", "j", "c", "s"].includes(e.key.toLowerCase()))
+      ) {
         e.preventDefault();
-        // Synchronously blank content immediately before OS capture grab
-        if (contentAreaRef.current) {
-          contentAreaRef.current.style.filter = "blur(80px) brightness(0)";
-          contentAreaRef.current.style.opacity = "0";
-        }
-        wipeCanvasesBlack();
-        try {
-          navigator.clipboard?.writeText("⚠️ Protected by RABBI Digital");
-        } catch {}
-        activateBlackout(1500);
+        activateBlackout();
         setSecurityNotice(t("screenshotBlockedMsg"));
       }
 
@@ -804,7 +762,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Windows Chromium fires PrintScreen on KEYUP
+    // Windows Chromium fires PrintScreen on KEYUP, not keydown
     const handleKeyUp = (e: KeyboardEvent) => {
       if (
         e.key === "PrintScreen" ||
@@ -813,47 +771,83 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         (e as any).which === 44
       ) {
         e.preventDefault();
-        try {
-          navigator.clipboard?.writeText("⚠️ Protected by RABBI Digital");
-        } catch {}
-        activateBlackout(1500);
+        activateBlackout();
         setSecurityNotice(t("screenshotBlockedMsg"));
+        // Overwrite clipboard which may have received the screenshot data
+        try { navigator.clipboard?.writeText(""); } catch {}
       }
     };
 
-    // Visibility change - only blank when tab is actually hidden, auto-restore when visible
+    // Window blur — fires when ANY external tool (Snipping Tool, Game Bar,
+    // ADB screencap, scrcpy, Android screen recorder) pulls focus away.
+    // We do NOT auto-restore on focus — user must tap the black screen.
+    // This eliminates the race condition where JS restores content before the
+    // OS screenshot has finished writing to disk.
+    const handleBlur = () => { activateBlackout(); };
+    // handleFocus intentionally does NOT call deactivateBlackout automatically.
+    // The user clicks the black overlay to restore (see onClick on the veil div).
+
     const handleVisibilityChange = () => {
       if (document.hidden || document.visibilityState !== "visible") {
-        activateBlackout(0); // hold blackout while hidden (e.g. app switcher thumbnail)
-      } else {
-        deactivateBlackout(); // instantly restore when user returns
+        activateBlackout();
       }
+      // No auto-restore on visible — user must tap the black screen.
     };
 
     const blockContextMenu = (e: MouseEvent) => e.preventDefault();
 
-    // ── Mobile Screenshot Gestures (Android / iOS) ────────────────────────────
+    // Slower poll (80ms) catches tools the event system misses
+    const focusPoll = setInterval(() => {
+      if (!document.hasFocus() || document.hidden) {
+        if (!isBlackoutActiveRef.current) activateBlackout();
+      }
+    }, 80);
+
+    // ── Android / Mobile Screenshot Protection ────────────────────────────────
+    // 1. Multi-touch (≥2 fingers) — covers Power+VolDown & 3-finger swipe
     const handleTouchStart = (e: TouchEvent) => {
-      // Multi-touch gestures (e.g. 3-finger swipe or power+vol-down grip)
       if (e.touches && e.touches.length >= 2) {
-        activateBlackout(1200);
+        activateBlackout();
         setSecurityNotice(t("screenshotBlockedMsg"));
       }
     };
 
+    // 2. touchcancel fires on Android when hardware buttons interrupt a touch
+    //    session (Power+Vol-Down shortcut on many OEMs)
     const handleTouchCancel = () => {
-      activateBlackout(1000);
+      activateBlackout();
+      setSecurityNotice(t("screenshotBlockedMsg"));
     };
 
-    const handlePageHide = () => {
-      activateBlackout(0);
+    // 3. touchend with sudden 0-finger state after multi-touch
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.changedTouches.length >= 2 && e.touches.length === 0) {
+        activateBlackout();
+      }
     };
 
-    const handleFreeze = () => {
-      activateBlackout(0);
+    // 4. pagehide fires on Android recents / app-switcher (screen captured as thumbnail)
+    const handlePageHide = () => { activateBlackout(); };
+
+    // 5. freeze event fires on Android when Chrome freezes the page (e.g. screenshot
+    //    assistants, Nearby Share, Google Assistant screen capture)
+    const handleFreeze = () => { activateBlackout(); };
+
+    // 6. Screen orientation change — some Android screenshot flows trigger a
+    //    transient orientation shift (assistive tools, screen recorders)
+    const handleOrientationChange = () => { activateBlackout(); };
+
+    // 7. Pointer capture loss (stylus screenshot on Samsung DeX / tablets)
+    const handlePointerCancel = () => { activateBlackout(); };
+
+    // 8. Desktop cursor leaving window (external snipping tools, multi-monitor grab)
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        activateBlackout();
+      }
     };
 
-    // Print prevention CSS
+    // Print prevention CSS (also blocks Ctrl+P on PC)
     const printStyle = document.createElement("style");
     printStyle.id = "rabbi-drm-print-guard";
     printStyle.innerHTML =
@@ -862,25 +856,36 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
     window.addEventListener("contextmenu", blockContextMenu);
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
     window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("freeze", handleFreeze);
+    window.addEventListener("pointercancel", handlePointerCancel);
+    screen.orientation?.addEventListener("change", handleOrientationChange);
+    document.addEventListener("mouseleave", handleMouseLeave);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      clearInterval(focusPoll);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchcancel", handleTouchCancel);
+      window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("freeze", handleFreeze);
+      window.removeEventListener("pointercancel", handlePointerCancel);
+      screen.orientation?.removeEventListener("change", handleOrientationChange);
+      document.removeEventListener("mouseleave", handleMouseLeave);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.getElementById("rabbi-drm-print-guard")?.remove();
     };
-  }, [activateBlackout, deactivateBlackout, isVideo, t]);
+  }, [activateBlackout, isVideo, t]);
 
   // ============================================================================
   // 5. PAGE CONTROLS
@@ -908,33 +913,16 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     const raw = jumpPageInput.trim();
     if (!raw) return;
 
-    // Check if user entered a Roman numeral or custom page label (e.g. "iv", "iii", "a", "B")
-    const activeLabels = isPdf ? pdfPageLabels : isDocx ? docxPageLabels : null;
-    if (activeLabels && activeLabels.length > 0) {
-      const matchIdx = activeLabels.findIndex(
+    // Check if user entered a Roman numeral or custom page label (e.g. "iv", "iii")
+    if (isPdf && pdfPageLabels) {
+      const matchIdx = pdfPageLabels.findIndex(
         (l) => l.toLowerCase() === raw.toLowerCase()
       );
       if (matchIdx !== -1) {
         setCurrentPage(matchIdx + 1);
-        setJumpPageInput(activeLabels[matchIdx] ?? raw);
+        setJumpPageInput(raw);
         return;
       }
-    }
-
-    // Direct Roman numeral parser (e.g. "IV" -> 4)
-    const romanVal = fromRoman(raw);
-    if (romanVal !== null && romanVal >= 1 && romanVal <= totalPages) {
-      setCurrentPage(romanVal);
-      setJumpPageInput(getPageLabel(romanVal));
-      return;
-    }
-
-    // Direct Alphabetic parser (e.g. "b" -> 2)
-    const alphaVal = fromAlpha(raw);
-    if (alphaVal !== null && alphaVal >= 1 && alphaVal <= totalPages) {
-      setCurrentPage(alphaVal);
-      setJumpPageInput(getPageLabel(alphaVal));
-      return;
     }
 
     const p = parseInt(raw, 10);
@@ -1027,19 +1015,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       onCut={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      {/* ── SCREENSHOT PROTECTION OVERLAY ───────────────────────────────────────── */}
+      {/* ── PITCH-BLACK SCREENSHOT VEIL ─────────────────────────────────────────
+          z-[999999] sits above EVERYTHING. When active the user (and any screen
+          capture tool) sees only #000000. The div itself has no children so
+          there's nothing to capture even with accessibility APIs.             */}
       {isScreenBlackout && (
         <div
-          className="fixed inset-0 flex flex-col items-center justify-center select-none cursor-pointer transition-opacity backdrop-blur-3xl animate-in fade-in"
+          className="fixed inset-0 flex flex-col items-center justify-center select-none cursor-pointer"
           style={{ zIndex: 999999, backgroundColor: "#000000" }}
           onClick={deactivateBlackout}
         >
-          <ShieldAlert className="h-12 w-12 text-red-500 mb-3 opacity-90 animate-pulse" />
-          <p className="text-gold text-sm font-bold opacity-90 mb-1">
-            {t("screenshotBlockedMsg")}
-          </p>
-          <p className="text-white/60 text-xs">
-            {t("clickToResume")}
+          {/* Minimal feedback so user knows to click to resume */}
+          <ShieldAlert className="h-10 w-10 text-red-500 mb-4 opacity-80" />
+          <p className="text-gold text-sm font-bold opacity-70">
+            {t("protectedContent")} — {t("clickToResume")}
           </p>
         </div>
       )}
@@ -1485,13 +1474,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         <span className="truncate pr-4">{book.title}</span>
                         <span className="shrink-0">{activePageObj?.chapterTitle}</span>
                       </div>
-                      <div className="font-serif leading-relaxed whitespace-pre-wrap break-words space-y-4">
+                      <div className="font-serif leading-relaxed text-justify whitespace-pre-line space-y-4">
                         {activePageObj?.text}
                       </div>
                     </div>
                     <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
                       <span>RABBI Digital Library</span>
-                      <span>— {getPageLabel(currentPage)} —</span>
+                      <span>— {currentPage} —</span>
                     </div>
                   </div>
 
@@ -1506,12 +1495,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           <span>{secondPageObj.chapterTitle}</span>
                           <span>{book.author || "RABBI"}</span>
                         </div>
-                        <div className="font-serif leading-relaxed whitespace-pre-wrap break-words space-y-4">
+                        <div className="font-serif leading-relaxed text-justify whitespace-pre-line space-y-4">
                           {secondPageObj.text}
                         </div>
                       </div>
                       <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
-                        <span>— {getPageLabel(currentPage + 1)} —</span>
+                        <span>— {currentPage + 1} —</span>
                         <span>{t("protectedContent")}</span>
                       </div>
                     </div>
