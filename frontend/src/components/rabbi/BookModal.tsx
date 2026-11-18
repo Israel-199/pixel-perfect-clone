@@ -151,12 +151,12 @@ export const BookModal: React.FC<BookModalProps> = ({
               {/* Page Number & Price Conversion */}
               <div className="mt-3.5 sm:mt-4 w-full flex flex-col items-center text-center gap-1.5 bg-navy-deep/5 border border-gold/20 rounded-xl p-3">
                 {/* Accurate Page Count Badge above price */}
-                {pageCount > 0 && (
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-0.5 text-xs font-bold text-navy border border-gold/30">
-                    <FileText className="h-3.5 w-3.5 text-gold" />
-                    <span>{pageCount} {pageCount === 1 ? "ገጽ (1 Page)" : `ገጾች (${pageCount} Pages)`}</span>
-                  </div>
-                )}
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-0.5 text-xs font-bold text-navy border border-gold/30">
+                  <FileText className="h-3.5 w-3.5 text-gold" />
+                  <span>
+                    {(pageCount > 0 ? pageCount : 1)} {(pageCount > 0 ? pageCount : 1) === 1 ? "ገጽ (1 Page)" : `ገጾች (${pageCount > 0 ? pageCount : 1} Pages)`}
+                  </span>
+                </div>
 
                 <div className="flex flex-col items-center">
                   <span className="text-xl sm:text-2xl font-extrabold text-navy-deep font-display">

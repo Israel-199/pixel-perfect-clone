@@ -1,10 +1,11 @@
 ﻿import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { formatEtbWithUsd } from "@/lib/bookUtils";
+import { formatEtbWithUsd, getPdfPageCount, parseDocx, estimateTextPageCount } from "@/lib/bookUtils";
 import {
   Search,
   ArrowRight,
   BookOpen,
+  FileText,
   Brain,
   HandHeart,
   ChevronLeft,
@@ -198,6 +199,31 @@ function Index() {
 
   const activeBook = recentBooksList[currentBookIndex] || recentBook;
   const activeMedia = recentMediaList[currentMediaIndex] || recentMedia;
+  const [activeBookPages, setActiveBookPages] = useState<number>(1);
+
+  useEffect(() => {
+    if (!activeBook) return;
+    const content = (activeBook.fullContent || activeBook.sampleContent || "").trim();
+    const isDocx = /\.docx?(\?|$)/i.test(content);
+    const isPdfUrl = (content.startsWith("http://") || content.startsWith("https://") || content.includes(".pdf")) && !isDocx;
+
+    if (isPdfUrl) {
+      getPdfPageCount(content).then((cnt) => {
+        if (cnt > 0) setActiveBookPages(cnt);
+      });
+    } else if (isDocx) {
+      parseDocx(content)
+        .then((analysis) => {
+          if (analysis && analysis.pageCount > 0) setActiveBookPages(analysis.pageCount);
+        })
+        .catch(() => setActiveBookPages(1));
+    } else if (content && !content.startsWith("http")) {
+      const cnt = estimateTextPageCount(content);
+      if (cnt > 0) setActiveBookPages(cnt);
+    } else {
+      setActiveBookPages(1);
+    }
+  }, [activeBook]);
 
   return (
     <>
@@ -399,15 +425,25 @@ function Index() {
               )}
             </div>
 
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="rounded-md bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-navy-deep border border-gold/30">
-                {activeBook?.price > 0 ? `${activeBook.price} ETB` : "ነፃ (Free)"}
-              </span>
-              {activeBook?.price > 0 && (
-                <span className="text-[11px] font-bold text-gold">
-                  {formatEtbWithUsd(activeBook.price).usdText}
+            <div className="flex items-center justify-between gap-2">
+              {/* Page count badge exactly matching BookModal and PlatformReader */}
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-2.5 py-0.5 text-[10px] font-bold text-navy border border-gold/30">
+                <FileText className="h-3 w-3 text-gold" />
+                <span>
+                  {activeBookPages} {activeBookPages === 1 ? "ገጽ (1 Page)" : `ገጾች (${activeBookPages} Pages)`}
                 </span>
-              )}
+              </div>
+
+              <div className="flex items-baseline gap-1.5">
+                <span className="rounded-md bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-navy-deep border border-gold/30 font-display">
+                  {formatEtbWithUsd(activeBook?.price).etbText}
+                </span>
+                {activeBook?.price > 0 && (
+                  <span className="text-[11px] font-bold text-gold">
+                    {formatEtbWithUsd(activeBook?.price).usdText}
+                  </span>
+                )}
+              </div>
             </div>
 
             <h4 className="font-display text-base font-bold text-navy mt-2 line-clamp-1 group-hover:text-gold transition-colors">

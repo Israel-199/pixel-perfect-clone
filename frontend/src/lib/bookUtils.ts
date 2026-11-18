@@ -4,7 +4,7 @@
  */
 
 // Approximate exchange rate: 1 USD ≈ 125 ETB
-export const ETB_TO_USD_RATE = 161;
+export const ETB_TO_USD_RATE = 161.29;
 
 /**
  * Convert ETB amount to USD string format (e.g. "$2.40")
