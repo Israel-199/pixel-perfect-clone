@@ -4,7 +4,7 @@
  */
 
 // Approximate exchange rate: 1 USD ≈ 125 ETB
-export const ETB_TO_USD_RATE = 125;
+export const ETB_TO_USD_RATE = 161;
 
 /**
  * Convert ETB amount to USD string format (e.g. "$2.40")
@@ -79,17 +79,115 @@ export function estimateTextPageCount(content?: string | null): number {
   return Math.max(1, pageCounter);
 }
 
+export interface ChapterItem {
+  id: number;
+  title: string;
+  startPage: number;
+  startPageLabel?: string;
+}
+
 export interface DocxAnalysis {
   pageCount: number;
   pages: string[];
   fullText: string;
   paragraphs: string[];
+  chapters: ChapterItem[];
+  pageLabels: string[];
 }
 
 /**
  * Cache for asynchronously analyzed DOCX files by URL
  */
 const docxAnalysisCache = new Map<string, DocxAnalysis>();
+
+/**
+ * Convert number to Roman numerals (e.g. 1 -> "i" or "I")
+ */
+export function toRoman(num: number, uppercase = false): string {
+  if (num <= 0 || num > 3999) return String(num);
+  const lookup: [number, string][] = [
+    [1000, "M"],
+    [900, "CM"],
+    [500, "D"],
+    [400, "CD"],
+    [100, "C"],
+    [90, "XC"],
+    [50, "L"],
+    [40, "XL"],
+    [10, "X"],
+    [9, "IX"],
+    [5, "V"],
+    [4, "IV"],
+    [1, "I"],
+  ];
+  let result = "";
+  let n = num;
+  for (const [val, roman] of lookup) {
+    while (n >= val) {
+      result += roman;
+      n -= val;
+    }
+  }
+  return uppercase ? result : result.toLowerCase();
+}
+
+/**
+ * Parse Roman numeral string to number (e.g. "iv" -> 4, "XII" -> 12)
+ */
+export function fromRoman(str: string): number | null {
+  const roman = str.trim().toUpperCase();
+  if (!/^[IVXLCDM]+$/.test(roman)) return null;
+  const map: Record<string, number> = {
+    I: 1,
+    V: 5,
+    X: 10,
+    L: 50,
+    C: 100,
+    D: 500,
+    M: 1000,
+  };
+  let total = 0;
+  for (let i = 0; i < roman.length; i++) {
+    const char1 = roman[i] || "";
+    const char2 = roman[i + 1] || "";
+    const cur = map[char1] || 0;
+    const next = map[char2] || 0;
+    if (next && next > cur) {
+      total += next - cur;
+      i++;
+    } else {
+      total += cur;
+    }
+  }
+  return total > 0 ? total : null;
+}
+
+/**
+ * Convert number to Alphabetic letter (e.g. 1 -> "A" or "a")
+ */
+export function toAlpha(num: number, uppercase = true): string {
+  if (num <= 0 || num > 26) return String(num);
+  const code = (uppercase ? 65 : 97) + (num - 1);
+  return String.fromCharCode(code);
+}
+
+/**
+ * Parse alphabetic page label to number (e.g. "a" -> 1, "C" -> 3)
+ */
+export function fromAlpha(str: string): number | null {
+  const clean = str.trim();
+  if (/^[a-zA-Z]$/.test(clean)) {
+    const code = clean.toUpperCase().charCodeAt(0);
+    return code - 64;
+  }
+  return null;
+}
+
+/**
+ * Common regex for chapters in Amharic and English documents
+ */
+export const CHAPTER_HEADING_REGEX =
+  /^(?:#+\s*|(?:ምዕራፍ|ክፍል|ትምህርት|Chapter|Section|Part|Unit)\s*(?:[0-9]+|[፩-፱]+|[IVXLCDMivxlcdm]+|[A-Za-z]+)?[:\s\-—.]|^(?:[IVXLCDM]+|[፩-፱]+|[0-9]+)[\.\:\-—]\s+[^\n]+)/i;
 
 export async function loadJSZip(): Promise<any> {
   if (typeof window === "undefined") return null;
@@ -155,6 +253,8 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
   let declaredPageCount = 0;
   let explicitPageBreakCount = 0;
   let rawText = "";
+  let numberingFormat: "roman" | "lowerRoman" | "upperLetter" | "lowerLetter" | "decimal" =
+    "decimal";
 
   // 1. Inspect docx internal XML via JSZip
   if (JSZip) {
@@ -170,12 +270,24 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
         }
       }
 
-      // word/document.xml holds page breaks
+      // word/document.xml holds page breaks, sections and numbering format
       const docXml = await zip.file("word/document.xml")?.async("text");
       if (docXml) {
-        const pageBreaks = docXml.match(/<w:br[^>]+w:type=["']page["']|<w:lastRenderedPageBreak\b/gi);
+        const pageBreaks = docXml.match(
+          /<w:br[^>]+w:type=["']page["']|<w:lastRenderedPageBreak\b/gi,
+        );
         if (pageBreaks) {
           explicitPageBreakCount = pageBreaks.length;
+        }
+
+        // Check for page numbering format in section properties (e.g. w:fmt="roman" | "lowerRoman" | "upperLetter")
+        const numFormatMatch = docXml.match(/<w:pgNumType[^>]*w:fmt=["']([^"']+)["']/i);
+        if (numFormatMatch) {
+          const fmt = numFormatMatch[1].toLowerCase();
+          if (fmt === "roman") numberingFormat = "roman";
+          else if (fmt === "lowerroman") numberingFormat = "lowerRoman";
+          else if (fmt === "upperletter") numberingFormat = "upperLetter";
+          else if (fmt === "lowerletter") numberingFormat = "lowerLetter";
         }
       }
     } catch (e) {
@@ -199,6 +311,8 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
       pages: [""],
       fullText: "",
       paragraphs: [],
+      chapters: [{ id: 1, title: "መግቢያ", startPage: 1, startPageLabel: "1" }],
+      pageLabels: ["1"],
     };
     if (isUrl) docxAnalysisCache.set(docxUrlOrBuffer as string, emptyResult);
     return emptyResult;
@@ -215,7 +329,7 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
   const wordCount = rawText.split(/\s+/).filter(Boolean).length;
 
   // 4. Calculate final page count:
-  // - If Word's app.xml explicitly declared Pages (e.g. 1), that is respected.
+  // - If Word's app.xml explicitly declared Pages (e.g. 1), that is strictly respected.
   // - If explicit page breaks exist, page count = breaks + 1.
   // - Otherwise, standard density is ~450 words/page (so 1-page documents stay 1 page!).
   let finalPageCount = 1;
@@ -243,11 +357,61 @@ export async function parseDocx(docxUrlOrBuffer: string | ArrayBuffer): Promise<
     }
   }
 
+  // 6. Build Page Labels (Roman, Alphabetic, or Decimal numbers):
+  const pageLabels: string[] = [];
+  for (let i = 1; i <= pages.length; i++) {
+    if (numberingFormat === "roman") {
+      pageLabels.push(toRoman(i, true));
+    } else if (numberingFormat === "lowerRoman") {
+      pageLabels.push(toRoman(i, false));
+    } else if (numberingFormat === "upperLetter") {
+      pageLabels.push(toAlpha(i, true));
+    } else if (numberingFormat === "lowerLetter") {
+      pageLabels.push(toAlpha(i, false));
+    } else {
+      pageLabels.push(String(i));
+    }
+  }
+
+  // 7. Extract Chapters with starting page mapping:
+  const chapters: ChapterItem[] = [];
+  pages.forEach((pageContent, pageIdx) => {
+    const lines = pageContent
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      if (line.length <= 100 && CHAPTER_HEADING_REGEX.test(line)) {
+        const title = line.replace(/^#+\s*/, "").trim();
+        if (!chapters.some((c) => c.title.toLowerCase() === title.toLowerCase())) {
+          chapters.push({
+            id: chapters.length + 1,
+            title,
+            startPage: pageIdx + 1,
+            startPageLabel: pageLabels[pageIdx] || String(pageIdx + 1),
+          });
+        }
+      }
+    }
+  });
+
+  // If no explicit chapters matched, add a default chapter
+  if (chapters.length === 0) {
+    chapters.push({
+      id: 1,
+      title: paragraphs[0] && paragraphs[0].length <= 80 ? paragraphs[0] : "ምዕራፍ 1",
+      startPage: 1,
+      startPageLabel: pageLabels[0] || "1",
+    });
+  }
+
   const analysis: DocxAnalysis = {
-    pageCount: finalPageCount,
+    pageCount: pages.length,
     pages,
     fullText: rawText,
     paragraphs,
+    chapters,
+    pageLabels,
   };
 
   if (isUrl) {

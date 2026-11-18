@@ -214,7 +214,7 @@ function MediaRoute() {
                       <p className="text-xs font-semibold text-gold mt-0.5">
                         ደራሲ/አቅራቢ: {item.author || "RABBI"}
                       </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed whitespace-pre-wrap">
                         {item.description}
                       </p>
                     </div>

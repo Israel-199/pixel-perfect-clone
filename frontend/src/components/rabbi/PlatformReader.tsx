@@ -28,7 +28,7 @@ import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { filterNumberInput } from "@/lib/inputValidation";
-import { parseDocx } from "@/lib/bookUtils";
+import { parseDocx, fromRoman, fromAlpha } from "@/lib/bookUtils";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -177,6 +177,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [docxError, setDocxError] = useState<string | null>(null);
   const [docxText, setDocxText] = useState<string>("");
   const [docxPages, setDocxPages] = useState<string[]>([]);
+  const [docxChapters, setDocxChapters] = useState<ChapterItem[]>([]);
+  const [docxPageLabels, setDocxPageLabels] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isDocx || !docxUrl) return;
@@ -190,6 +192,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (!isMounted) return;
         setDocxText(analysis.fullText);
         setDocxPages(analysis.pages);
+        setDocxChapters(analysis.chapters || []);
+        setDocxPageLabels(analysis.pageLabels || []);
         setDocxLoading(false);
       } catch (err: any) {
         console.error("DOCX loading error:", err);
@@ -222,15 +226,19 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const pdfVideoRef = useRef<HTMLVideoElement | null>(null);
   const pdfVideoRef2 = useRef<HTMLVideoElement | null>(null);
 
-  // Exact Page Label helper (uses Roman or customized numbering if present in PDF)
+  // Exact Page Label helper (uses Roman or customized numbering if present in PDF or DOCX)
   const getPageLabel = useCallback(
     (pageNo: number): string => {
+      if (pageNo < 1) return "1";
       if (isPdf && pdfPageLabels && pdfPageLabels[pageNo - 1]) {
         return String(pdfPageLabels[pageNo - 1]);
       }
+      if (isDocx && docxPageLabels && docxPageLabels[pageNo - 1]) {
+        return String(docxPageLabels[pageNo - 1]);
+      }
       return String(pageNo);
     },
-    [isPdf, pdfPageLabels]
+    [isPdf, pdfPageLabels, isDocx, docxPageLabels]
   );
 
   // ── Video player state ───────────────────────────────────────────────────────
@@ -249,21 +257,34 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const { chapters, pages, totalTextPages } = useMemo(() => {
     if (isPdf) return { chapters: [], pages: [], totalTextPages: 0 };
 
-    // For DOCX files: use the lossless pages with preserved gaps and true page count!
+    // For DOCX files: use lossless pages with preserved gaps, chapters, and true page count!
     if (isDocx && docxPages.length > 0) {
-      const generatedPages: BookPage[] = docxPages.map((pageText, idx) => ({
-        pageNumber: idx + 1,
-        chapterTitle: book.title,
-        text: pageText,
-      }));
+      const effectiveDocxChaps =
+        docxChapters.length > 0
+          ? docxChapters
+          : [{ id: 1, title: book.title, startPage: 1, startPageLabel: getPageLabel(1) }];
+
+      const generatedPages: BookPage[] = docxPages.map((pageText, idx) => {
+        const pageNum = idx + 1;
+        // Determine active chapter for this page
+        const chap = [...effectiveDocxChaps]
+          .reverse()
+          .find((c) => pageNum >= c.startPage);
+        return {
+          pageNumber: pageNum,
+          chapterTitle: chap ? chap.title : book.title,
+          text: pageText,
+        };
+      });
+
       return {
-        chapters: [{ id: 1, title: book.title, startPage: 1 }],
+        chapters: effectiveDocxChaps,
         pages: generatedPages,
         totalTextPages: generatedPages.length,
       };
     }
 
-    const rawText = (docxText || book.fullContent || book.sampleContent || "").trim();
+    const rawText = docxText || book.fullContent || book.sampleContent || "";
     if (!rawText) {
       return {
         chapters: [{ id: 1, title: "መግቢያ", startPage: 1 }],
@@ -384,6 +405,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   // ── Unified Table of Contents Chapters (combines PDF outline / labels / text chapters) ──
   const effectiveChapters: ChapterItem[] = useMemo(() => {
+    if (isDocx && docxChapters.length > 0) {
+      return docxChapters;
+    }
     if (isPdf) {
       if (pdfOutlineChapters.length > 0) {
         return pdfOutlineChapters;
@@ -884,16 +908,33 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     const raw = jumpPageInput.trim();
     if (!raw) return;
 
-    // Check if user entered a Roman numeral or custom page label (e.g. "iv", "iii")
-    if (isPdf && pdfPageLabels) {
-      const matchIdx = pdfPageLabels.findIndex(
+    // Check if user entered a Roman numeral or custom page label (e.g. "iv", "iii", "a", "B")
+    const activeLabels = isPdf ? pdfPageLabels : isDocx ? docxPageLabels : null;
+    if (activeLabels && activeLabels.length > 0) {
+      const matchIdx = activeLabels.findIndex(
         (l) => l.toLowerCase() === raw.toLowerCase()
       );
       if (matchIdx !== -1) {
         setCurrentPage(matchIdx + 1);
-        setJumpPageInput(raw);
+        setJumpPageInput(activeLabels[matchIdx] ?? raw);
         return;
       }
+    }
+
+    // Direct Roman numeral parser (e.g. "IV" -> 4)
+    const romanVal = fromRoman(raw);
+    if (romanVal !== null && romanVal >= 1 && romanVal <= totalPages) {
+      setCurrentPage(romanVal);
+      setJumpPageInput(getPageLabel(romanVal));
+      return;
+    }
+
+    // Direct Alphabetic parser (e.g. "b" -> 2)
+    const alphaVal = fromAlpha(raw);
+    if (alphaVal !== null && alphaVal >= 1 && alphaVal <= totalPages) {
+      setCurrentPage(alphaVal);
+      setJumpPageInput(getPageLabel(alphaVal));
+      return;
     }
 
     const p = parseInt(raw, 10);
@@ -1444,13 +1485,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         <span className="truncate pr-4">{book.title}</span>
                         <span className="shrink-0">{activePageObj?.chapterTitle}</span>
                       </div>
-                      <div className="font-serif leading-relaxed text-justify whitespace-pre-line space-y-4">
+                      <div className="font-serif leading-relaxed whitespace-pre-wrap break-words space-y-4">
                         {activePageObj?.text}
                       </div>
                     </div>
                     <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
                       <span>RABBI Digital Library</span>
-                      <span>— {currentPage} —</span>
+                      <span>— {getPageLabel(currentPage)} —</span>
                     </div>
                   </div>
 
@@ -1465,12 +1506,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           <span>{secondPageObj.chapterTitle}</span>
                           <span>{book.author || "RABBI"}</span>
                         </div>
-                        <div className="font-serif leading-relaxed text-justify whitespace-pre-line space-y-4">
+                        <div className="font-serif leading-relaxed whitespace-pre-wrap break-words space-y-4">
                           {secondPageObj.text}
                         </div>
                       </div>
                       <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
-                        <span>— {currentPage + 1} —</span>
+                        <span>— {getPageLabel(currentPage + 1)} —</span>
                         <span>{t("protectedContent")}</span>
                       </div>
                     </div>

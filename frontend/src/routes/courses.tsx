@@ -1007,7 +1007,7 @@ function CoursesRoute() {
                       <BookOpen className="h-4 w-4 text-gold" />
                       {selectedCourse.isPdf ? t("pdfSamplePreview") : t("courseSamplePreview")}
                     </h4>
-                    <div className="max-h-36 overflow-y-auto pr-2 text-xs text-navy/80 whitespace-pre-line leading-relaxed font-sans scrollbar-thin">
+                    <div className="max-h-36 overflow-y-auto pr-2 text-xs text-navy/80 whitespace-pre-wrap break-words leading-relaxed font-sans scrollbar-thin">
                       {selectedCourse.sampleContent}
                     </div>
                   </div>

@@ -172,7 +172,7 @@ function MyBooksRoute() {
                     <p className="text-xs text-gold font-semibold mb-2">
                       ደራሲ: {item.book.author || "RABBI"}
                     </p>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4">
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4 whitespace-pre-wrap">
                       {item.book.description}
                     </p>
                   </div>

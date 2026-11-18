@@ -419,28 +419,31 @@ function AdminRoute() {
     };
   }, [user, authLoading]);
 
-  // Update Request Status (Approve / Reject) with instantaneous optimistic update (0ms lag)
+  // Update Request Status (Approve / Reject / Reset) - fast execution, buttons active/disabled exactly with API response
   const handleUpdateStatus = async (id: string, status: "PERMITTED" | "REJECTED" | "PENDING") => {
-    const prevRequests = [...requests];
-    // Optimistic: update status tag immediately in UI (0ms lag)
-    setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status } : r))
-    );
-    setActionLoadingId({ id, action: status });
-
     try {
-      await fetchApi(`/admin/requests/${id}`, {
+      // 1. Immediately disable button and activate loading spinner on the clicked action
+      setActionLoadingId({ id, action: status });
+
+      // 2. Send API request
+      const data = await fetchApi<{ request: AdminRequestItem }>(`/admin/requests/${id}`, {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
+
+      // 3. Exactly when the API responds: update requests state with the new status
+      setRequests((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: data?.request?.status || status } : r))
+      );
       clearApiCache();
-      // Silently refresh stats and contents in background
+
+      // Silently refresh stats and contents in background without delaying button
       fetchAdminContents(true);
       fetchDashboardStats(true);
     } catch (err: any) {
-      setRequests(prevRequests);
       alert(err.message || "የጥያቄ ሁኔታ መቀየር አልተሳካም።");
     } finally {
+      // 4. Release button loading and disabled state exactly when API finished
       setActionLoadingId(null);
     }
   };
@@ -571,10 +574,10 @@ function AdminRoute() {
           author: author.trim() || "RABBI",
           price: parseFloat(price) || 0,
           mediaType: mediaType.toUpperCase(),
-          description: description.trim(),
+          description: description, // Preserve every horizontal and vertical space exactly as admin typed
           coverUrl: coverUrl.trim(),
-          sampleContent: sampleContent.trim(),
-          fullContent: fullContent.trim(),
+          sampleContent: sampleContent, // Preserve every horizontal and vertical space exactly as admin typed
+          fullContent: fullContent, // Preserve every horizontal and vertical space exactly as admin typed
           videoUrl: videoUrl.trim() || null,
           audioUrl: audioUrl.trim() || null,
         }),
@@ -645,10 +648,10 @@ function AdminRoute() {
           author: editAuthor.trim() || "RABBI",
           price: parseFloat(editPrice) || 0,
           mediaType: editMediaType.toUpperCase(),
-          description: editDescription.trim(),
+          description: editDescription, // Preserve every horizontal and vertical space
           coverUrl: editCoverUrl.trim(),
-          sampleContent: editSampleContent.trim(),
-          fullContent: editFullContent.trim(),
+          sampleContent: editSampleContent, // Preserve every horizontal and vertical space
+          fullContent: editFullContent, // Preserve every horizontal and vertical space
           videoUrl: editVideoUrl.trim() || null,
           audioUrl: editAudioUrl.trim() || null,
         }),
@@ -1650,7 +1653,7 @@ function AdminRoute() {
                       <p className="text-xs text-gold font-semibold mt-0.5">
                         ደራሲ/መምህር: {item.author || "RABBI"}
                       </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed whitespace-pre-wrap break-words">
                         {item.description || "ምንም መግለጫ የለም።"}
                       </p>
 

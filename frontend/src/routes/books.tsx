@@ -187,7 +187,7 @@ function BooksRoute() {
                       <p className="text-xs font-semibold text-gold mt-0.5">
                         {t("authorLabel")}: {book.author || "RABBI"}
                       </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed whitespace-pre-wrap">
                         {book.description}
                       </p>
                     </div>

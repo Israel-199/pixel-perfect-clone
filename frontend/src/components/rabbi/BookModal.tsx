@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { useNavigate } from "@tanstack/react-router";
-import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount } from "@/lib/bookUtils";
+import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount, parseDocx } from "@/lib/bookUtils";
 
 export interface BookItem {
   id: string;
@@ -56,6 +56,16 @@ export const BookModal: React.FC<BookModalProps> = ({
       getPdfPageCount(content).then((cnt) => {
         if (cnt > 0) setPageCount(cnt);
       });
+    } else if (isDocx) {
+      parseDocx(content)
+        .then((analysis) => {
+          if (analysis && analysis.pageCount > 0) {
+            setPageCount(analysis.pageCount);
+          }
+        })
+        .catch((e) => {
+          console.warn("Docx modal page count notice:", e);
+        });
     } else if (content && !content.startsWith("http")) {
       const cnt = estimateTextPageCount(content);
       setPageCount(cnt);
@@ -166,9 +176,9 @@ export const BookModal: React.FC<BookModalProps> = ({
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-navy font-display mb-1">{book.title}</h2>
               <p className="text-sm text-gold font-medium mb-3">ደራሲ / መጋቢ: {book.author || "RABBI"}</p>
-              <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{book.description}</p>
+              <p className="text-sm text-muted-foreground mb-4 leading-relaxed whitespace-pre-wrap break-words">{book.description}</p>
 
-              {/* Sample Content Section - Only display text typed by admin */}
+              {/* Sample Content Section - Only display text typed by admin preserving every horizontal & vertical space */}
               <div className="mb-5 rounded-xl bg-navy-deep/5 p-4 border border-navy/10">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-semibold text-navy uppercase tracking-wider flex items-center gap-1.5">
@@ -179,20 +189,12 @@ export const BookModal: React.FC<BookModalProps> = ({
 
                 <div className="max-h-56 overflow-y-auto pr-2 text-xs text-navy/85 leading-relaxed font-sans scrollbar-thin">
                   {book.sampleContent && !book.sampleContent.startsWith("http://") && !book.sampleContent.startsWith("https://") ? (
-                    <div className="text-justify leading-relaxed space-y-3 font-sans">
-                      {book.sampleContent.split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
-                        <p key={pIdx} className="mb-3 text-navy/90 leading-relaxed">
-                          {para}
-                        </p>
-                      ))}
+                    <div className="whitespace-pre-wrap break-words font-sans text-navy/90 leading-relaxed">
+                      {book.sampleContent}
                     </div>
                   ) : book.description ? (
-                    <div className="text-justify leading-relaxed space-y-3 font-sans">
-                      {book.description.split(/\r?\n\s*\r?\n/).map((para, pIdx) => (
-                        <p key={pIdx} className="mb-3 text-navy/90 leading-relaxed">
-                          {para}
-                        </p>
-                      ))}
+                    <div className="whitespace-pre-wrap break-words font-sans text-navy/90 leading-relaxed">
+                      {book.description}
                     </div>
                   ) : (
                     <p className="text-muted-foreground italic">
