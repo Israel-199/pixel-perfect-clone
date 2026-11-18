@@ -39,7 +39,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { fetchApi, clearApiCache } from "@/lib/api";
+import { fetchApi, clearApiCache, API_BASE_URL } from "@/lib/api";
 import { formatEtbWithUsd } from "@/lib/bookUtils";
 import {
   filterNameInput,
@@ -149,7 +149,7 @@ type ContentFilterType = "ALL" | "BOOK" | "VIDEO" | "AUDIO" | "COURSE" | "ARTICL
 type RequestFilterType = "ALL" | "BOOK" | "MEDIA" | "COURSE";
 
 function AdminRoute() {
-  const { user, login, logout, isLoading: authLoading } = useAuth();
+  const { user, token: authContextToken, login, logout, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>("REQUESTS");
@@ -461,18 +461,22 @@ function AdminRoute() {
       new Promise((resolve, reject) => {
         const resolvedToken =
           token ||
+          authContextToken ||
           (typeof window !== "undefined"
             ? localStorage.getItem("rabbi_auth_token") ||
               localStorage.getItem("rabbi_token")
             : null);
-        const API_BASE =
-          typeof window !== "undefined" && (window as any).__API_BASE__
-            ? (window as any).__API_BASE__
-            : (import.meta as any).env?.VITE_API_URL ||
-              "https://rabbi-backend.onrender.com/api";
+
+        if (!resolvedToken) {
+          reject(new Error("የማረጋገጫ ምልክት (Token) አልተገኘም። እባክዎ እንደገና ይግቡ። (Session token missing. Please log in again.)"));
+          return;
+        }
+
+        const uploadUrl = `${API_BASE_URL}/admin/upload?token=${encodeURIComponent(resolvedToken)}`;
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${API_BASE}/admin/upload`, true);
-        if (resolvedToken) xhr.setRequestHeader("Authorization", `Bearer ${resolvedToken}`);
+        xhr.open("POST", uploadUrl, true);
+        xhr.setRequestHeader("Authorization", `Bearer ${resolvedToken}`);
+        xhr.setRequestHeader("x-auth-token", resolvedToken);
         xhr.upload.onprogress = (evt) => {
           if (evt.lengthComputable) {
             onProgress(Math.round((evt.loaded / evt.total) * 100));
@@ -491,7 +495,18 @@ function AdminRoute() {
             }
           }
         };
-        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.onerror = () => {
+          // Fallback to fetchApi if XHR encounters any network error
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("resourceType", resourceType);
+          fetchApi<{ url: string }>(`/admin/upload?token=${encodeURIComponent(resolvedToken)}`, {
+            method: "POST",
+            body: fd,
+          })
+            .then(resolve)
+            .catch(reject);
+        };
         xhr.ontimeout = () => reject(new Error("Upload timed out"));
         xhr.timeout = 120000; // 2 min
         const fd = new FormData();
@@ -499,7 +514,7 @@ function AdminRoute() {
         fd.append("resourceType", resourceType);
         xhr.send(fd);
       }),
-    []
+    [authContextToken]
   );
 
   // Delete orphaned or replaced Cloudinary asset in background (0ms lag)

@@ -10,7 +10,7 @@ const rawBaseUrl =
     : "https://pixel-perfect-clone-1-5lm4.onrender.com/api");
 
 const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, "");
-const API_BASE_URL = cleanBaseUrl.endsWith("/api") ? cleanBaseUrl : `${cleanBaseUrl}/api`;
+export const API_BASE_URL = cleanBaseUrl.endsWith("/api") ? cleanBaseUrl : `${cleanBaseUrl}/api`;
 
 // In-memory cache for GET requests with 60s TTL
 interface CacheEntry<T> {
