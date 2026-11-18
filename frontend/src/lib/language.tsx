@@ -434,6 +434,16 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
     or: "Wiirtuu Barnootaa fi Leenjii RABBI • Koolleejii Dorqaas & Leenjiilee",
     en: "RABBI Center for Education & Training • Dorcas College & Practical Trainings",
   },
+  coursesTitle: {
+    am: "ኮርሶች እና ተግባራዊ ስልጠናዎች",
+    or: "Koorasootaa fi Leenjiilee Hojii",
+    en: "Courses & Practical Trainings",
+  },
+  coursesSubtitle: {
+    am: "በዶርቃ ኮሌጅ የተዘጋጁ ጥልቅ የሥነ-መለኮት ኮርሶች እና ለማኅበረሰብ ግንባታ፣ ለሰላም፣ ለአመራርና ለአገልግሎት የተዘጋጁ የፒዲኤፍ ስልጠናዎችን እዚህ ያግኙ።",
+    or: "Koorasoota tiyooloojii gadi fageenya qaban kan Koolleejii Dorqaasiin qophaa'anii fi leenjiilee PDF kan ijaarsa hawaasaa, nagaa, hoggansaa fi tajaajilaaf qophaa'an asitti argadhaa.",
+    en: "Find in-depth theological courses prepared by Dorcas College and practical PDF training manuals for community building, peace, leadership, and Christian service here.",
+  },
   dorcasBadge: { am: "የሥነ-መለኮትና የመጽሐፍ ቅዱስ ኮሌጅ", or: "Koolleejii Tiyooloojii fi Macaafa Qulqulluu", en: "Theology & Bible College" },
   dorcasTitle: { am: "ዶርቃ ኮሌጅ", or: "Koolleejii Dorqaas", en: "Dorcas College" },
   dorcasDesc: {
