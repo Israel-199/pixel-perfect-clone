@@ -6,13 +6,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.startKeepAlive = startKeepAlive;
 const http_1 = __importDefault(require("http"));
 const https_1 = __importDefault(require("https"));
+const prisma_1 = require("../config/prisma");
 /**
  * Self-ping mechanism to keep the server awake on free hosting services like Render.
  * Render free tier puts web services to sleep after 15 minutes of inbound network inactivity.
  * This service sends a GET request to /api/health every 10 minutes.
  */
 function startKeepAlive() {
-    const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+    const PING_INTERVAL = 4 * 60 * 1000; // 4 minutes (keeps server & serverless DB warm)
     const rawUrl = process.env.RENDER_EXTERNAL_URL ||
         process.env.SERVER_URL ||
         process.env.BACKEND_URL ||
@@ -21,7 +22,14 @@ function startKeepAlive() {
         ? rawUrl
         : `${rawUrl.replace(/\/$/, "")}/api/health`;
     console.log(`[Keep-Alive] Initialized. Will ping ${pingUrl} every 10 minutes.`);
-    const pingServer = () => {
+    const pingServer = async () => {
+        // Keep Neon PostgreSQL connection pool and compute warm
+        try {
+            await prisma_1.prisma.$queryRaw `SELECT 1`;
+        }
+        catch (e) {
+            console.warn("[Keep-Alive DB ping notice]:", e?.message);
+        }
         try {
             const url = new URL(pingUrl);
             const protocol = url.protocol === "https:" ? https_1.default : http_1.default;

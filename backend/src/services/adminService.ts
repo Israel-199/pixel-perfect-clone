@@ -155,8 +155,10 @@ export class AdminService {
       (a, b) => b.approvedCount - a.approvedCount
     );
 
-    const totalBooks = await prisma.book.count();
-    const totalUsers = await prisma.user.count();
+    const [totalBooks, totalUsers] = await Promise.all([
+      prisma.book.count(),
+      prisma.user.count(),
+    ]);
 
     return {
       totalApprovedSales: approvedRequests.length,
@@ -319,7 +321,7 @@ export class AdminService {
     if (existing) {
       throw new Error("ይህ ኢሜይል አስቀድሞ ተጠቃሚ አለው (Email already in use).");
     }
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const admin = await prisma.user.create({
       data: {
         email: cleanEmail,

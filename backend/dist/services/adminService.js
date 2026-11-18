@@ -124,8 +124,10 @@ class AdminService {
             bookStatsMap[req.book.id].revenue += req.book.price || 0;
         }
         const topSellingBooks = Object.values(bookStatsMap).sort((a, b) => b.approvedCount - a.approvedCount);
-        const totalBooks = await prisma_1.prisma.book.count();
-        const totalUsers = await prisma_1.prisma.user.count();
+        const [totalBooks, totalUsers] = await Promise.all([
+            prisma_1.prisma.book.count(),
+            prisma_1.prisma.user.count(),
+        ]);
         return {
             totalApprovedSales: approvedRequests.length,
             totalPendingRequests: pendingRequests.length,
@@ -252,7 +254,7 @@ class AdminService {
         if (existing) {
             throw new Error("ይህ ኢሜይል አስቀድሞ ተጠቃሚ አለው (Email already in use).");
         }
-        const hashedPassword = await bcryptjs_1.default.hash(password, 12);
+        const hashedPassword = await bcryptjs_1.default.hash(password, 10);
         const admin = await prisma_1.prisma.user.create({
             data: {
                 email: cleanEmail,

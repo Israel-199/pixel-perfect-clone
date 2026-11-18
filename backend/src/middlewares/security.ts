@@ -104,34 +104,34 @@ class RateLimiter {
 
 // ─── INSTANTIATE RATE LIMITERS ───────────────────────────────────────────────
 
-/** Global: 120 req / 15 min — covers all routes */
+/** Global: 3000 req / 15 min — supports high-concurrency traffic without starving shared IPs */
 export const globalRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 120,
-  hardBlockMs: 5 * 60 * 1000, // 5 min hard block after exceeded
+  max: 3000,
+  hardBlockMs: 0,
 }).middleware();
 
-/** Auth: 10 req / 15 min — login / register */
+/** Auth: 150 req / 15 min — allows multiple users on the same network to log in concurrently */
 export const authRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  hardBlockMs: 30 * 60 * 1000, // 30 min hard block after brute-force
+  max: 150,
+  hardBlockMs: 0,
   message:
-    "Too many authentication attempts. Please wait before trying again.",
+    "Too many authentication attempts from this network. Please wait a moment before trying again.",
 }).middleware();
 
-/** Password reset: 5 req / 1 hour */
+/** Password reset: 25 req / 1 hour */
 export const passwordResetLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000,
-  max: 5,
-  hardBlockMs: 60 * 60 * 1000,
+  max: 25,
+  hardBlockMs: 0,
   message: "Too many password reset requests. Try again after 1 hour.",
 }).middleware();
 
-/** Admin API: 300 req / 15 min */
+/** Admin API: 1500 req / 15 min */
 export const adminRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1500,
 }).middleware();
 
 // ─── 2. SPEED LIMITER (progressive delay against bots) ───────────────────────
@@ -143,32 +143,13 @@ interface SpeedBucket {
 
 const speedStore = new Map<string, SpeedBucket>();
 
-/** Adds up to 10 s delay per request after 25 requests in 15 min */
+/** High-throughput pass-through: avoids artificial setTimeout lag for concurrent users */
 export const speedLimiter = (
-  req: Request,
+  _req: Request,
   _res: Response,
   next: NextFunction
 ): void => {
-  const ip =
-    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-    req.socket.remoteAddress ||
-    "anon";
-  const now = Date.now();
-  let b = speedStore.get(ip);
-  if (!b || now > b.resetAt) {
-    b = { count: 0, resetAt: now + 15 * 60 * 1000 };
-    speedStore.set(ip, b);
-  }
-  b.count++;
-  const excess = Math.max(0, b.count - 25);
-  const delay = Math.min(excess * 300, 10_000); // 300ms per extra req, cap 10s
-  if (delay > 0) {
-    setTimeout(() => {
-      next();
-    }, delay);
-  } else {
-    next();
-  }
+  next();
 };
 
 // ─── 3. INPUT SANITIZATION (SQL/NoSQL Injection, XSS) ───────────────────────

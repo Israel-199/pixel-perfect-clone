@@ -18,20 +18,20 @@ export class BookService {
       ];
     }
 
-    const books = await prisma.book.findMany({
-      where: Object.keys(where).length > 0 ? where : undefined,
-      orderBy: { createdAt: "desc" },
-    });
+    const [books, requestsArr] = await Promise.all([
+      prisma.book.findMany({
+        where: Object.keys(where).length > 0 ? where : undefined,
+        orderBy: { createdAt: "desc" },
+      }),
+      currentUserId
+        ? prisma.purchaseRequest.findMany({ where: { userId: currentUserId } })
+        : Promise.resolve([]),
+    ]);
 
-    let userRequests: Record<string, string> = {};
-    if (currentUserId) {
-      const requests = await prisma.purchaseRequest.findMany({
-        where: { userId: currentUserId },
-      });
-      requests.forEach((r) => {
-        userRequests[r.bookId] = r.status;
-      });
-    }
+    const userRequests: Record<string, string> = {};
+    requestsArr.forEach((r) => {
+      userRequests[r.bookId] = r.status;
+    });
 
     return books.map((book) => {
       const status = userRequests[book.id] || "NONE";
@@ -57,19 +57,20 @@ export class BookService {
   }
 
   static async getBookById(id: string, currentUserId?: string | null) {
-    const book = await prisma.book.findUnique({ where: { id } });
+    const [book, reqRecord] = await Promise.all([
+      prisma.book.findUnique({ where: { id } }),
+      currentUserId
+        ? prisma.purchaseRequest.findFirst({ where: { userId: currentUserId, bookId: id } })
+        : Promise.resolve(null),
+    ]);
+
     if (!book) {
       throw new Error("Book not found.");
     }
 
     let requestStatus = "NONE";
-    if (currentUserId) {
-      const reqRecord = await prisma.purchaseRequest.findFirst({
-        where: { userId: currentUserId, bookId: id },
-      });
-      if (reqRecord) {
-        requestStatus = reqRecord.status;
-      }
+    if (reqRecord) {
+      requestStatus = reqRecord.status;
     }
 
     const isPermitted = requestStatus === "PERMITTED";

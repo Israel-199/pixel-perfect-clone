@@ -16,19 +16,19 @@ class BookService {
                 { description: { contains: q, mode: "insensitive" } },
             ];
         }
-        const books = await prisma_1.prisma.book.findMany({
-            where: Object.keys(where).length > 0 ? where : undefined,
-            orderBy: { createdAt: "desc" },
+        const [books, requestsArr] = await Promise.all([
+            prisma_1.prisma.book.findMany({
+                where: Object.keys(where).length > 0 ? where : undefined,
+                orderBy: { createdAt: "desc" },
+            }),
+            currentUserId
+                ? prisma_1.prisma.purchaseRequest.findMany({ where: { userId: currentUserId } })
+                : Promise.resolve([]),
+        ]);
+        const userRequests = {};
+        requestsArr.forEach((r) => {
+            userRequests[r.bookId] = r.status;
         });
-        let userRequests = {};
-        if (currentUserId) {
-            const requests = await prisma_1.prisma.purchaseRequest.findMany({
-                where: { userId: currentUserId },
-            });
-            requests.forEach((r) => {
-                userRequests[r.bookId] = r.status;
-            });
-        }
         return books.map((book) => {
             const status = userRequests[book.id] || "NONE";
             const isPermitted = status === "PERMITTED";
@@ -51,18 +51,18 @@ class BookService {
         });
     }
     static async getBookById(id, currentUserId) {
-        const book = await prisma_1.prisma.book.findUnique({ where: { id } });
+        const [book, reqRecord] = await Promise.all([
+            prisma_1.prisma.book.findUnique({ where: { id } }),
+            currentUserId
+                ? prisma_1.prisma.purchaseRequest.findFirst({ where: { userId: currentUserId, bookId: id } })
+                : Promise.resolve(null),
+        ]);
         if (!book) {
             throw new Error("Book not found.");
         }
         let requestStatus = "NONE";
-        if (currentUserId) {
-            const reqRecord = await prisma_1.prisma.purchaseRequest.findFirst({
-                where: { userId: currentUserId, bookId: id },
-            });
-            if (reqRecord) {
-                requestStatus = reqRecord.status;
-            }
+        if (reqRecord) {
+            requestStatus = reqRecord.status;
         }
         const isPermitted = requestStatus === "PERMITTED";
         return {

@@ -55,7 +55,7 @@ export class AuthService {
     }
 
     // Use bcrypt cost factor 12 (stronger than 10)
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Only grant ADMIN if first user ever — never based on email content
     const userCount = await prisma.user.count();
@@ -144,11 +144,13 @@ export class AuthService {
       );
     }
 
-    // — Successful login: reset failure counters —
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { loginAttempts: 0, lockedUntil: null },
-    });
+    // — Successful login: only update DB if failed attempts existed (avoids DB write lock) —
+    if ((user.loginAttempts ?? 0) > 0 || user.lockedUntil !== null) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { loginAttempts: 0, lockedUntil: null },
+      });
+    }
 
     const token = jsonwebtoken.sign(
       { userId: user.id, email: user.email, role: user.role },

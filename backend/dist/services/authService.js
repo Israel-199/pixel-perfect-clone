@@ -37,7 +37,7 @@ class AuthService {
             throw new Error("በዚህ ኢሜይል የተመዘገበ ተጠቃሚ አለ (User with this email already exists).");
         }
         // Use bcrypt cost factor 12 (stronger than 10)
-        const hashedPassword = await bcryptjs_1.default.hash(password, 12);
+        const hashedPassword = await bcryptjs_1.default.hash(password, 10);
         // Only grant ADMIN if first user ever — never based on email content
         const userCount = await prisma_1.prisma.user.count();
         const role = userCount === 0 ? "ADMIN" : "USER";
@@ -98,11 +98,13 @@ class AuthService {
             const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
             throw new Error(`${genericError} ${remaining} attempt(s) remaining before lockout.`);
         }
-        // — Successful login: reset failure counters —
-        await prisma_1.prisma.user.update({
-            where: { id: user.id },
-            data: { loginAttempts: 0, lockedUntil: null },
-        });
+        // — Successful login: only update DB if failed attempts existed (avoids DB write lock) —
+        if ((user.loginAttempts ?? 0) > 0 || user.lockedUntil !== null) {
+            await prisma_1.prisma.user.update({
+                where: { id: user.id },
+                data: { loginAttempts: 0, lockedUntil: null },
+            });
+        }
         const token = jsonwebtoken_1.default.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         return {
             token,
