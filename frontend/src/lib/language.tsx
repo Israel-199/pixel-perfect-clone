@@ -278,6 +278,48 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   haveAccountPrompt: { am: "መለያ አለዎት? ይግቡ", or: "Akkaawuntii qabdu? Seenaa", en: "Already have an account? Log In" },
   forgotPasswordPrompt: { am: "የይለፍ ቃል ረሱ?", or: "Jecha darbii irraanfattanii?", en: "Forgot password?" },
 
+  // ── Auth Pages — Extended Strings ───────────────────────────────────────────
+  // Login page
+  loginPageHeading: { am: "ወደ አካውንትዎ ይግቡ", or: "Gara Akkaawuntii Keessan Seenaa", en: "Sign In to Your Account" },
+  noAccountLink: { am: "አዲስ አካውንት የሎትም? እዚህ ይመዝገቡ", or: "Akkaawuntii hin qabdan? As irratti Galmaa'aa", en: "Don't have an account? Sign up here" },
+  emailPlaceholder: { am: "example@gmail.com", or: "example@gmail.com", en: "example@gmail.com" },
+  passwordPlaceholder: { am: "••••••••", or: "••••••••", en: "••••••••" },
+  signingIn: { am: "በመግባት ላይ...", or: "Seenaa jira...", en: "Signing in..." },
+  loginFailed: { am: "መግባት አልተሳካም። እባክዎ መረጃዎን ያረጋግጡ።", or: "Seenuu hin danda'amne. Maaloo odeeffannoo keessan mirkaneessaa.", en: "Login failed. Please check your credentials." },
+  emailRequired: { am: "እባክዎ ትክክለኛ ኢሜይል ያስገቡ።", or: "Maaloo imeelii sirrii galchaa.", en: "Please enter a valid email address." },
+  passwordRequired: { am: "እባክዎ የይለፍ ቃልዎን ያስገቡ።", or: "Maaloo jecha darbii galchaa.", en: "Password is required." },
+
+  // Register page
+  registerPageHeading: { am: "አዲስ አካውንት ይፍጠሩ", or: "Akkaawuntii Haaraa Uumaa", en: "Create a New Account" },
+  haveAccountLink: { am: "አካውንት አለዎት? እዚህ ይግቡ", or: "Akkaawuntii qabdu? As irratti Seenaa", en: "Already have an account? Log in here" },
+  fullNamePlaceholder: { am: "ለምሳሌ፡ አበበ በቀለ (ፊደላት ብቻ)", or: "Fkn: Abebe Bekele (qubee qofaa)", en: "e.g. Abebe Bekele (letters only)" },
+  phonePlaceholder: { am: "0911223344 (ቁጥር ብቻ)", or: "0911223344 (lakkoofsa qofaa)", en: "0911223344 (digits only)" },
+  passwordMinHint: { am: "ቢያንስ 6 ፊደላት", or: "Xiqqaate qubee 6", en: "At least 6 characters" },
+  confirmPasswordLabel: { am: "የይለፍ ቃል ማረጋገጫ (Confirm Password)", or: "Mirkaneessa Jecha Darbii (Confirm Password)", en: "Confirm Password" },
+  confirmPasswordPlaceholder: { am: "••••••••", or: "••••••••", en: "••••••••" },
+  registering: { am: "በመመዝገብ ላይ...", or: "Galmaa'aa jira...", en: "Registering..." },
+  registerAction: { am: "ተመዝገብ", or: "Galmaa'i", en: "Create Account" },
+  registerFailed: { am: "ምዝገባው አልተሳካም። እባክዎ እንደገና ይሞክሩ።", or: "Galmaa'uun hin danda'amne. Maaloo irra deebi'aa yaalaa.", en: "Registration failed. Please try again." },
+  phoneInvalid: { am: "እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ (ቁጥር ብቻ)።", or: "Maaloo lakkoofsa bilbilaa sirrii galchaa (lakkoofsa qofaa).", en: "Please enter a valid phone number (digits only)." },
+  passwordTooShort: { am: "የይለፍ ቃል ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት።", or: "Jecha darbiin xiqqaate qubee/lakkoofsa 6 ta'uu qaba.", en: "Password must be at least 6 characters." },
+  passwordMismatch: { am: "የይለፍ ቃሎቹ አይመሳሰሉም። እባክዎ እንደገና ያረጋግጡ።", or: "Jechoonni darbii walii hin galan. Maaloo irra deebi'aa mirkaneessaa.", en: "Passwords do not match. Please confirm again." },
+
+  // Forgot password page
+  forgotPasswordHeading: { am: "የይለፍ ቃልዎን ያድሱ", or: "Jecha Darbii Keessan Haaromsaa", en: "Reset Your Password" },
+  backToLoginLink: { am: "ወደ መግቢያ ገጽ ለመመለስ እዚህ ይጫኑ", or: "Gara fuula seensaatti deebi'uuf as cuqaasaa", en: "Click here to go back to login" },
+  registeredEmailLabel: { am: "የተመዘገቡበት ኢሜይል አድራሻ", or: "Teessoo Imeelii Galmooftaniin", en: "Your Registered Email Address" },
+  sendingCode: { am: "በመላክ ላይ...", or: "Ergamaa jira...", en: "Sending..." },
+  sendCodeBtn: { am: "የማረጋገጫ ኮድ ላክ", or: "Koodii Mirkaneessaa Ergi", en: "Send Verification Code" },
+  resetCodeLabel: { am: "የማረጋገጫ ኮድ (Reset Code)", or: "Koodii Haaromsaa (Reset Code)", en: "Verification Code (Reset Code)" },
+  resetCodePlaceholder: { am: "6-digit code", or: "Koodii lakkoofsa 6", en: "6-digit code" },
+  newPasswordLabel: { am: "አዲስ የይለፍ ቃል (New Password)", or: "Jecha Darbii Haaraa (New Password)", en: "New Password" },
+  confirmNewPasswordLabel: { am: "አዲስ የይለፍ ቃል ማረጋገጫ (Confirm Password)", or: "Mirkaneessa Jecha Darbii Haaraa", en: "Confirm New Password" },
+  changingPassword: { am: "በመቀየር ላይ...", or: "Jijjiiraa jira...", en: "Changing..." },
+  changePasswordBtn: { am: "የይለፍ ቃል ቀይር", or: "Jecha Darbii Jijjiiri", en: "Change Password" },
+  passwordsNotMatch: { am: "አዲሶቹ የይለፍ ቃሎች አይመሳሰሉም።", or: "Jechoonni darbii haaraa walii hin galan.", en: "New passwords do not match." },
+  forgotPasswordReqFailed: { am: "የይለፍ ቃል መልሶ ማግኛ ጥያቄ አልተሳካም።", or: "Gaaffiin haaromsaa jecha darbii hin danda'amne.", en: "Password reset request failed." },
+  passwordChangeFailed: { am: "የይለፍ ቃል መቀየር አልተሳካም።", or: "Jijjiirraa jecha darbii hin danda'amne.", en: "Password change failed." },
+
   // ── Footer ──────────────────────────────────────────────────────────────────
   footerBooksCoursesCol: { am: "መጽሐፍትና ኮርሶች", or: "Macaafota fi Leenjii", en: "Books & Courses" },
   footerSupportCol: { am: "ድጋፍና መረጃ", or: "Gargaarsa fi Odeeffannoo", en: "Support & Info" },

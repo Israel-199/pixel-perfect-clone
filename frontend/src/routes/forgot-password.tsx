@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/rabbi/Logo";
 import { fetchApi } from "@/lib/api";
 import { validateEmail } from "@/lib/inputValidation";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/forgot-password")({
 
 function ForgotPasswordRoute() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [step, setStep] = useState<"REQUEST" | "RESET">("REQUEST");
   const [email, setEmail] = useState("");
@@ -32,7 +34,7 @@ function ForgotPasswordRoute() {
     setError(null);
     setMessage(null);
 
-    const emailErr = validateEmail(email, "ኢሜይል (Email)");
+    const emailErr = validateEmail(email, t("emailLabel"));
     if (emailErr) {
       setError(emailErr);
       return;
@@ -52,7 +54,7 @@ function ForgotPasswordRoute() {
       }
       setStep("RESET");
     } catch (err: any) {
-      setError(err.message || "የይለፍ ቃል መልሶ ማግኛ ጥያቄ አልተሳካም።");
+      setError(err.message || t("forgotPasswordReqFailed"));
     } finally {
       setLoading(false);
     }
@@ -64,7 +66,7 @@ function ForgotPasswordRoute() {
     setMessage(null);
 
     if (newPassword !== confirmPassword) {
-      setError("አዲሶቹ የይለፍ ቃሎች አይመሳሰሉም።");
+      setError(t("passwordsNotMatch"));
       return;
     }
 
@@ -81,7 +83,7 @@ function ForgotPasswordRoute() {
         navigate({ to: "/login" });
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "የይለፍ ቃል መቀየር አልተሳካም።");
+      setError(err.message || t("passwordChangeFailed"));
     } finally {
       setLoading(false);
     }
@@ -94,12 +96,11 @@ function ForgotPasswordRoute() {
           <Logo size="lg" variant="badge" />
         </div>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
-          የይለፍ ቃል ለመቀየር
+          {t("forgotPasswordHeading")}
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          ወደ መግቢያ ገጽ ለመመለስ{" "}
           <Link to="/login" className="font-medium text-gold hover:underline">
-            እዚህ ይጫኑ
+            {t("backToLoginLink")}
           </Link>
         </p>
       </div>
@@ -122,7 +123,7 @@ function ForgotPasswordRoute() {
             <form className="space-y-5" onSubmit={handleRequestToken}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-navy mb-1">
-                  የተመዘገቡበት ኢሜይል አድራሻ
+                  {t("registeredEmailLabel")}
                 </label>
                 <input
                   id="email"
@@ -130,7 +131,7 @@ function ForgotPasswordRoute() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@gmail.com"
+                  placeholder={t("emailPlaceholder")}
                   className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
                 />
               </div>
@@ -140,14 +141,14 @@ function ForgotPasswordRoute() {
                 disabled={loading}
                 className="flex w-full justify-center rounded-lg border border-transparent bg-gold px-4 py-2.5 text-sm font-semibold text-navy-deep shadow transition-all hover:bg-gold/90 focus:outline-none disabled:opacity-50"
               >
-                {loading ? "በመላክ ላይ..." : "የማረጋገጫ ኮድ ላክ"}
+                {loading ? t("sendingCode") : t("sendCodeBtn")}
               </button>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleResetPassword}>
               <div>
                 <label htmlFor="resetToken" className="block text-sm font-medium text-navy mb-1">
-                  የማረጋገጫ ኮድ (Reset Code)
+                  {t("resetCodeLabel")}
                 </label>
                 <input
                   id="resetToken"
@@ -155,14 +156,14 @@ function ForgotPasswordRoute() {
                   required
                   value={resetToken}
                   onChange={(e) => setResetToken(e.target.value)}
-                  placeholder="6-digit code"
+                  placeholder={t("resetCodePlaceholder")}
                   className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
                 />
               </div>
 
               <div>
                 <label htmlFor="newPassword" className="block text-sm font-medium text-navy mb-1">
-                  አዲስ የይለፍ ቃል (New Password)
+                  {t("newPasswordLabel")}
                 </label>
                 <input
                   id="newPassword"
@@ -171,14 +172,14 @@ function ForgotPasswordRoute() {
                   minLength={6}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t("passwordPlaceholder")}
                   className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
                 />
               </div>
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-navy mb-1">
-                  አዲስ የይለፍ ቃል ማረጋገጫ (Confirm Password)
+                  {t("confirmNewPasswordLabel")}
                 </label>
                 <input
                   id="confirmPassword"
@@ -186,7 +187,7 @@ function ForgotPasswordRoute() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t("passwordPlaceholder")}
                   className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
                 />
               </div>
@@ -196,7 +197,7 @@ function ForgotPasswordRoute() {
                 disabled={loading}
                 className="mt-2 flex w-full justify-center rounded-lg border border-transparent bg-gold px-4 py-2.5 text-sm font-semibold text-navy-deep shadow transition-all hover:bg-gold/90 focus:outline-none disabled:opacity-50"
               >
-                {loading ? "በመቀየር ላይ..." : "የይለፍ ቃል ቀይር"}
+                {loading ? t("changingPassword") : t("changePasswordBtn")}
               </button>
             </form>
           )}

@@ -9,6 +9,7 @@ import {
   validateName,
   validateEmail,
 } from "@/lib/inputValidation";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -21,11 +22,10 @@ export const Route = createFileRoute("/register")({
   component: RegisterRoute,
 });
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function RegisterRoute() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t } = useLanguage();
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -39,8 +39,7 @@ function RegisterRoute() {
     e.preventDefault();
     setError(null);
 
-    // Client-side Input Validations
-    const nameErr = validateName(fullName, "ሙሉ ስም (Full Name)");
+    const nameErr = validateName(fullName, t("fullNameLabel"));
     if (nameErr) {
       setError(nameErr);
       return;
@@ -48,23 +47,23 @@ function RegisterRoute() {
 
     const digits = phone.replace(/\D/g, "");
     if (!digits || digits.length < 9) {
-      setError("እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ (ቁጥር ብቻ) (Valid Phone Number of digits only is required).");
+      setError(t("phoneInvalid"));
       return;
     }
 
-    const emailErr = validateEmail(email, "ኢሜይል (Email)");
+    const emailErr = validateEmail(email, t("emailLabel"));
     if (emailErr) {
       setError(emailErr);
       return;
     }
 
     if (!password || password.length < 6) {
-      setError("የይለፍ ቃል ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት (Password must be at least 6 characters).");
+      setError(t("passwordTooShort"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("የይለፍ ቃሎቹ አይመሳሰሉም። እባክዎ እንደገና ያረጋግጡ (Passwords do not match).");
+      setError(t("passwordMismatch"));
       return;
     }
 
@@ -85,7 +84,7 @@ function RegisterRoute() {
       login(data.token, data.user);
       navigate({ to: "/my-books" });
     } catch (err: any) {
-      setError(err.message || "ምዝገባው አልተሳካም። እባክዎ እንደገና ይሞክሩ።");
+      setError(err.message || t("registerFailed"));
     } finally {
       setLoading(false);
     }
@@ -98,12 +97,11 @@ function RegisterRoute() {
           <Logo size="lg" variant="badge" />
         </div>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
-          አዲስ አካውንት ይፍጠሩ
+          {t("registerPageHeading")}
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          አካውንት አለዎት?{" "}
           <Link to="/login" className="font-medium text-gold hover:underline">
-            እዚህ ይግቡ
+            {t("haveAccountLink")}
           </Link>
         </p>
       </div>
@@ -119,7 +117,7 @@ function RegisterRoute() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-navy mb-1">
-                ሙሉ ስም (Full Name) <span className="text-red-500">*</span>
+                {t("fullNameLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="fullName"
@@ -127,14 +125,14 @@ function RegisterRoute() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(filterNameInput(e.target.value))}
-                placeholder="ለምሳሌ፡ አበበ በቀለ (ፊደላት ብቻ)"
+                placeholder={t("fullNamePlaceholder")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-navy mb-1">
-                ስልክ ቁጥር (Phone Number) <span className="text-red-500">*</span>
+                {t("phoneLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="phone"
@@ -142,14 +140,14 @@ function RegisterRoute() {
                 required
                 value={phone}
                 onChange={(e) => setPhone(filterPhoneInput(e.target.value))}
-                placeholder="0911223344 (ቁጥር ብቻ)"
+                placeholder={t("phonePlaceholder")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy mb-1">
-                ኢሜይል አድራሻ (Email Address) <span className="text-red-500">*</span>
+                {t("emailLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -157,14 +155,14 @@ function RegisterRoute() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@gmail.com"
+                placeholder={t("emailPlaceholder")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy mb-1">
-                የይለፍ ቃል (Password) <span className="text-red-500">*</span>
+                {t("passwordLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -173,14 +171,14 @@ function RegisterRoute() {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="ቢያንስ 6 ፊደላት"
+                placeholder={t("passwordMinHint")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-navy mb-1">
-                የይለፍ ቃል ማረጋገጫ (Confirm Password) <span className="text-red-500">*</span>
+                {t("confirmPasswordLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="confirmPassword"
@@ -188,7 +186,7 @@ function RegisterRoute() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t("confirmPasswordPlaceholder")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
@@ -198,7 +196,7 @@ function RegisterRoute() {
               disabled={loading}
               className="mt-2 flex w-full justify-center rounded-lg border border-transparent bg-gold px-4 py-2.5 text-sm font-semibold text-navy-deep shadow transition-all hover:bg-gold/90 focus:outline-none disabled:opacity-50"
             >
-              {loading ? "በመመዝገብ ላይ..." : "ተመዝገብ"}
+              {loading ? t("registering") : t("registerAction")}
             </button>
           </form>
         </div>

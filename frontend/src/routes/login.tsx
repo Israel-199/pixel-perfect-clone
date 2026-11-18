@@ -4,6 +4,7 @@ import { Logo } from "@/components/rabbi/Logo";
 import { useAuth } from "@/lib/auth";
 import { fetchApi } from "@/lib/api";
 import { validateEmail } from "@/lib/inputValidation";
+import { useLanguage } from "@/lib/language";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -16,11 +17,10 @@ export const Route = createFileRoute("/login")({
   component: LoginRoute,
 });
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function LoginRoute() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t } = useLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,14 +31,14 @@ function LoginRoute() {
     e.preventDefault();
     setError(null);
 
-    const emailErr = validateEmail(email, "ኢሜይል (Email)");
+    const emailErr = validateEmail(email, t("emailLabel"));
     if (emailErr) {
       setError(emailErr);
       return;
     }
 
     if (!password) {
-      setError("እባክዎ የይለፍ ቃልዎን ያስገቡ (Password is required).");
+      setError(t("passwordRequired"));
       return;
     }
 
@@ -57,7 +57,7 @@ function LoginRoute() {
         navigate({ to: "/my-books" });
       }
     } catch (err: any) {
-      setError(err.message || "መግባት አልተሳካም። እባክዎ መረጃዎን ያረጋግጡ።");
+      setError(err.message || t("loginFailed"));
     } finally {
       setLoading(false);
     }
@@ -70,12 +70,11 @@ function LoginRoute() {
           <Logo size="lg" variant="badge" />
         </div>
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
-          ወደ አካውንትዎ ይግቡ
+          {t("loginPageHeading")}
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          አዲስ አካውንት የሎትም?{" "}
           <Link to="/register" className="font-medium text-gold hover:underline">
-            እዚህ ይመዝገቡ
+            {t("noAccountLink")}
           </Link>
         </p>
       </div>
@@ -91,7 +90,7 @@ function LoginRoute() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy mb-1">
-                ኢሜይል አድራሻ <span className="text-red-500">*</span>
+                {t("emailLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
@@ -99,14 +98,14 @@ function LoginRoute() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@gmail.com"
+                placeholder={t("emailPlaceholder")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy mb-1">
-                የይለፍ ቃል (Password) <span className="text-red-500">*</span>
+                {t("passwordLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -114,9 +113,15 @@ function LoginRoute() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t("passwordPlaceholder")}
                 className="block w-full rounded-lg border border-navy/20 px-3.5 py-2.5 shadow-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
               />
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <Link to="/forgot-password" className="font-medium text-gold hover:underline">
+                {t("forgotPasswordPrompt")}
+              </Link>
             </div>
 
             <button
@@ -124,7 +129,7 @@ function LoginRoute() {
               disabled={loading}
               className="flex w-full justify-center rounded-lg border border-transparent bg-gold px-4 py-2.5 text-sm font-semibold text-navy-deep shadow transition-all hover:bg-gold/90 focus:outline-none disabled:opacity-50"
             >
-              {loading ? "በመግባት ላይ..." : "ግባ"}
+              {loading ? t("signingIn") : t("signInBtn")}
             </button>
           </form>
         </div>
