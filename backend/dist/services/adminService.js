@@ -158,9 +158,6 @@ class AdminService {
         const author = data.author ? (0, validation_1.validateName)(data.author, "Author", false) || "RABBI" : "RABBI";
         const description = (0, validation_1.stripHtml)((0, validation_1.validateString)(data.description, "Description", { max: 2000 }));
         const numPrice = (0, validation_1.validatePositiveNumber)(data.price ?? 0, "Price");
-        const coverUrl = (0, validation_1.validateUrl)(data.coverUrl, "Cover Image URL");
-        if (!coverUrl)
-            throw new Error("Cover image URL is required.");
         const sampleContent = (0, validation_1.validateString)(data.sampleContent, "Sample Content", { max: 50000 });
         const fullContent = (0, validation_1.validateString)(data.fullContent, "Full Content", { max: 500000 });
         const videoUrl = (0, validation_1.validateUrl)(data.videoUrl, "Video URL");
@@ -169,6 +166,19 @@ class AdminService {
         const mediaType = (data.mediaType || "BOOK").toUpperCase().trim();
         if (!validMediaTypes.includes(mediaType)) {
             throw new Error("Invalid content/media type.");
+        }
+        // Default spiritual cover placeholder by media type if admin chooses not to upload one
+        const defaultCovers = {
+            BOOK: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop",
+            VIDEO: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=600&auto=format&fit=crop",
+            AUDIO: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop",
+            COURSE: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop",
+            ARTICLE: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&auto=format&fit=crop",
+            PRAYER: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop",
+        };
+        let coverUrl = (data.coverUrl && data.coverUrl.trim()) ? ((0, validation_1.validateUrl)(data.coverUrl, "Cover Image URL") || "") : "";
+        if (!coverUrl) {
+            coverUrl = defaultCovers[mediaType] || defaultCovers.BOOK;
         }
         return prisma_1.prisma.book.create({
             data: {
@@ -246,8 +256,9 @@ class AdminService {
             updatePayload.description = data.description.trim();
         if (parsedPrice !== undefined)
             updatePayload.price = parsedPrice;
-        if (data.coverUrl !== undefined)
+        if (data.coverUrl !== undefined && data.coverUrl.trim()) {
             updatePayload.coverUrl = data.coverUrl.trim();
+        }
         if (data.sampleContent !== undefined)
             updatePayload.sampleContent = data.sampleContent.trim();
         if (data.fullContent !== undefined)
