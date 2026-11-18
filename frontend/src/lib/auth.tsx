@@ -23,7 +23,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() =>
-    typeof window !== "undefined" ? localStorage.getItem("rabbi_auth_token") : null
+    typeof window !== "undefined"
+      ? localStorage.getItem("rabbi_auth_token") || localStorage.getItem("rabbi_token")
+      : null
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string, newUser: User) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("rabbi_auth_token", newToken);
+      localStorage.setItem("rabbi_token", newToken);
     }
     setToken(newToken);
     setUser(newUser);
@@ -60,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("rabbi_auth_token");
+      localStorage.removeItem("rabbi_token");
     }
     setToken(null);
     setUser(null);

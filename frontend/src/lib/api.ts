@@ -36,7 +36,10 @@ export function clearApiCache(prefix?: string) {
 
 export async function fetchApi<T = any>(endpoint: string, options: FetchApiOptions = {}): Promise<T> {
   const method = (options.method || "GET").toUpperCase();
-  const token = typeof window !== "undefined" ? localStorage.getItem("rabbi_auth_token") : null;
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("rabbi_auth_token") || localStorage.getItem("rabbi_token")
+      : null;
 
   // On any mutation, invalidate cached queries so subsequent reads return fresh data
   if (method !== "GET") {

@@ -456,17 +456,23 @@ function AdminRoute() {
       file: File,
       resourceType: string,
       onProgress: (pct: number) => void,
-      token: string | null
+      token?: string | null
     ): Promise<{ url: string }> =>
       new Promise((resolve, reject) => {
+        const resolvedToken =
+          token ||
+          (typeof window !== "undefined"
+            ? localStorage.getItem("rabbi_auth_token") ||
+              localStorage.getItem("rabbi_token")
+            : null);
         const API_BASE =
           typeof window !== "undefined" && (window as any).__API_BASE__
             ? (window as any).__API_BASE__
             : (import.meta as any).env?.VITE_API_URL ||
               "https://rabbi-backend.onrender.com/api";
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${API_BASE}/admin/upload`, true);
-        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.open("POST", ${API_BASE}/admin/upload, true);
+        if (resolvedToken) xhr.setRequestHeader("Authorization", Bearer );
         xhr.upload.onprogress = (evt) => {
           if (evt.lengthComputable) {
             onProgress(Math.round((evt.loaded / evt.total) * 100));
@@ -532,7 +538,7 @@ function AdminRoute() {
 
     try {
       const token = typeof localStorage !== "undefined"
-        ? localStorage.getItem("rabbi_token") : null;
+        ? (localStorage.getItem("rabbi_auth_token") || localStorage.getItem("rabbi_token")) : null;
       const data = await xhrUpload(
         file,
         "image",
@@ -600,7 +606,7 @@ function AdminRoute() {
 
     try {
       const token = typeof localStorage !== "undefined"
-        ? localStorage.getItem("rabbi_token") : null;
+        ? (localStorage.getItem("rabbi_auth_token") || localStorage.getItem("rabbi_token")) : null;
       const data = await xhrUpload(
         file,
         "raw",
