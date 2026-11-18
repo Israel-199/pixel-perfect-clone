@@ -212,11 +212,11 @@ function Index() {
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,oklch(0.175_0.048_265/0.92)_0%,oklch(0.175_0.048_265/0.55)_45%,oklch(0.175_0.048_265/0.85)_100%)]" />
         <div className="relative mx-auto grid max-w-[1180px] gap-8 md:gap-10 px-4 sm:px-6 py-12 md:grid-cols-[1.6fr_1fr] md:items-center md:py-20">
-          <div className="text-center md:text-left">
+          <div className="text-left">
             <h1 className="font-display text-4xl sm:text-5xl md:text-7xl tracking-[0.12em] sm:tracking-[0.22em] text-on-navy font-bold">
               RABBI
             </h1>
-            <div className="gold-rule mt-3 sm:mt-4 text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.3em] text-gold-soft font-semibold">
+            <div className="gold-rule mt-3 sm:mt-4 text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.3em] text-gold-soft font-semibold justify-start">
               ጌታና መምህር
             </div>
             <p className="mt-6 sm:mt-8 text-lg sm:text-xl md:text-2xl font-semibold text-on-navy">
