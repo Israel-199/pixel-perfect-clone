@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   ShieldAlert,
@@ -471,8 +471,8 @@ function AdminRoute() {
             : (import.meta as any).env?.VITE_API_URL ||
               "https://rabbi-backend.onrender.com/api";
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", ${API_BASE}/admin/upload, true);
-        if (resolvedToken) xhr.setRequestHeader("Authorization", Bearer );
+        xhr.open("POST", `${API_BASE}/admin/upload`, true);
+        if (resolvedToken) xhr.setRequestHeader("Authorization", `Bearer ${resolvedToken}`);
         xhr.upload.onprogress = (evt) => {
           if (evt.lengthComputable) {
             onProgress(Math.round((evt.loaded / evt.total) * 100));
