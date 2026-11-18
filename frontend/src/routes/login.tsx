@@ -119,12 +119,6 @@ function LoginRoute() {
               />
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <Link to="/forgot-password" className="font-medium text-gold hover:underline">
-                የይለፍ ቃል ረሱ?
-              </Link>
-            </div>
-
             <button
               type="submit"
               disabled={loading}
