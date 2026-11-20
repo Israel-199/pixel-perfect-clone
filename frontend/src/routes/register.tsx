@@ -99,9 +99,13 @@ function RegisterRoute() {
         <h2 className="mt-6 text-center font-display text-3xl font-bold tracking-tight text-navy">
           {t("registerPageHeading")}
         </h2>
-        <p className="mt-2 text-center text-sm text-muted-foreground">
-          <Link to="/login" className="font-medium text-gold hover:underline">
-            {t("haveAccountLink")}
+        <p className="mt-2 text-center text-sm text-muted-foreground flex items-center justify-center gap-1.5 flex-wrap">
+          <span>{t("haveAccountPrefix")}</span>
+          <Link
+            to="/login"
+            className="text-[15px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 underline underline-offset-4 decoration-blue-500/70 hover:decoration-blue-800 transition-colors cursor-pointer"
+          >
+            {t("logInHereText")}
           </Link>
         </p>
       </div>

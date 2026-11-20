@@ -18,6 +18,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/language";
+import { Toaster } from "sonner";
 
 // ============================================
 // RABBI DIGITAL - HOMEPAGE SEO CONFIGURATION
@@ -310,6 +311,20 @@ function RootComponent() {
             </main>
 
             {!isAdmin && <Footer />}
+
+            <Toaster
+              position="top-right"
+              richColors
+              closeButton
+              duration={5000}
+              toastOptions={{
+                classNames: {
+                  toast: "font-body text-sm",
+                  title: "font-bold",
+                  description: "text-xs opacity-80",
+                },
+              }}
+            />
           </div>
         </LanguageProvider>
       </AuthProvider>

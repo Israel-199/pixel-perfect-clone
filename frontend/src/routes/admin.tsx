@@ -37,6 +37,10 @@ import {
   TrendingUp,
   Coins,
   Eye,
+  Ban,
+  ShieldCheck,
+  UserX,
+  Unlock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchApi, clearApiCache, API_BASE_URL } from "@/lib/api";
@@ -144,7 +148,23 @@ interface DashboardStats {
   }>;
 }
 
-type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE" | "MANAGE_ADMINS";
+interface RegisteredUser {
+  id: string;
+  fullName: string | null;
+  phone: string | null;
+  email: string;
+  role: "USER" | "ADMIN";
+  isSuspended: boolean;
+  loginAttempts: number;
+  lockedUntil: string | null;
+  createdAt: string;
+  updatedAt: string;
+  totalRequests: number;
+  approvedRequests: number;
+  pendingRequests: number;
+}
+
+type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE" | "MANAGE_ADMINS" | "MANAGE_USERS";
 type ContentFilterType = "ALL" | "BOOK" | "VIDEO" | "AUDIO" | "COURSE" | "ARTICLE" | "PRAYER";
 type RequestFilterType = "ALL" | "BOOK" | "MEDIA" | "COURSE";
 
@@ -278,6 +298,21 @@ function AdminRoute() {
   const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null);
   const [deletingAdminLoading, setDeletingAdminLoading] = useState(false);
 
+  // User Management State
+  const [usersList, setUsersList] = useState<RegisteredUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState<"ALL" | "ACTIVE" | "SUSPENDED" | "WITH_REQUESTS">("ALL");
+  const [userActionLoadingId, setUserActionLoadingId] = useState<string | null>(null);
+  const [userMessage, setUserMessage] = useState<string | null>(null);
+  const [userError, setUserError] = useState<string | null>(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<RegisteredUser | null>(null);
+  const [customNewPassword, setCustomNewPassword] = useState("");
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState<string | null>(null);
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [deletingUserTarget, setDeletingUserTarget] = useState<RegisteredUser | null>(null);
+  const [deletingUserLoading, setDeletingUserLoading] = useState(false);
+
   // Polling ref
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -406,6 +441,7 @@ function AdminRoute() {
     fetchPrivatePrayers();
     fetchDashboardStats();
     fetchAdmins();
+    fetchUsers(true);
 
     // Setup real-time polling every 12 seconds only when tab is active (prevents thread thrashing)
     pollingRef.current = setInterval(() => {
@@ -414,6 +450,7 @@ function AdminRoute() {
       fetchPrivatePrayers(true);
       fetchAdminContents(true);
       fetchDashboardStats(true);
+      fetchUsers(true);
     }, 12000);
 
     return () => {
@@ -442,6 +479,7 @@ function AdminRoute() {
       // Silently refresh stats and contents in background without delaying button
       fetchAdminContents(true);
       fetchDashboardStats(true);
+      fetchUsers(true);
     } catch (err: any) {
       alert(err.message || "የጥያቄ ሁኔታ መቀየር አልተሳካም።");
     } finally {
@@ -800,6 +838,7 @@ function AdminRoute() {
       await fetchApi(`/admin/books/${targetId}`, { method: "DELETE" });
       clearApiCache();
       fetchDashboardStats(true);
+      fetchUsers(true);
       fetchAdminRequests(true);
     } catch (err: any) {
       setContents(prevContents);
@@ -848,6 +887,7 @@ function AdminRoute() {
       setNewAdminFullName("");
       setNewAdminPhone("");
       fetchAdmins();
+    fetchUsers(true);
     } catch (err: any) {
       setNewAdminError(err.message || "አስተዳዳሪ መፍጠር አልተሳካም።");
     } finally {
@@ -885,6 +925,7 @@ function AdminRoute() {
       });
       setEditAdminMsg("አስተዳዳሪ በተሳካ ሁኔታ ተሻሽሏል!");
       fetchAdmins();
+    fetchUsers(true);
       setTimeout(() => setEditingAdmin(null), 800);
     } catch (err: any) {
       setEditAdminError(err.message || "አስተዳዳሪ ማስተካከል አልተሳካም።");
@@ -914,6 +955,161 @@ function AdminRoute() {
       setDeletingAdminLoading(false);
     }
   };
+
+  // ─── USER MANAGEMENT HANDLERS ──────────────────────────────────────────────
+  const fetchUsers = async (quiet = false) => {
+    try {
+      if (!quiet) setUsersLoading(true);
+      const data = await fetchApi<{ users: RegisteredUser[] }>("/admin/users", { skipCache: true });
+      setUsersList(data.users || []);
+    } catch (err) {
+      console.error("Failed to load users:", err);
+    } finally {
+      if (!quiet) setUsersLoading(false);
+    }
+  };
+
+  const handleToggleSuspendUser = async (targetUser: RegisteredUser) => {
+    const isCurrentlySuspended = !!targetUser.isSuspended;
+    const confirmMsg = isCurrentlySuspended
+      ? `የተጠቃሚ ${targetUser.fullName || targetUser.email} አካውንት እገዳ ማንሳት ይፈልጋሉ?`
+      : `ተጠቃሚ ${targetUser.fullName || targetUser.email} አካውንት ማገድ ይፈልጋሉ? የታገደ ተጠቃሚ ወደ ሲስተሙ መግባት አይችልም።`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setUserActionLoadingId(targetUser.id);
+    setUserError(null);
+    setUserMessage(null);
+
+    // Optimistic UI update
+    setUsersList((prev) =>
+      prev.map((u) => (u.id === targetUser.id ? { ...u, isSuspended: !isCurrentlySuspended } : u))
+    );
+
+    try {
+      const data = await fetchApi<{ user: any; message: string; isSuspended: boolean }>(
+        `/admin/users/${targetUser.id}/suspend`,
+        { method: "PUT" }
+      );
+      clearApiCache();
+      setUserMessage(data.message || (isCurrentlySuspended ? "እገዳ ተነስቷል" : "ተጠቃሚው ታግዷል"));
+      setTimeout(() => setUserMessage(null), 4000);
+    } catch (err: any) {
+      // Revert optimistic update
+      setUsersList((prev) =>
+        prev.map((u) => (u.id === targetUser.id ? { ...u, isSuspended: isCurrentlySuspended } : u))
+      );
+      setUserError(err.message || "የእገዳ ሁኔታ መቀየር አልተሳካም።");
+    } finally {
+      setUserActionLoadingId(null);
+    }
+  };
+
+  const handleToggleUserRole = async (targetUser: RegisteredUser) => {
+    const newRole = targetUser.role === "ADMIN" ? "USER" : "ADMIN";
+    const confirmMsg =
+      newRole === "ADMIN"
+        ? `ተጠቃሚ ${targetUser.fullName || targetUser.email}ን ወደ አስተዳዳሪ (ADMIN) ማሳደግ ይፈልጋሉ?`
+        : `የአስተዳዳሪ ${targetUser.fullName || targetUser.email} ሚናን ወደ ተጠቃሚ (USER) ዝቅ ማድረግ ይፈልጋሉ?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setUserActionLoadingId(targetUser.id);
+    setUserError(null);
+    setUserMessage(null);
+
+    // Optimistic UI update
+    setUsersList((prev) =>
+      prev.map((u) => (u.id === targetUser.id ? { ...u, role: newRole } : u))
+    );
+
+    try {
+      const data = await fetchApi<{ user: any; message: string }>(
+        `/admin/users/${targetUser.id}/role`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ role: newRole }),
+        }
+      );
+      clearApiCache();
+      setUserMessage(data.message || `ሚና ወደ ${newRole} ተቀይሯል`);
+      fetchAdmins();
+      setTimeout(() => setUserMessage(null), 4000);
+    } catch (err: any) {
+      // Revert
+      setUsersList((prev) =>
+        prev.map((u) => (u.id === targetUser.id ? { ...u, role: targetUser.role } : u))
+      );
+      setUserError(err.message || "የተጠቃሚ ሚና መቀየር አልተሳካም።");
+    } finally {
+      setUserActionLoadingId(null);
+    }
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deletingUserTarget) return;
+    const target = deletingUserTarget;
+    const prevList = [...usersList];
+
+    setDeletingUserLoading(true);
+    // Optimistic remove
+    setUsersList((prev) => prev.filter((u) => u.id !== target.id));
+    setDeletingUserTarget(null);
+
+    try {
+      await fetchApi(`/admin/users/${target.id}`, { method: "DELETE" });
+      clearApiCache();
+      setUserMessage("ተጠቃሚው በተሳካ ሁኔታ ተሰርዟል");
+      setTimeout(() => setUserMessage(null), 4000);
+    } catch (err: any) {
+      setUsersList(prevList);
+      setUserError(err.message || "ተጠቃሚ መሰረዝ አልተሳካም።");
+    } finally {
+      setDeletingUserLoading(false);
+    }
+  };
+
+  const handleConfirmResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPasswordTarget) return;
+
+    setResetPasswordLoading(true);
+    setResetPasswordSuccess(null);
+    setUserError(null);
+
+    try {
+      const data = await fetchApi<{ success: boolean; newPassword: string; message: string }>(
+        `/admin/users/${resetPasswordTarget.id}/reset-password`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ newPassword: customNewPassword.trim() || undefined }),
+        }
+      );
+      setResetPasswordSuccess(data.newPassword);
+      setUserMessage(data.message || "የይለፍ ቃል በተሳካ ሁኔታ ተቀይሯል");
+      clearApiCache();
+    } catch (err: any) {
+      setUserError(err.message || "የይለፍ ቃል መቀየር አልተሳካም።");
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    return usersList.filter((u) => {
+      if (userSearch.trim()) {
+        const q = userSearch.toLowerCase().trim();
+        const matchesName = (u.fullName || "").toLowerCase().includes(q);
+        const matchesEmail = (u.email || "").toLowerCase().includes(q);
+        const matchesPhone = (u.phone || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesEmail && !matchesPhone) return false;
+      }
+      if (userStatusFilter === "ACTIVE") return !u.isSuspended;
+      if (userStatusFilter === "SUSPENDED") return !!u.isSuspended;
+      if (userStatusFilter === "WITH_REQUESTS") return (u.totalRequests || 0) > 0;
+      return true;
+    });
+  }, [usersList, userSearch, userStatusFilter]);
 
   // Admin Profile & Security Update (Full Name, Email, Password)
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -1393,6 +1589,27 @@ function AdminRoute() {
               <KeyRound className="h-4 w-4" />
             )}
             <span>የይለፍ ቃልና ፕሮፋይል (Security)</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab("MANAGE_USERS"); fetchUsers(); }}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === "MANAGE_USERS"
+                ? "bg-navy-deep text-gold shadow-md border border-gold/40"
+                : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
+            }`}
+          >
+            {usersLoading && activeTab === "MANAGE_USERS" ? (
+              <RefreshCw className="h-4 w-4 text-gold animate-spin" />
+            ) : (
+              <Users className="h-4 w-4" />
+            )}
+            <span>ተጠቃሚዎች ({usersList.length})</span>
+            {usersList.filter((u) => u.isSuspended).length > 0 && (
+              <span className="rounded-full bg-rose-500 text-white px-1.5 py-0.5 text-[10px] font-bold">
+                {usersList.filter((u) => u.isSuspended).length} የታገዱ
+              </span>
+            )}
           </button>
 
           <button
@@ -3056,7 +3273,665 @@ function AdminRoute() {
           </div>
         )}
 
+        {/* ================= TAB: MANAGE USERS ================= */}
+        {activeTab === "MANAGE_USERS" && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 rounded-2xl border border-gold/30 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold border border-gold/30 shrink-0">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="font-display text-xl font-bold text-navy">የተጠቃሚዎች አስተዳደር (User Management)</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    በድረ-ገጹ ላይ የተመዘገቡ ተጠቃሚዎችን ይመልከቱ፣ እገዳ ያድርጉ፣ ሚና ይለውጡ ወይም የይለፍ ቃል ያስተካክሉ።
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => fetchUsers()}
+                className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl bg-navy/5 border border-navy/10 px-3.5 py-2 text-xs font-bold text-navy hover:bg-gold/10 transition-all cursor-pointer"
+              >
+                <RefreshCw className={`h-4 w-4 text-gold ${usersLoading ? "animate-spin" : ""}`} />
+                <span>አድስ (Refresh)</span>
+              </button>
+            </div>
+
+            {/* Notification Messages */}
+            {userMessage && (
+              <div className="rounded-xl bg-green-50 p-4 border border-green-200 text-xs font-medium text-green-800 flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  <span>{userMessage}</span>
+                </div>
+                <button onClick={() => setUserMessage(null)} className="text-green-700 hover:text-green-900 cursor-pointer">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            {userError && (
+              <div className="rounded-xl bg-red-50 p-4 border border-red-200 text-xs font-medium text-red-700 flex items-center justify-between gap-2 shadow-sm animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                  <span>{userError}</span>
+                </div>
+                <button onClick={() => setUserError(null)} className="text-red-700 hover:text-red-900 cursor-pointer">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm">
+                <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold mb-1">
+                  <span>ጠቅላላ ተጠቃሚዎች</span>
+                  <Users className="h-4 w-4 text-gold" />
+                </div>
+                <div className="font-display text-2xl font-bold text-navy">{usersList.length}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">የተመዘገቡ ተጠቃሚዎች</div>
+              </div>
+
+              <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm">
+                <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold mb-1">
+                  <span>ንቁ አካውንቶች</span>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="font-display text-2xl font-bold text-emerald-600">
+                  {usersList.filter((u) => !u.isSuspended).length}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">መግባት የሚችሉ</div>
+              </div>
+
+              <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm">
+                <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold mb-1">
+                  <span>የታገዱ አካውንቶች</span>
+                  <Ban className="h-4 w-4 text-rose-600" />
+                </div>
+                <div className="font-display text-2xl font-bold text-rose-600">
+                  {usersList.filter((u) => u.isSuspended).length}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">መግባት የተከለከሉ</div>
+              </div>
+
+              <div className="rounded-2xl bg-card border border-gold/20 p-4 shadow-sm">
+                <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold mb-1">
+                  <span>ግዢ የፈጸሙ</span>
+                  <ShoppingBag className="h-4 w-4 text-blue-600" />
+                </div>
+                <div className="font-display text-2xl font-bold text-blue-600">
+                  {usersList.filter((u) => (u.totalRequests || 0) > 0).length}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">ይዘት የጠየቁ / የገዙ</div>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-gold/20 shadow-sm">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="በስም፣ በኢሜይል ወይም በስልክ ፈልግ (Search)..."
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-navy/15 bg-background text-xs focus:border-gold focus:outline-none transition-colors"
+                />
+                {userSearch && (
+                  <button
+                    onClick={() => setUserSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-navy cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                <button
+                  onClick={() => setUserStatusFilter("ALL")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    userStatusFilter === "ALL"
+                      ? "bg-navy-deep text-gold shadow-sm"
+                      : "bg-navy/5 text-navy hover:bg-gold/15"
+                  }`}
+                >
+                  ሁሉም ({usersList.length})
+                </button>
+                <button
+                  onClick={() => setUserStatusFilter("ACTIVE")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    userStatusFilter === "ACTIVE"
+                      ? "bg-emerald-700 text-white shadow-sm"
+                      : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                  }`}
+                >
+                  ንቁ ({usersList.filter((u) => !u.isSuspended).length})
+                </button>
+                <button
+                  onClick={() => setUserStatusFilter("SUSPENDED")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    userStatusFilter === "SUSPENDED"
+                      ? "bg-rose-700 text-white shadow-sm"
+                      : "bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100"
+                  }`}
+                >
+                  የታገዱ ({usersList.filter((u) => u.isSuspended).length})
+                </button>
+                <button
+                  onClick={() => setUserStatusFilter("WITH_REQUESTS")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    userStatusFilter === "WITH_REQUESTS"
+                      ? "bg-blue-700 text-white shadow-sm"
+                      : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
+                  }`}
+                >
+                  ግዢ ያላቸው ({usersList.filter((u) => (u.totalRequests || 0) > 0).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Users List Container */}
+            <div className="rounded-2xl bg-card border border-gold/20 shadow-sm overflow-hidden">
+              {usersLoading && usersList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <div className="h-9 w-9 animate-spin rounded-full border-4 border-gold border-t-transparent" />
+                  <p className="text-xs text-muted-foreground font-semibold">ተጠቃሚዎችን በመጫን ላይ...</p>
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-16 px-4">
+                  <UserX className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                  <h3 className="font-display text-base font-bold text-navy mb-1">ምንም ተጠቃሚ አልተገኘም</h3>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    {userSearch
+                      ? `"${userSearch}" የሚል ውጤት አልተገኘም። እባክዎ ፍለጋውን ይቀይሩ።`
+                      : "እስካሁን በዚህ ምድብ የተመዘገበ ተጠቃሚ የለም።"}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-navy/5 border-b border-navy/10 text-navy uppercase text-[11px] font-bold">
+                        <tr>
+                          <th className="py-3 px-4">ተጠቃሚ (User)</th>
+                          <th className="py-3 px-4">ስልክ (Phone)</th>
+                          <th className="py-3 px-4">ሚና (Role)</th>
+                          <th className="py-3 px-4">ግዢዎች (Requests)</th>
+                          <th className="py-3 px-4">የተመዘገበበት ቀን</th>
+                          <th className="py-3 px-4">ሁኔታ (Status)</th>
+                          <th className="py-3 px-4 text-right">አስተዳድር (Actions)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-navy/5">
+                        {filteredUsers.map((regUser) => {
+                          const isTargetLoading = userActionLoadingId === regUser.id;
+                          const isCurrentUser = user?.id === regUser.id;
+                          const initials = (regUser.fullName || regUser.email || "U")
+                            .split(" ")
+                            .map((p) => p[0])
+                            .slice(0, 2)
+                            .join("")
+                            .toUpperCase();
+
+                          return (
+                            <tr
+                              key={regUser.id}
+                              className={`transition-colors hover:bg-gold/5 ${
+                                regUser.isSuspended ? "bg-rose-50/30" : ""
+                              }`}
+                            >
+                              {/* User Info */}
+                              <td className="py-3.5 px-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="relative">
+                                    <div
+                                      className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold text-xs shrink-0 ${
+                                        regUser.isSuspended
+                                          ? "bg-rose-100 text-rose-700 border border-rose-300"
+                                          : regUser.role === "ADMIN"
+                                          ? "bg-gold/20 text-navy font-bold border border-gold/40"
+                                          : "bg-navy/10 text-navy border border-navy/15"
+                                      }`}
+                                    >
+                                      {initials}
+                                    </div>
+                                    <span
+                                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${
+                                        regUser.isSuspended ? "bg-rose-500" : "bg-emerald-500"
+                                      }`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-navy text-sm flex items-center gap-1.5">
+                                      <span>{regUser.fullName || "ስም አልተገለጸም"}</span>
+                                      {isCurrentUser && (
+                                        <span className="rounded bg-gold/20 px-1.5 py-0.2 text-[9px] font-bold text-navy-deep border border-gold/30">
+                                          እርስዎ (You)
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-muted-foreground font-mono text-[11px] mt-0.5">
+                                      {regUser.email}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Phone */}
+                              <td className="py-3.5 px-4 text-muted-foreground font-mono">
+                                {regUser.phone ? (
+                                  <span className="text-navy font-medium">{regUser.phone}</span>
+                                ) : (
+                                  <span className="text-muted-foreground/60 italic">—</span>
+                                )}
+                              </td>
+
+                              {/* Role */}
+                              <td className="py-3.5 px-4">
+                                {regUser.role === "ADMIN" ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-2.5 py-0.5 text-[11px] font-bold text-navy-deep border border-gold/40">
+                                    <ShieldCheck className="h-3 w-3 text-gold" />
+                                    አስተዳዳሪ
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-navy/10 px-2.5 py-0.5 text-[11px] font-medium text-navy">
+                                    <User className="h-3 w-3 text-muted-foreground" />
+                                    መደበኛ ተጠቃሚ
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Requests */}
+                              <td className="py-3.5 px-4">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-navy">{regUser.totalRequests || 0}</span>
+                                  <span className="text-[10px] text-muted-foreground">ጥያቄዎች</span>
+                                  {regUser.approvedRequests > 0 && (
+                                    <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.2 text-[9px] font-bold">
+                                      {regUser.approvedRequests} የጸደቁ
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Registration Date */}
+                              <td className="py-3.5 px-4 text-muted-foreground text-[11px]">
+                                {new Date(regUser.createdAt).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-4">
+                                {regUser.isSuspended ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 px-2.5 py-0.5 text-[11px] font-bold border border-rose-300">
+                                    <Ban className="h-3 w-3 text-rose-600" />
+                                    የታገደ (Suspended)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[11px] font-bold border border-emerald-300">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                    ንቁ (Active)
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Suspend / Unsuspend Button */}
+                                  <button
+                                    onClick={() => handleToggleSuspendUser(regUser)}
+                                    disabled={isTargetLoading || isCurrentUser}
+                                    title={
+                                      isCurrentUser
+                                        ? "የራስዎን አካውንት ማገድ አይችሉም"
+                                        : regUser.isSuspended
+                                        ? "እገዳ አንሳ (Reactivate)"
+                                        : "አካውንቱን እገድ (Suspend Account)"
+                                    }
+                                    className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                                      regUser.isSuspended
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                        : "bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100"
+                                    }`}
+                                  >
+                                    {isTargetLoading ? (
+                                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    ) : regUser.isSuspended ? (
+                                      <>
+                                        <Unlock className="h-3.5 w-3.5" />
+                                        <span>እገዳ አንሳ</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Ban className="h-3.5 w-3.5" />
+                                        <span>እገድ</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  {/* Role Toggle Button */}
+                                  <button
+                                    onClick={() => handleToggleUserRole(regUser)}
+                                    disabled={isTargetLoading || isCurrentUser}
+                                    title={
+                                      isCurrentUser
+                                        ? "የራስዎን ሚና መቀየር አይችሉም"
+                                        : regUser.role === "ADMIN"
+                                        ? "ወደ USER ዝቅ አድርግ"
+                                        : "ወደ ADMIN አሳድግ"
+                                    }
+                                    className="flex items-center gap-1 rounded-xl bg-navy/5 border border-navy/15 px-2 py-1.5 text-xs font-semibold text-navy hover:bg-gold/15 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <ShieldAlert className="h-3.5 w-3.5 text-gold" />
+                                    <span>{regUser.role === "ADMIN" ? "USER" : "ADMIN"}</span>
+                                  </button>
+
+                                  {/* Reset Password Button */}
+                                  <button
+                                    onClick={() => {
+                                      setResetPasswordTarget(regUser);
+                                      setCustomNewPassword("");
+                                      setResetPasswordSuccess(null);
+                                    }}
+                                    title="የይለፍ ቃል ቀይር"
+                                    className="flex items-center gap-1 rounded-xl bg-navy/5 border border-navy/15 p-1.5 text-xs font-semibold text-navy hover:bg-gold/15 transition-all cursor-pointer"
+                                  >
+                                    <KeyRound className="h-3.5 w-3.5 text-gold" />
+                                  </button>
+
+                                  {/* Delete User Button */}
+                                  <button
+                                    onClick={() => setDeletingUserTarget(regUser)}
+                                    disabled={isCurrentUser}
+                                    title={isCurrentUser ? "የራስዎን አካውንት መሰረዝ አይችሉም" : "ተጠቃሚውን ሰርዝ"}
+                                    className="flex items-center gap-1 rounded-xl bg-red-500/10 border border-red-500/20 p-1.5 text-xs font-semibold text-red-600 hover:bg-red-500/20 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="md:hidden divide-y divide-navy/10">
+                    {filteredUsers.map((regUser) => {
+                      const isTargetLoading = userActionLoadingId === regUser.id;
+                      const isCurrentUser = user?.id === regUser.id;
+                      const initials = (regUser.fullName || regUser.email || "U")
+                        .split(" ")
+                        .map((p) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={regUser.id}
+                          className={`p-4 space-y-3 ${regUser.isSuspended ? "bg-rose-50/40" : ""}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-10 w-10 items-center justify-center rounded-xl font-bold text-xs shrink-0 ${
+                                  regUser.isSuspended
+                                    ? "bg-rose-100 text-rose-700 border border-rose-300"
+                                    : "bg-navy/10 text-navy border border-navy/15"
+                                }`}
+                              >
+                                {initials}
+                              </div>
+                              <div>
+                                <div className="font-bold text-navy text-sm flex items-center gap-1.5 flex-wrap">
+                                  <span>{regUser.fullName || "ስም አልተገለጸም"}</span>
+                                  {isCurrentUser && (
+                                    <span className="rounded bg-gold/20 px-1.5 py-0.2 text-[9px] font-bold text-navy-deep border border-gold/30">
+                                      እርስዎ
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-muted-foreground font-mono text-xs">{regUser.email}</div>
+                                {regUser.phone && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">📱 {regUser.phone}</div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Status Badge */}
+                            <div>
+                              {regUser.isSuspended ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold border border-rose-300">
+                                  <Ban className="h-3 w-3 text-rose-600" />
+                                  የታገደ
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-300">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                  ንቁ
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick details */}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-navy/5">
+                            <div>
+                              ሚና፡{" "}
+                              <span className="font-bold text-navy">
+                                {regUser.role === "ADMIN" ? "አስተዳዳሪ (ADMIN)" : "ተጠቃሚ (USER)"}
+                              </span>
+                            </div>
+                            <div>
+                              ጥያቄዎች፡{" "}
+                              <span className="font-bold text-navy">{regUser.totalRequests || 0}</span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={() => handleToggleSuspendUser(regUser)}
+                              disabled={isTargetLoading || isCurrentUser}
+                              className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 ${
+                                regUser.isSuspended
+                                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                  : "bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100"
+                              }`}
+                            >
+                              {isTargetLoading ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : regUser.isSuspended ? (
+                                <>
+                                  <Unlock className="h-3.5 w-3.5" />
+                                  <span>እገዳ አንሳ (Reactivate)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Ban className="h-3.5 w-3.5" />
+                                  <span>አካውንቱን እገድ (Suspend)</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setResetPasswordTarget(regUser);
+                                setCustomNewPassword("");
+                                setResetPasswordSuccess(null);
+                              }}
+                              className="rounded-xl bg-navy/5 border border-navy/15 p-2 text-navy hover:bg-gold/15 cursor-pointer"
+                              title="የይለፍ ቃል ቀይር"
+                            >
+                              <KeyRound className="h-4 w-4 text-gold" />
+                            </button>
+
+                            <button
+                              onClick={() => setDeletingUserTarget(regUser)}
+                              disabled={isCurrentUser}
+                              className="rounded-xl bg-red-500/10 border border-red-500/20 p-2 text-red-600 hover:bg-red-500/20 cursor-pointer disabled:opacity-40"
+                              title="ተጠቃሚውን ሰርዝ"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
+
+      {/* ================= RESET USER PASSWORD MODAL ================= */}
+      {resetPasswordTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl bg-card border border-gold/30 shadow-2xl p-5 sm:p-7">
+            <button
+              onClick={() => {
+                setResetPasswordTarget(null);
+                setResetPasswordSuccess(null);
+              }}
+              className="absolute top-4 right-4 rounded-full bg-navy/10 p-1.5 text-navy hover:bg-gold/20 transition-all cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2 border-b border-gold/20 pb-3 mb-4">
+              <KeyRound className="h-5 w-5 text-gold" />
+              <h3 className="font-display text-lg font-bold text-navy">የይለፍ ቃል ቀይር (Reset Password)</h3>
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-4">
+              የተጠቃሚ <strong className="text-navy">{resetPasswordTarget.fullName || resetPasswordTarget.email}</strong> የይለፍ ቃል ይቀይሩ።
+            </p>
+
+            {resetPasswordSuccess ? (
+              <div className="space-y-4">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900">
+                  <div className="flex items-center gap-2 font-bold mb-1">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>የይለፍ ቃል በተሳካ ሁኔታ ተቀይሯል!</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    ይህንን አዲስ የይለፍ ቃል ለተጠቃሚው ይስጡት፡
+                  </p>
+                  <div className="flex items-center justify-between bg-white rounded-lg p-2.5 border border-emerald-200 font-mono text-sm font-bold text-navy">
+                    <span>{resetPasswordSuccess}</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(resetPasswordSuccess);
+                        alert("የይለፍ ቃሉ ኮፒ ተደርጓል!");
+                      }}
+                      className="rounded bg-navy/5 px-2.5 py-1 text-xs font-sans text-navy hover:bg-gold/20 cursor-pointer"
+                    >
+                      ኮፒ (Copy)
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setResetPasswordTarget(null);
+                    setResetPasswordSuccess(null);
+                  }}
+                  className="w-full rounded-xl bg-gold py-2.5 text-xs font-bold text-navy-deep hover:bg-gold/90 transition-all cursor-pointer"
+                >
+                  ጨርስ (Done)
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleConfirmResetPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-navy mb-1">
+                    አዲስ የይለፍ ቃል (ወይም ባዶ ይተዉት በራሱ እንዲያዘጋጅ)
+                  </label>
+                  <input
+                    type="text"
+                    value={customNewPassword}
+                    onChange={(e) => setCustomNewPassword(e.target.value)}
+                    placeholder="ቢያንስ 6 ፊደላት (Leave empty to auto-generate)"
+                    className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background focus:border-gold focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={resetPasswordLoading}
+                    onClick={() => setResetPasswordTarget(null)}
+                    className="flex-1 rounded-xl border border-navy/20 py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer disabled:opacity-50"
+                  >
+                    ተመለስ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetPasswordLoading}
+                    className="flex-1 rounded-xl bg-gold py-2.5 text-xs font-bold text-navy-deep shadow hover:bg-gold/90 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {resetPasswordLoading ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-4 w-4" />
+                    )}
+                    <span>ቀይር (Save)</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= DELETE USER CONFIRMATION MODAL ================= */}
+      {deletingUserTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-red-400/40 p-5 sm:p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 className="font-display text-lg font-bold text-navy mb-1">ተጠቃሚውን ሰርዝ?</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              የተጠቃሚ <strong className="text-navy">{deletingUserTarget.fullName || deletingUserTarget.email}</strong> አካውንት እና ተያያዥ መረጃዎች በሙሉ በቋሚነት ይሰረዛሉ።
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={deletingUserLoading}
+                onClick={() => setDeletingUserTarget(null)}
+                className="flex-1 rounded-xl border border-navy/20 bg-background py-2.5 text-xs font-bold text-navy hover:bg-card cursor-pointer disabled:opacity-50"
+              >
+                ተመለስ
+              </button>
+              <button
+                type="button"
+                disabled={deletingUserLoading}
+                onClick={handleConfirmDeleteUser}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow hover:bg-red-700 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletingUserLoading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                <span>አዎ፣ ሰርዝ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= EDIT ADMIN MODAL ================= */}
       {editingAdmin && (

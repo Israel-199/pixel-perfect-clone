@@ -282,6 +282,8 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   // Login page
   loginPageHeading: { am: "ወደ አካውንትዎ ይግቡ", or: "Gara Akkaawuntii Keessan Seenaa", en: "Sign In to Your Account" },
   noAccountLink: { am: "አዲስ አካውንት የሎትም? እዚህ ይመዝገቡ", or: "Akkaawuntii hin qabdan? As irratti Galmaa'aa", en: "Don't have an account? Sign up here" },
+  noAccountPrefix: { am: "አዲስ አካውንት የሎትም?", or: "Akkaawuntii hin qabdan?", en: "Don't have an account?" },
+  signUpHereText: { am: "እዚህ ይመዝገቡ", or: "As irratti Galmaa'aa", en: "Sign up here" },
   emailPlaceholder: { am: "example@gmail.com", or: "example@gmail.com", en: "example@gmail.com" },
   passwordPlaceholder: { am: "••••••••", or: "••••••••", en: "••••••••" },
   signingIn: { am: "በመግባት ላይ...", or: "Seenaa jira...", en: "Signing in..." },
@@ -292,6 +294,8 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   // Register page
   registerPageHeading: { am: "አዲስ አካውንት ይፍጠሩ", or: "Akkaawuntii Haaraa Uumaa", en: "Create a New Account" },
   haveAccountLink: { am: "አካውንት አለዎት? እዚህ ይግቡ", or: "Akkaawuntii qabdu? As irratti Seenaa", en: "Already have an account? Log in here" },
+  haveAccountPrefix: { am: "አካውንት አለዎት?", or: "Akkaawuntii qabdu?", en: "Already have an account?" },
+  logInHereText: { am: "እዚህ ይግቡ", or: "As irratti Seenaa", en: "Log in here" },
   fullNamePlaceholder: { am: "ለምሳሌ፡ አበበ በቀለ (ፊደላት ብቻ)", or: "Fkn: Abebe Bekele (qubee qofaa)", en: "e.g. Abebe Bekele (letters only)" },
   phonePlaceholder: { am: "0911223344 (ቁጥር ብቻ)", or: "0911223344 (lakkoofsa qofaa)", en: "0911223344 (digits only)" },
   passwordMinHint: { am: "ቢያንስ 6 ፊደላት", or: "Xiqqaate qubee 6", en: "At least 6 characters" },

@@ -651,7 +651,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     } else {
       // Fast immediate retry on next animation frame as soon as canvas mounts
       const rId = requestAnimationFrame(render);
-      return () => cancelAnimationFrame(rId);
+      return undefined;
     }
   }, [isPdf, pdfDoc, currentPage, zoomScale, twoPageView, pdfNumPages, renderPdfPage, pdfLoading]);
 
@@ -837,7 +837,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.stopPropagation();
         e.stopImmediatePropagation();
         applyInstantBlur();
-        return false;
+        return;
       }
 
       // Normal Reader Navigation
@@ -853,7 +853,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.stopPropagation();
         e.stopImmediatePropagation();
         clearClipboardSilently();
-        return false;
+        return;
       } else {
         // If regular key released (not meta/shift) and window has focus, ensure unblurred
         if (!e.metaKey && !e.shiftKey && document.hasFocus()) {
