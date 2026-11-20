@@ -23,14 +23,17 @@ import {
   Moon,
   Coffee,
   ShieldAlert,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react";
 import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, fetchApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 import { filterNumberInput } from "@/lib/inputValidation";
 import { parseDocx, fromRoman, fromAlpha, parseTableOfContentsText, SUBCHAPTER_HEADING_REGEX } from "@/lib/bookUtils";
-import { ensurePdfjsLoaded, getCachedPdfBytes, prefetchPdfBytes } from "@/lib/prefetch";
+import { ensurePdfjsLoaded, getCachedPdfBytes, prefetchPdfBytes, clearCachedPdf } from "@/lib/prefetch";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -67,6 +70,75 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
 
+  // ── Bookmark State & Persistence ─────────────────────────────────────────
+  const [bookmarkedPage, setBookmarkedPage] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!book?.id) return;
+    const localKey = `rabbi_bookmark_${user?.id || "guest"}_${book.id}`;
+
+    // 1. Immediately restore from localStorage (instant 0ms responsive start)
+    try {
+      const saved = localStorage.getItem(localKey);
+      if (saved) {
+        const pg = parseInt(saved, 10);
+        if (!isNaN(pg) && pg >= 1) {
+          setBookmarkedPage(pg);
+          setCurrentPage(pg);
+          setJumpPageInput(getPageLabel(pg));
+        }
+      }
+    } catch {}
+
+    // 2. Sync from backend database if user is logged in
+    if (user?.id) {
+      fetchApi<{ bookmark: { page: number } | null }>(`/bookmarks/${book.id}`)
+        .then((res) => {
+          if (res?.bookmark?.page) {
+            const serverPage = res.bookmark.page;
+            setBookmarkedPage(serverPage);
+            try {
+              localStorage.setItem(localKey, serverPage.toString());
+            } catch {}
+            setCurrentPage(serverPage);
+            setJumpPageInput(getPageLabel(serverPage));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [book?.id, user?.id]);
+
+  const handleToggleBookmark = async (targetPage?: number) => {
+    const pageToToggle = targetPage || currentPage;
+    const isCurrentlyMarked = bookmarkedPage === pageToToggle;
+    const localKey = `rabbi_bookmark_${user?.id || "guest"}_${book.id}`;
+
+    if (isCurrentlyMarked) {
+      setBookmarkedPage(null);
+      try {
+        localStorage.removeItem(localKey);
+      } catch {}
+      showToast.info("ምልክት ተነስቷል", `ከገጽ ${getPageLabel(pageToToggle)} ላይ ምልክት ተነስቷል።`);
+      if (user?.id) {
+        fetchApi(`/bookmarks/${book.id}`, { method: "DELETE" }).catch(() => {});
+      }
+    } else {
+      setBookmarkedPage(pageToToggle);
+      try {
+        localStorage.setItem(localKey, pageToToggle.toString());
+      } catch {}
+      showToast.success(
+        "ገጽ ምልክት ተደርጓል! 🔖",
+        `ገጽ ${getPageLabel(pageToToggle)} ተመዝግቧል። በሚቀጥለው ጊዜ ሲገቡ ከዚህ ገጽ ይከፈታል።`
+      );
+      if (user?.id) {
+        fetchApi(`/bookmarks/${book.id}`, {
+          method: "POST",
+          body: JSON.stringify({ page: pageToToggle }),
+        }).catch(() => {});
+      }
+    }
+  };
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [jumpPageInput, setJumpPageInput] = useState<string>("1");
@@ -439,18 +511,33 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         // ── Step 2: Get PDF bytes — instant if prefetched, otherwise fetch now ──
         let uint8Data: Uint8Array | null = getCachedPdfBytes(pdfUrl);
-        if (!uint8Data) {
+        if (!uint8Data || uint8Data.byteLength === 0 || uint8Data.buffer.byteLength === 0) {
           uint8Data = await prefetchPdfBytes(pdfUrl);
         }
-        if (!uint8Data) throw new Error("Failed to load PDF data.");
+        if (!uint8Data || uint8Data.byteLength === 0 || uint8Data.buffer.byteLength === 0) {
+          throw new Error("Failed to load PDF data.");
+        }
 
-        const loadingTask = pdfjs.getDocument({
-          data: uint8Data,
-          cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
-          cMapPacked: true,
-        });
-
-        const loadedPdf = await loadingTask.promise;
+        let loadedPdf: any = null;
+        try {
+          const loadingTask = pdfjs.getDocument({
+            data: new Uint8Array(uint8Data),
+            cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+            cMapPacked: true,
+          });
+          loadedPdf = await loadingTask.promise;
+        } catch (taskErr: any) {
+          console.warn("Primary PDF loading encountered worker issue, purging cache and retrying:", taskErr);
+          clearCachedPdf(pdfUrl);
+          const freshBytes = await prefetchPdfBytes(pdfUrl);
+          if (!freshBytes || freshBytes.byteLength === 0) throw taskErr;
+          const retryTask = pdfjs.getDocument({
+            data: new Uint8Array(freshBytes),
+            cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
+            cMapPacked: true,
+          });
+          loadedPdf = await retryTask.promise;
+        }
         if (!isMounted) return;
         setPdfDoc(loadedPdf);
         setPdfNumPages(loadedPdf.numPages);
@@ -1141,6 +1228,19 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
           <div className="flex items-center gap-1.5 shrink-0 md:hidden">
             {!isVideo && (
               <button
+                onClick={() => handleToggleBookmark(currentPage)}
+                className={`flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-bold transition-all cursor-pointer border ${
+                  bookmarkedPage === currentPage
+                    ? "bg-gold text-navy-deep border-gold shadow-xs"
+                    : "bg-navy/40 text-gold border-gold/30 hover:bg-gold/20"
+                }`}
+                title={bookmarkedPage === currentPage ? "ምልክት አንሳ" : "ገጽ ምልክት አድርግ"}
+              >
+                <Bookmark className={`h-4 w-4 ${bookmarkedPage === currentPage ? "fill-navy-deep text-navy-deep" : "text-gold"}`} />
+              </button>
+            )}
+            {!isVideo && (
+              <button
                 onClick={() => setShowToc(!showToc)}
                 className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer border ${
                   showToc ? "bg-gold text-navy-deep border-gold shadow-xs" : "bg-navy/40 text-gold border-gold/30 hover:bg-gold/20"
@@ -1164,6 +1264,22 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         {/* Row 2 on mobile / Right controls on desktop */}
         <div className="flex items-center justify-between md:justify-end gap-1.5 sm:gap-2 w-full md:w-auto shrink-0 flex-wrap">
+          {/* Bookmark on Desktop */}
+          {!isVideo && (
+            <button
+              onClick={() => handleToggleBookmark(currentPage)}
+              className={`hidden md:flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer border ${
+                bookmarkedPage === currentPage
+                  ? "bg-gold text-navy-deep border-gold shadow-xs"
+                  : "bg-navy/40 text-gold border-gold/30 hover:bg-gold/20"
+              }`}
+              title={bookmarkedPage === currentPage ? "የዚህ ገጽ ምልክት አንሳ" : "የአሁኑን ገጽ ምልክት አድርግ"}
+            >
+              <Bookmark className={`h-4 w-4 ${bookmarkedPage === currentPage ? "fill-navy-deep text-navy-deep" : "text-gold"}`} />
+              <span>{bookmarkedPage === currentPage ? "ምልክት ተደርጓል" : "ምልክት (Mark)"}</span>
+            </button>
+          )}
+
           {/* TOC / Index on Desktop */}
           {!isVideo && (
             <button
@@ -1311,6 +1427,63 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               </div>
             </div>
 
+            {/* Bookmark / Mark Section inside Index */}
+            <div className="mb-3 rounded-xl bg-navy/60 p-2.5 border border-gold/25 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Bookmark
+                    className={`h-4 w-4 shrink-0 transition-colors ${
+                      bookmarkedPage ? "text-gold fill-gold" : "text-gold/50"
+                    }`}
+                  />
+                  <span className="text-xs font-semibold text-white truncate">
+                    {bookmarkedPage ? (
+                      <span>ምልክት የተደረገበት፡ <strong className="text-gold font-mono">ገጽ {getPageLabel(bookmarkedPage)}</strong></span>
+                    ) : (
+                      <span className="text-on-navy-muted">ምልክት የተደረገበት ገጽ የለም</span>
+                    )}
+                  </span>
+                </div>
+
+                {bookmarkedPage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage(bookmarkedPage);
+                      setJumpPageInput(getPageLabel(bookmarkedPage));
+                      if (!pinToc) setShowToc(false);
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-gold/20 text-gold border border-gold/30 hover:bg-gold hover:text-navy-deep cursor-pointer transition-all shrink-0"
+                  >
+                    ወደ ገጹ ሂድ ↗
+                  </button>
+                )}
+              </div>
+
+              {/* Mark / Unmark Action Button */}
+              <button
+                type="button"
+                onClick={() => handleToggleBookmark(currentPage)}
+                className={`w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 ${
+                  bookmarkedPage === currentPage
+                    ? "bg-gold text-navy-deep font-extrabold shadow-sm"
+                    : "bg-gold/15 text-gold border border-gold/30 hover:bg-gold/25"
+                }`}
+                title={
+                  bookmarkedPage === currentPage
+                    ? "ከዚህ ገጽ ላይ ምልክት አንሳ"
+                    : `ገጽ ${getPageLabel(currentPage)} ላይ ምልክት አድርግ`
+                }
+              >
+                <BookmarkCheck className={`h-3.5 w-3.5 ${bookmarkedPage === currentPage ? "fill-navy-deep" : ""}`} />
+                <span>
+                  {bookmarkedPage === currentPage
+                    ? `ገጽ ${getPageLabel(currentPage)} ምልክት ተደርጓል (ለማንሳት ንካ)`
+                    : `የአሁኑን ገጽ (${getPageLabel(currentPage)}) ምልክት አድርግ`}
+                </span>
+              </button>
+            </div>
+
             {/* TOC Navigation Tabs: Chapters vs All Pages */}
             <div className="flex rounded-xl bg-navy/60 p-1 mb-3 border border-gold/20">
               <button
@@ -1394,15 +1567,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         <span className="truncate">{chap.title}</span>
                       </div>
 
-                      <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
-                          isActive
-                            ? "bg-navy-deep/20 text-navy-deep font-bold"
-                            : "bg-navy/60 text-gold border border-gold/20"
-                        }`}
-                      >
-                        {t("page")} {label}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {bookmarkedPage && bookmarkedPage >= chap.startPage && (!nextChap || bookmarkedPage < nextChap.startPage) && (
+                          <span title="ይህ ምዕራፍ ምልክት የተደረገበት ገጽ ይዟል"><Bookmark className="h-3 w-3 text-gold fill-gold" /></span>
+                        )}
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                            isActive
+                              ? "bg-navy-deep/20 text-navy-deep font-bold"
+                              : "bg-navy/60 text-gold border border-gold/20"
+                          }`}
+                        >
+                          {t("page")} {label}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -1414,6 +1592,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-[70vh] overflow-y-auto pr-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => {
                   const isCurrent = currentPage === pg;
+                  const isMarked = bookmarkedPage === pg;
                   const label = getPageLabel(pg);
                   return (
                     <button
@@ -1423,12 +1602,17 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         setJumpPageInput(label);
                         if (!pinToc) setShowToc(false);
                       }}
-                      className={`py-2 px-1 rounded-lg text-xs font-mono font-bold transition-all text-center cursor-pointer ${
+                      className={`relative py-2 px-1 rounded-lg text-xs font-mono font-bold transition-all text-center cursor-pointer ${
                         isCurrent
                           ? "bg-gold text-navy-deep shadow-md scale-105"
+                          : isMarked
+                          ? "bg-gold/25 text-gold border-2 border-gold shadow-xs"
                           : "bg-navy/50 text-gold border border-gold/20 hover:bg-gold/20"
                       }`}
                     >
+                      {isMarked && (
+                        <Bookmark className="absolute top-1 right-1 h-2.5 w-2.5 text-gold fill-gold" />
+                      )}
                       ገጽ {label}
                     </button>
                   );
@@ -1534,7 +1718,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                         <ShieldAlert className="h-8 w-8 text-red-400 mx-auto mb-3" />
                         <p className="text-sm text-red-200 font-semibold mb-4">{pdfError}</p>
                         <button
-                          onClick={() => window.location.reload()}
+                          onClick={() => { if (pdfUrl) clearCachedPdf(pdfUrl); window.location.reload(); }}
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold/20 text-gold text-xs font-bold border border-gold/40 hover:bg-gold hover:text-navy-deep cursor-pointer transition-all"
                         >
                           <RefreshCw className="h-3.5 w-3.5" />

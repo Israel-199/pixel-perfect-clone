@@ -565,7 +565,7 @@ export async function getPdfPageCount(pdfUrl: string): Promise<number> {
     if (!uint8Data) return 0;
 
     const doc = await pdfjs.getDocument({
-      data: uint8Data,
+      data: new Uint8Array(uint8Data),
       cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
       cMapPacked: true,
     }).promise;

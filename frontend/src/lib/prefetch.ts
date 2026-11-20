@@ -18,9 +18,30 @@ const inFlightPdf = new Map<string, Promise<Uint8Array | null>>();
 let pdfjsLoading = false;
 let pdfjsReady = false;
 
-/** Returns cached bytes synchronously (or null if not yet cached) */
+/** Clear cached bytes for a given url */
+export function clearCachedPdf(url: string): void {
+  pdfByteCache.delete(url);
+}
+
+/**
+ * Returns cached bytes as a fresh cloned Uint8Array.
+ * Clones the buffer so PDF.js Web Worker postMessage transfers
+ * will never detach the cached master ArrayBuffer.
+ */
 export function getCachedPdfBytes(url: string): Uint8Array | null {
-  return pdfByteCache.get(url) ?? null;
+  const cached = pdfByteCache.get(url);
+  if (!cached) return null;
+  // If buffer has been detached, purge from cache
+  if (cached.byteLength === 0 || cached.buffer.byteLength === 0) {
+    pdfByteCache.delete(url);
+    return null;
+  }
+  try {
+    return new Uint8Array(cached);
+  } catch {
+    pdfByteCache.delete(url);
+    return null;
+  }
 }
 
 /** Inject PDF.js script once globally (idempotent) */
@@ -61,9 +82,21 @@ export function ensurePdfjsLoaded(): Promise<void> {
   });
 }
 
-/** Fetch PDF bytes and cache them (idempotent, deduped) */
+/** Fetch PDF bytes and cache them (idempotent, deduped). Always returns a clone. */
 export function prefetchPdfBytes(contentUrl: string): Promise<Uint8Array | null> {
-  if (pdfByteCache.has(contentUrl)) return Promise.resolve(pdfByteCache.get(contentUrl)!);
+  if (pdfByteCache.has(contentUrl)) {
+    const cached = pdfByteCache.get(contentUrl);
+    if (cached && cached.byteLength > 0 && cached.buffer.byteLength > 0) {
+      try {
+        return Promise.resolve(new Uint8Array(cached));
+      } catch {
+        pdfByteCache.delete(contentUrl);
+      }
+    } else {
+      pdfByteCache.delete(contentUrl);
+    }
+  }
+
   if (inFlightPdf.has(contentUrl)) return inFlightPdf.get(contentUrl)!;
 
   const promise = (async (): Promise<Uint8Array | null> => {
@@ -79,7 +112,7 @@ export function prefetchPdfBytes(contentUrl: string): Promise<Uint8Array | null>
             const buf = await res.arrayBuffer();
             const bytes = new Uint8Array(buf);
             pdfByteCache.set(contentUrl, bytes);
-            return bytes;
+            return new Uint8Array(bytes);
           }
         } catch {}
       }
