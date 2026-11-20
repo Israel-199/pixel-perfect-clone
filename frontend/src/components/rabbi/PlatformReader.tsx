@@ -196,6 +196,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pdfCanvasRef2 = useRef<HTMLCanvasElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+  // Tracks the CSS pixel width of the last rendered PDF canvas (used for centering)
+  const lastCanvasWidthRef = useRef<number>(0);
+  const [canvasDisplayWidth, setCanvasDisplayWidth] = React.useState<number>(0);
   // Video overlay refs — canvas stream is piped into these so Android Chrome
   // shows black in OS-level screenshots (video compositor path is excluded from
   // Android's screenshot framebuffer capture).
@@ -599,13 +602,17 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         canvas.width = Math.floor(viewport.width * dpr);
         canvas.height = Math.floor(viewport.height * dpr);
 
-        // CSS display size — fully visible and centered
-        canvas.style.width = "100%";
+        // CSS display size — explicit px so zoom is VISIBLE on mobile phones
+        // (setting "100%" collapses canvas to parent width = zoom has no effect on phone)
+        const cssWidth = Math.round(targetWidth);
+        canvas.style.width = cssWidth + "px";
         canvas.style.height = "auto";
         canvas.style.display = "block";
         canvas.style.position = "static";
         canvas.style.opacity = "1";
         canvas.style.pointerEvents = "auto";
+        // Notify React of the new canvas display width for centering
+        if (canvas === pdfCanvasRef.current) setCanvasDisplayWidth(cssWidth);
 
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
@@ -632,7 +639,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         console.error("Canvas render error:", e);
       }
     },
-    [pdfDoc, zoomScale, twoPageView]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pdfDoc, zoomScale, twoPageView, setCanvasDisplayWidth]
   );
 
   useEffect(() => {
@@ -1544,15 +1552,23 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       className={`flex gap-3 sm:gap-4 items-start justify-center transition-all duration-150 ${
                         twoPageView ? "lg:flex-row flex-col" : "flex-col items-center"
                       }`}
-                      style={{ width: "fit-content" }}
+                      style={{
+                        // Exact pixel width = canvas width, so scroll container
+                        // knows content bounds and can center correctly on mobile
+                        width: canvasDisplayWidth > 0
+                          ? `${twoPageView ? canvasDisplayWidth * 2 + 12 : canvasDisplayWidth}px`
+                          : "fit-content",
+                        maxWidth: "none",
+                      }}
                     >
                       {/* Page 1 */}
                       <div
-                        className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-colors duration-200 ${getPdfCardClass()} ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}
+                        className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-colors duration-200 ${getPdfCardClass()} ${twoPageView ? "flex-1 min-w-0" : ""}`}
+                        style={!twoPageView && canvasDisplayWidth > 0 ? { width: `${canvasDisplayWidth}px` } : {}}
                       >
                         <canvas
                           ref={pdfCanvasRef}
-                          className="block w-full h-auto transition-[filter] duration-200"
+                          className="block h-auto transition-[filter] duration-200"
                           style={{
                             filter: getPdfCanvasFilter(),
                           }}
