@@ -694,53 +694,110 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       } catch {}
     };
 
-    // Instant Defocus Protection: When Snipping Tool, Win+Shift+S, PrintScreen,
-    // or external capture tool takes focus, blur content so captured pixels are illegible.
-    // Restores smoothly and instantly the millisecond focus returns.
-    const handleWindowBlur = () => {
+    // Synchronous direct DOM manipulation:
+    // When fast typing Win+Shift+S, React state updates are asynchronous and too slow.
+    // Setting CSS properties directly on the DOM nodes happens in under 0.1ms, guaranteeeing
+    // the screen buffer is already blurred before the OS can capture the snapshot.
+    const applyInstantBlur = () => {
       setIsBlurred(true);
+      try {
+        if (pdfContainerRef.current) {
+          pdfContainerRef.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+          pdfContainerRef.current.style.setProperty("opacity", "0.2", "important");
+        }
+        if (contentAreaRef.current) {
+          contentAreaRef.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+        }
+        if (pdfCanvasRef.current) {
+          pdfCanvasRef.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+        }
+        if (pdfCanvasRef2.current) {
+          pdfCanvasRef2.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+        }
+      } catch {}
       clearClipboardSilently();
     };
 
-    const handleWindowFocus = () => {
+    const removeInstantBlur = () => {
       setIsBlurred(false);
+      try {
+        if (pdfContainerRef.current) {
+          pdfContainerRef.current.style.removeProperty("filter");
+          pdfContainerRef.current.style.removeProperty("opacity");
+        }
+        if (contentAreaRef.current) {
+          contentAreaRef.current.style.removeProperty("filter");
+        }
+        if (pdfCanvasRef.current) {
+          pdfCanvasRef.current.style.removeProperty("filter");
+          pdfCanvasRef.current.style.filter = getPdfCanvasFilter();
+        }
+        if (pdfCanvasRef2.current) {
+          pdfCanvasRef2.current.style.removeProperty("filter");
+          pdfCanvasRef2.current.style.filter = getPdfCanvasFilter();
+        }
+      } catch {}
+    };
+
+    const handleWindowBlur = () => {
+      applyInstantBlur();
+    };
+
+    const handleWindowFocus = () => {
+      if (document.hasFocus() && !document.hidden) {
+        removeInstantBlur();
+      }
     };
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setIsBlurred(true);
-        clearClipboardSilently();
-      } else {
-        setIsBlurred(false);
+        applyInstantBlur();
+      } else if (document.hasFocus()) {
+        removeInstantBlur();
       }
     };
 
     const handleUserActivity = () => {
-      if (document.hasFocus()) {
-        setIsBlurred(false);
+      if (document.hasFocus() && !document.hidden) {
+        removeInstantBlur();
       }
     };
 
-    // Check if key press indicates screenshot attempt OR preparatory key for screenshot
+    const isTargetInput = (target: any) => {
+      const tag = (target?.tagName || "").toLowerCase();
+      return tag === "input" || tag === "textarea" || target?.isContentEditable;
+    };
+
+    // Ultra-fast screenshot attempt detection:
+    // Detects preparatory keys (Meta, Shift, Alt, PrintScreen) the instant they are pressed down,
+    // ensuring the content is blurred before the full combination is completed.
     const isScreenshotAttempt = (e: KeyboardEvent) => {
       const code = e.code || "";
       const key = (e.key || "").toLowerCase();
       const keyCode = e.keyCode || (e as any).which || 0;
+      const inInput = isTargetInput(e.target);
 
       // 1. PrintScreen key in any form
       if (key === "printscreen" || code === "PrintScreen" || keyCode === 44) {
         return true;
       }
 
-      // 2. Meta (Windows / Cmd key) pressed down: immediately blur!
-      // In a reader, Meta key has zero reading purpose and is the initial key pressed
-      // 150-300ms before 'S' in Win+Shift+S. Blurring here guarantees the snapshot captures blurred content.
+      // 2. Windows / Cmd (Meta) key pressed down (instant blur before 'S' can be typed)
       if (key === "meta" || code.startsWith("Meta") || keyCode === 91 || keyCode === 92 || e.metaKey) {
         return true;
       }
 
-      // 3. Snipping Tool / Web Capture combinations:
-      // Win + Shift + S, Ctrl + Shift + S, Alt + Shift + S
+      // 3. Shift key pressed outside input fields (fast typing Win+Shift+S often hits Shift first)
+      if (!inInput && (key === "shift" || code.startsWith("Shift") || keyCode === 16 || e.shiftKey)) {
+        return true;
+      }
+
+      // 4. Any combination of Shift with Meta, Alt, or Ctrl (even inside inputs)
+      if (e.shiftKey && (e.metaKey || e.altKey || e.ctrlKey)) {
+        return true;
+      }
+
+      // 5. 'S' key with any screenshot modifier (Win, Shift, Ctrl, Alt)
       if (
         (key === "s" || code === "KeyS" || keyCode === 83) &&
         (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)
@@ -748,12 +805,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return true;
       }
 
-      // 4. Any Shift combination with Meta or Alt
-      if (e.shiftKey && (e.metaKey || e.altKey)) {
-        return true;
-      }
-
-      // 5. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
+      // 6. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
       if (
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
@@ -762,16 +814,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return true;
       }
 
-      // 6. Save Page (Ctrl+S), Print (Ctrl+P), View Source (Ctrl+U)
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        ["p", "s", "u"].includes(key) &&
-        !e.altKey
-      ) {
+      // 7. Save Page (Ctrl+S), Print (Ctrl+P), View Source (Ctrl+U)
+      if ((e.ctrlKey || e.metaKey) && ["p", "s", "u"].includes(key) && !e.altKey) {
         return true;
       }
 
-      // 7. DevTools combos: F12, Ctrl+Shift+I / J / C
+      // 8. DevTools combos: F12, Ctrl+Shift+I / J / C
       if (
         key === "f12" ||
         keyCode === 123 ||
@@ -788,8 +836,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        setIsBlurred(true);
-        clearClipboardSilently();
+        applyInstantBlur();
         return false;
       }
 
@@ -810,7 +857,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       } else {
         // If regular key released (not meta/shift) and window has focus, ensure unblurred
         if (!e.metaKey && !e.shiftKey && document.hasFocus()) {
-          setIsBlurred(false);
+          removeInstantBlur();
         }
       }
     };
@@ -819,10 +866,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     // When 2 or more touches are detected simultaneously, immediately blur before screenshot triggers
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches && e.touches.length >= 2) {
-        setIsBlurred(true);
+        applyInstantBlur();
       } else {
         if (document.hasFocus()) {
-          setIsBlurred(false);
+          removeInstantBlur();
         }
       }
     };
@@ -830,7 +877,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches && e.touches.length >= 2) {
         e.preventDefault();
-        setIsBlurred(true);
+        applyInstantBlur();
       }
     };
 
@@ -848,13 +895,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       e.preventDefault();
     };
 
-    // Periodic fast focus sanity check for external screenshot overlay tools (Lightshot, Snipping Tool overlay, Greenshot)
+    // High-frequency focus monitor for external screenshot overlay tools (Lightshot, Snipping Tool overlay, Greenshot)
     const focusCheckInterval = setInterval(() => {
       if (!document.hasFocus() || document.hidden) {
-        setIsBlurred(true);
-        clearClipboardSilently();
+        applyInstantBlur();
       }
-    }, 60);
+    }, 30);
 
     const opts = { capture: true, passive: false };
     window.addEventListener("keydown", handleKeyDownCapture, opts);
@@ -898,7 +944,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       document.getElementById("rabbi-print-guard")?.remove();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVideo]);
+  }, [isVideo, theme]);
 
   // ============================================================================
   // 5. PAGE CONTROLS
