@@ -40,7 +40,7 @@ export function PaymentAccounts({ compact = false, className = "" }: PaymentAcco
       id: "cbe",
       bankName: language === "en" ? "Commercial Bank of Ethiopia (CBE)" : language === "or" ? "Baankii Daldala Itoophiyaa (CBE)" : "ኢትዮጵያ ንግድ ባንክ",
       shortName: language === "en" ? "CBE" : "ንግድ ባንክ",
-      accountNumber: "000313542002",
+      accountNumber: "1000313542002",
       icon: Building2,
       badgeColor: "bg-purple-100 text-purple-900 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40",
       accentBg: "bg-purple-500/10 border-purple-500/25",
