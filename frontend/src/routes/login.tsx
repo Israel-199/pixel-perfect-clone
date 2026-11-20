@@ -76,7 +76,7 @@ function LoginRoute() {
           <span>{t("noAccountPrefix")}</span>
           <Link
             to="/register"
-            className="text-[15px] font-semibold text-gold group-hover:text-yellow-300 dark:text-yellow-400 underline underline-offset-4 decoration-yellow-400/70 hover:decoration-yellow-600 transition-colors cursor-pointer"
+            className="text-[15px] font-semibold text-gold group-hover:text-yellow-300 dark:text-yellow-400 underline underline-offset-4 decoration-yellow-500/70 hover:decoration-yellow-500 transition-colors cursor-pointer"
           >
             {t("signUpHereText")}
           </Link>
