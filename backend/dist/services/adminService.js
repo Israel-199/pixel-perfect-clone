@@ -448,5 +448,164 @@ class AdminService {
             message: "የአስተዳዳሪ ፕሮፋይል በተሳካ ሁኔታ ተሻሽሏል (Admin profile updated successfully).",
         };
     }
+    // ---- User Management ----
+    static async getAllUsers(search, statusFilter) {
+        const where = {};
+        if (search && search.trim()) {
+            const q = search.trim();
+            where.OR = [
+                { fullName: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } },
+                { phone: { contains: q, mode: "insensitive" } },
+            ];
+        }
+        if (statusFilter === "ACTIVE") {
+            where.isSuspended = false;
+        }
+        else if (statusFilter === "SUSPENDED") {
+            where.isSuspended = true;
+        }
+        const users = await prisma_1.prisma.user.findMany({
+            where,
+            select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                email: true,
+                role: true,
+                isSuspended: true,
+                loginAttempts: true,
+                lockedUntil: true,
+                createdAt: true,
+                updatedAt: true,
+                _count: {
+                    select: {
+                        requests: true,
+                    },
+                },
+                requests: {
+                    select: {
+                        id: true,
+                        status: true,
+                        book: {
+                            select: {
+                                title: true,
+                                price: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+        return users.map((u) => {
+            const approvedCount = u.requests.filter((r) => r.status === "PERMITTED").length;
+            const pendingCount = u.requests.filter((r) => r.status === "PENDING").length;
+            return {
+                id: u.id,
+                fullName: u.fullName,
+                phone: u.phone,
+                email: u.email,
+                role: u.role,
+                isSuspended: !!u.isSuspended,
+                loginAttempts: u.loginAttempts,
+                lockedUntil: u.lockedUntil,
+                createdAt: u.createdAt,
+                updatedAt: u.updatedAt,
+                totalRequests: u._count.requests,
+                approvedRequests: approvedCount,
+                pendingRequests: pendingCount,
+            };
+        });
+    }
+    static async toggleSuspendUser(userId, requestingAdminId) {
+        if (userId === requestingAdminId) {
+            throw new Error("ራስዎን ማገድ አይችሉም (You cannot suspend your own account).");
+        }
+        const user = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error("ተጠቃሚው አልተገኘም (User not found).");
+        }
+        const newSuspendedState = !user.isSuspended;
+        const updated = await prisma_1.prisma.user.update({
+            where: { id: userId },
+            data: {
+                isSuspended: newSuspendedState,
+                lockedUntil: null,
+                loginAttempts: 0,
+            },
+            select: {
+                id: true,
+                fullName: true,
+                email: true,
+                role: true,
+                isSuspended: true,
+            },
+        });
+        return {
+            user: updated,
+            isSuspended: newSuspendedState,
+            message: newSuspendedState
+                ? "ተጠቃሚው ታግዷል (User account has been suspended)."
+                : "የተጠቃሚው እገዳ ተነስቷል (User account has been reactivated).",
+        };
+    }
+    static async deleteUser(userId, requestingAdminId) {
+        if (userId === requestingAdminId) {
+            throw new Error("ራስዎን መሰረዝ አይችሉም (You cannot delete your own account).");
+        }
+        const user = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error("ተጠቃሚው አልተገኘም (User not found).");
+        }
+        await prisma_1.prisma.user.delete({ where: { id: userId } });
+        return { success: true, message: "ተጠቃሚው በተሳካ ሁኔታ ተሰርዟል (User deleted successfully)." };
+    }
+    static async updateUserRole(userId, newRole, requestingAdminId) {
+        if (userId === requestingAdminId) {
+            throw new Error("የራስዎን ሚና መለወጥ አይችሉም (You cannot change your own role).");
+        }
+        const user = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error("ተጠቃሚው አልተገኘም (User not found).");
+        }
+        const updated = await prisma_1.prisma.user.update({
+            where: { id: userId },
+            data: { role: newRole },
+            select: {
+                id: true,
+                fullName: true,
+                email: true,
+                role: true,
+            },
+        });
+        return {
+            user: updated,
+            message: `የተጠቃሚው ሚና ወደ ${newRole} ተቀይሯል (User role updated to ${newRole}).`,
+        };
+    }
+    static async resetUserPassword(userId, newPassword) {
+        const user = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error("ተጠቃሚው አልተገኘም (User not found).");
+        }
+        const passwordToSet = newPassword && newPassword.trim().length >= 6
+            ? newPassword.trim()
+            : Math.random().toString(36).slice(-8) + "Aa1!";
+        const hashedPassword = await bcryptjs_1.default.hash(passwordToSet, 10);
+        await prisma_1.prisma.user.update({
+            where: { id: userId },
+            data: {
+                password: hashedPassword,
+                loginAttempts: 0,
+                lockedUntil: null,
+            },
+        });
+        return {
+            success: true,
+            newPassword: passwordToSet,
+            message: "የይለፍ ቃል በተሳካ ሁኔታ ተቀይሯል (Password reset successfully).",
+        };
+    }
 }
 exports.AdminService = AdminService;

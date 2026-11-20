@@ -21,4 +21,10 @@ router.get("/admins", adminController_1.AdminController.getAllAdmins);
 router.post("/admins", adminController_1.AdminController.createAdmin);
 router.put("/admins/:id", adminController_1.AdminController.updateAdmin);
 router.delete("/admins/:id", adminController_1.AdminController.deleteAdmin);
+// User Management
+router.get("/users", adminController_1.AdminController.getAllUsers);
+router.put("/users/:id/suspend", adminController_1.AdminController.toggleSuspendUser);
+router.delete("/users/:id", adminController_1.AdminController.deleteUser);
+router.put("/users/:id/role", adminController_1.AdminController.updateUserRole);
+router.put("/users/:id/reset-password", adminController_1.AdminController.resetUserPassword);
 exports.default = router;

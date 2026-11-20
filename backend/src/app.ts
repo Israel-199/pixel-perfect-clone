@@ -6,6 +6,7 @@ import bookRoutes from "./routes/bookRoutes";
 import requestRoutes from "./routes/requestRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import privatePrayerRoutes from "./routes/privatePrayerRoutes";
+import bookmarkRoutes from "./routes/bookmarkRoutes";
 import { prisma } from "./config/prisma";
 import {
   globalRateLimiter,
@@ -74,6 +75,7 @@ app.use("/api/admin", adminRateLimiter, adminRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/private-prayers", privatePrayerRoutes);
+app.use("/api/bookmarks", bookmarkRoutes);
 
 // ─── HEALTHCHECK ─────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => {

@@ -234,5 +234,67 @@ class AdminController {
             res.status(400).json({ error: error.message || "Failed to update admin profile." });
         }
     }
+    // ── User Management ────────────────────────────────────────────────────────
+    static async getAllUsers(req, res) {
+        try {
+            const query = (res.locals?.normalizedQuery || res.locals?.query || req.query || {});
+            const search = typeof query.search === "string" ? query.search : undefined;
+            const status = typeof query.status === "string" ? query.status : undefined;
+            const users = await adminService_1.AdminService.getAllUsers(search, status);
+            res.json({ users });
+        }
+        catch (error) {
+            res.status(500).json({ error: error.message || "Failed to fetch users." });
+        }
+    }
+    static async toggleSuspendUser(req, res) {
+        try {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const requestingAdminId = req.user?.userId || "";
+            const result = await adminService_1.AdminService.toggleSuspendUser(id, requestingAdminId);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to update suspension status." });
+        }
+    }
+    static async deleteUser(req, res) {
+        try {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const requestingAdminId = req.user?.userId || "";
+            const result = await adminService_1.AdminService.deleteUser(id, requestingAdminId);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to delete user." });
+        }
+    }
+    static async updateUserRole(req, res) {
+        try {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const requestingAdminId = req.user?.userId || "";
+            const { role } = req.body;
+            if (!role || (role !== "USER" && role !== "ADMIN")) {
+                res.status(400).json({ error: "Invalid role specified." });
+                return;
+            }
+            const result = await adminService_1.AdminService.updateUserRole(id, role, requestingAdminId);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to update user role." });
+        }
+    }
+    static async resetUserPassword(req, res) {
+        try {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+            const { newPassword } = req.body || {};
+            const result = await adminService_1.AdminService.resetUserPassword(id, newPassword);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error.message || "Failed to reset user password." });
+        }
+    }
 }
 exports.AdminController = AdminController;

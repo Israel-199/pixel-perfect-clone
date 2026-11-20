@@ -74,6 +74,10 @@ class AuthService {
         const genericError = "የተሳሳተ ኢሜይል ወይም የይለፍ ቃል (Invalid email or password).";
         if (!user)
             throw new Error(genericError);
+        // Account suspension check
+        if (user.isSuspended) {
+            throw new Error("ይህ አካውንት ታግዷል። እባክዎ አስተዳዳሪውን ያነጋግሩ (This account has been suspended. Please contact administrator).");
+        }
         // — Account lockout check —
         if (user.lockedUntil && user.lockedUntil > new Date()) {
             const mins = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
