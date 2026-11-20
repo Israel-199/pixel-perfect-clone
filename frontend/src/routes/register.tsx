@@ -103,7 +103,7 @@ function RegisterRoute() {
           <span>{t("haveAccountPrefix")}</span>
           <Link
             to="/login"
-            className="text-[15px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 underline underline-offset-4 decoration-blue-500/70 hover:decoration-blue-800 transition-colors cursor-pointer"
+            className="text-[15px] font-semibold text-gold group-hover:text-yellow-300 dark:text-yellow-400 underline underline-offset-4 decoration-yellow-500/70 hover:decoration-yellow-500 transition-colors cursor-pointer"
           >
             {t("logInHereText")}
           </Link>
