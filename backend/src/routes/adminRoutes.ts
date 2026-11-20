@@ -23,4 +23,11 @@ router.post("/admins", AdminController.createAdmin);
 router.put("/admins/:id", AdminController.updateAdmin);
 router.delete("/admins/:id", AdminController.deleteAdmin);
 
+// User Management
+router.get("/users", AdminController.getAllUsers);
+router.put("/users/:id/suspend", AdminController.toggleSuspendUser);
+router.delete("/users/:id", AdminController.deleteUser);
+router.put("/users/:id/role", AdminController.updateUserRole);
+router.put("/users/:id/reset-password", AdminController.resetUserPassword);
+
 export default router;

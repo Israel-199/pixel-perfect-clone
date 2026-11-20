@@ -106,6 +106,13 @@ export class AuthService {
 
     if (!user) throw new Error(genericError);
 
+    // Account suspension check
+    if ((user as any).isSuspended) {
+      throw new Error(
+        "ይህ አካውንት ታግዷል። እባክዎ አስተዳዳሪውን ያነጋግሩ (This account has been suspended. Please contact administrator)."
+      );
+    }
+
     // — Account lockout check —
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const mins = Math.ceil(
