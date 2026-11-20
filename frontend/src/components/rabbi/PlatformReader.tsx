@@ -22,6 +22,7 @@ import {
   Sun,
   Moon,
   Coffee,
+  ShieldAlert,
 } from "lucide-react";
 import { BookItem } from "./BookModal";
 import { useAuth } from "@/lib/auth";
@@ -55,6 +56,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   const { t } = useLanguage();
 
   // Reader Settings
+  const [isBlurred, setIsBlurred] = useState<boolean>(false);
   const [theme, setTheme] = useState<"cream" | "dark" | "sepia" | "midnight">("cream");
   const [fontSize, setFontSize] = useState<number>(18);
   const [twoPageView, setTwoPageView] = useState<boolean>(false);
@@ -607,6 +609,25 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
+
+        // Subtle non-intrusive forensic watermark (VitalSource / Kindle DRM standard)
+        try {
+          ctx.save();
+          ctx.font = `${Math.max(11, Math.floor(13 * dpr))}px sans-serif`;
+          ctx.fillStyle = "rgba(0, 0, 0, 0.035)";
+          ctx.textAlign = "center";
+          const watermarkText = `RABBI Digital • ${user?.fullName || user?.email || "Licensed Reader"}`;
+          for (let y = 140 * dpr; y < canvas.height; y += 260 * dpr) {
+            for (let x = 160 * dpr; x < canvas.width; x += 360 * dpr) {
+              ctx.save();
+              ctx.translate(x, y);
+              ctx.rotate(-0.35);
+              ctx.fillText(watermarkText, 0, 0);
+              ctx.restore();
+            }
+          }
+          ctx.restore();
+        } catch {}
       } catch (e) {
         console.error("Canvas render error:", e);
       }
@@ -673,6 +694,33 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       } catch {}
     };
 
+    // Instant Defocus Protection: When Snipping Tool, Win+Shift+S, PrintScreen,
+    // or external capture tool takes focus, blur content so captured pixels are illegible.
+    // Restores smoothly and instantly the millisecond focus returns.
+    const handleWindowBlur = () => {
+      setIsBlurred(true);
+      clearClipboardSilently();
+    };
+
+    const handleWindowFocus = () => {
+      setIsBlurred(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsBlurred(true);
+        clearClipboardSilently();
+      } else {
+        setIsBlurred(false);
+      }
+    };
+
+    const handleUserActivity = () => {
+      if (document.hasFocus()) {
+        setIsBlurred(false);
+      }
+    };
+
     const isScreenshotAttempt = (e: KeyboardEvent) => {
       const code = e.code || "";
       const key = (e.key || "").toLowerCase();
@@ -737,6 +785,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        setIsBlurred(true);
         clearClipboardSilently();
         return false;
       }
@@ -748,7 +797,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Windows Chromium also fires PrintScreen and modifier combos on keyup
     const handleKeyUpCapture = (e: KeyboardEvent) => {
       if (isScreenshotAttempt(e)) {
         e.preventDefault();
@@ -765,6 +813,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        setIsBlurred(true);
+      } else {
+        setIsBlurred(false);
       }
     };
 
@@ -776,17 +827,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Silent clipboard clearing when window loses focus (e.g. external capture tool opens)
-    const handleBlur = () => {
-      clearClipboardSilently();
-    };
-
     // Prevent context menu (right click / long press on mobile)
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
 
-    // Prevent selection and copy
     const handleCopy = (e: ClipboardEvent) => {
       e.preventDefault();
       clearClipboardSilently();
@@ -796,7 +841,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       e.preventDefault();
     };
 
-    // Attach to window, document, and documentElement in capture phase
     const opts = { capture: true, passive: false };
     window.addEventListener("keydown", handleKeyDownCapture, opts);
     window.addEventListener("keyup", handleKeyUpCapture, opts);
@@ -804,7 +848,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     document.addEventListener("keyup", handleKeyUpCapture, opts);
     window.addEventListener("touchstart", handleTouchStart, opts);
     window.addEventListener("touchmove", handleTouchMove, opts);
-    window.addEventListener("blur", handleBlur);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("mousemove", handleUserActivity);
+    window.addEventListener("pointerdown", handleUserActivity);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("contextmenu", handleContextMenu, { capture: true });
     window.addEventListener("copy", handleCopy, { capture: true });
     window.addEventListener("cut", handleCopy, { capture: true });
@@ -820,7 +868,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       document.removeEventListener("keyup", handleKeyUpCapture, { capture: true });
       window.removeEventListener("touchstart", handleTouchStart, { capture: true });
       window.removeEventListener("touchmove", handleTouchMove, { capture: true });
-      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("mousemove", handleUserActivity);
+      window.removeEventListener("pointerdown", handleUserActivity);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("contextmenu", handleContextMenu, { capture: true });
       window.removeEventListener("copy", handleCopy, { capture: true });
       window.removeEventListener("cut", handleCopy, { capture: true });
@@ -1296,7 +1348,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             {/* Scrollable page area */}
             <div
               ref={pdfContainerRef}
-              className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 flex flex-col items-center"
+              className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 flex flex-col items-center transition-all duration-75"
+              style={{
+                filter: isBlurred ? "blur(32px) contrast(0.65)" : "none",
+                opacity: isBlurred ? 0.35 : 1,
+                userSelect: "none",
+                WebkitUserSelect: "none",
+              }}
             >
               {isPdf ? (
                 /* PDF Canvas area */
