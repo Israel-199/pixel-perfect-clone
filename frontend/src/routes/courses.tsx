@@ -25,7 +25,6 @@ import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 import { BookItem } from "@/components/rabbi/BookModal";
-import { PaymentAccounts } from "@/components/rabbi/PaymentAccounts";
 
 export const Route = createFileRoute("/courses")({
   head: () => ({
@@ -1013,8 +1012,27 @@ function CoursesRoute() {
                     </div>
                   </div>
 
-                  {/* Bank Details Box */}
-                  <PaymentAccounts className="mb-5" />
+                  {/* Bank Details Box (Matching Book Section) */}
+                  <div className="mb-5 rounded-xl bg-gold/10 p-4 border border-gold/30">
+                    <h4 className="text-xs font-bold text-navy-deep uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <CreditCard className="h-4 w-4 text-gold" />
+                      {t("cbeBankTransfer")}
+                    </h4>
+                    <div className="text-xs text-navy space-y-1">
+                      <p>
+                        <span className="font-semibold">{t("bankTitle")}</span> {t("bankCbeName")}
+                      </p>
+                      <p>
+                        <span className="font-semibold">{t("accountNumber")}</span>{" "}
+                        <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">
+                          1000313542002
+                        </code>
+                      </p>
+                      <p>
+                        <span className="font-semibold">{t("accountHolder")}</span> RABBI Ministry / ዶርቃ ኮሌጅ
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Status & Actions */}

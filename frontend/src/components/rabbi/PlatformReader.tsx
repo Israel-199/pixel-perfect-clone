@@ -449,6 +449,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         if (!isMounted) return;
         setPdfDoc(loadedPdf);
         setPdfNumPages(loadedPdf.numPages);
+        // Display Page 1 immediately without waiting for TOC scan
+        setPdfLoading(false);
 
         // 1. Fetch exact PDF Page Labels (e.g. ['i', 'ii', 'iii', '1', '2', ...])
         let pageLabels: string[] | null = null;
@@ -567,16 +569,15 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   // ── Forensic Watermark Label (removed) ───────────────────────────────────────
 
   // ============================================================================
-  // 3. PDF CANVAS RENDERER — fills container width, no shrinking
+  // 3. PDF CANVAS RENDERER — instant visible rendering on high-DPI canvas
   // ============================================================================
   const renderPdfPage = useCallback(
-    async (pageNo: number, canvas: HTMLCanvasElement | null, videoEl?: HTMLVideoElement | null) => {
+    async (pageNo: number, canvas: HTMLCanvasElement | null) => {
       if (!pdfDoc || !canvas) return;
       try {
         const page = await pdfDoc.getPage(pageNo);
         const baseViewport = page.getViewport({ scale: 1 });
 
-        // Use the PDF container width to drive the scale — never constrain by height
         const container = pdfContainerRef.current;
         const availableWidth = container
           ? twoPageView
@@ -595,34 +596,17 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         // Physical pixels (crisp on retina)
         canvas.width = Math.floor(viewport.width * dpr);
         canvas.height = Math.floor(viewport.height * dpr);
-        // CSS display size — canvas is HIDDEN; video element shows the content
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        // CSS display size — fully visible and centered
+        canvas.style.width = "100%";
+        canvas.style.height = "auto";
         canvas.style.display = "block";
-        canvas.style.position = "absolute";
-        canvas.style.opacity = "0";
-        canvas.style.pointerEvents = "none";
+        canvas.style.position = "static";
+        canvas.style.opacity = "1";
+        canvas.style.pointerEvents = "auto";
+
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
-
-        // ── Video DRM trick ──────────────────────────────────────────────────
-        // Pipe canvas pixels into a <video> element via captureStream().
-        // Android Chrome renders <video> through its protected video compositor
-        // path — OS-level screenshots capture this layer as black (no content).
-        // This is the same mechanism that prevents screenshots in banking apps.
-        if (videoEl && typeof (canvas as any).captureStream === "function") {
-          try {
-            const stream: MediaStream = (canvas as any).captureStream(0);
-            if (videoEl.srcObject !== stream) {
-              videoEl.srcObject = stream;
-            }
-            videoEl.style.width = `${Math.floor(viewport.width)}px`;
-            videoEl.style.height = `${Math.floor(viewport.height)}px`;
-            if (videoEl.paused) {
-              videoEl.play().catch(() => {});
-            }
-          } catch {}
-        }
       } catch (e) {
         console.error("Canvas render error:", e);
       }
@@ -632,11 +616,23 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   useEffect(() => {
     if (!isPdf || !pdfDoc) return;
-    renderPdfPage(currentPage, pdfCanvasRef.current);
-    if (twoPageView && currentPage < pdfNumPages) {
-      renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
+    const render = () => {
+      if (pdfCanvasRef.current) {
+        renderPdfPage(currentPage, pdfCanvasRef.current);
+        if (twoPageView && currentPage < pdfNumPages && pdfCanvasRef2.current) {
+          renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
+        }
+      }
+    };
+
+    if (pdfCanvasRef.current) {
+      render();
+    } else {
+      // Fast immediate retry on next animation frame as soon as canvas mounts
+      const rId = requestAnimationFrame(render);
+      return () => cancelAnimationFrame(rId);
     }
-  }, [isPdf, pdfDoc, currentPage, zoomScale, twoPageView, pdfNumPages, renderPdfPage]);
+  }, [isPdf, pdfDoc, currentPage, zoomScale, twoPageView, pdfNumPages, renderPdfPage, pdfLoading]);
 
   // Re-render on window resize so canvas always fills its container
   useEffect(() => {
@@ -652,14 +648,21 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   }, [isPdf, pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
   // ============================================================================
-  // 4. SCREENSHOT & LEAK PREVENTION (Zero-blackout, strictly non-intrusive)
+  // 4. HARDENED SCREENSHOT PREVENTION (Zero-blackout, strictly prevents tools)
   // ============================================================================
   useEffect(() => {
-    // Dynamic print-guard stylesheet blocks print-to-PDF without affecting on-screen display
+    // 1. Lock keyboard shortcuts in Chromium browsers (blocks system Win+Shift+S & PrintScreen)
+    if (typeof (navigator as any).keyboard?.lock === "function") {
+      try {
+        (navigator as any).keyboard.lock(["KeyS", "PrintScreen", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"]);
+      } catch {}
+    }
+
+    // 2. Dynamic print-guard stylesheet blocks print-to-PDF without affecting on-screen display
     const printGuardStyle = document.createElement("style");
     printGuardStyle.id = "rabbi-print-guard";
     printGuardStyle.innerHTML =
-      "@media print { body * { display: none !important; } }";
+      "@media print { body * { display: none !important; visibility: hidden !important; } }";
     document.head.appendChild(printGuardStyle);
 
     const clearClipboardSilently = () => {
@@ -670,57 +673,72 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       } catch {}
     };
 
-    const handleKeyDownCapture = (e: KeyboardEvent) => {
-      const key = e.key ? e.key.toLowerCase() : "";
-      const isShift = e.shiftKey;
-      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-      const isAlt = e.altKey;
+    const isScreenshotAttempt = (e: KeyboardEvent) => {
+      const code = e.code || "";
+      const key = (e.key || "").toLowerCase();
+      const keyCode = e.keyCode || (e as any).which || 0;
 
-      // 1. Windows Snipping Tool: Win + Shift + S (or Ctrl/Alt + Shift + S)
-      const isSnippingTool =
-        (key === "s" || e.code === "KeyS" || e.keyCode === 83) &&
-        isShift &&
-        (isCtrlOrMeta || isAlt);
+      // 1. PrintScreen key in any form (PrtScn, keyCode 44)
+      if (key === "printscreen" || code === "PrintScreen" || keyCode === 44) {
+        return true;
+      }
 
-      // 2. PrintScreen key (standard PrintScreen, PrtScn)
-      const isPrintScreen =
-        e.key === "PrintScreen" ||
-        e.code === "PrintScreen" ||
-        e.keyCode === 44 ||
-        (e as any).which === 44;
-
-      // 3. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
-      const isMacScreenshot =
-        isCtrlOrMeta &&
-        isShift &&
-        ["3", "4", "5", "6", "$", "%"].includes(e.key);
-
-      // 4. Browser Web Capture / Screenshot tool (Edge: Ctrl+Shift+S, Firefox, etc.)
-      const isBrowserCapture =
-        isCtrlOrMeta && isShift && (key === "s" || e.code === "KeyS");
-
-      // 5. Save Page (Ctrl+S) or Print (Ctrl+P) or View Source (Ctrl+U)
-      const isSaveOrPrint =
-        isCtrlOrMeta && (key === "p" || key === "s" || key === "u");
-
-      // 6. DevTools combos: F12, Ctrl+Shift+I / J / C
-      const isDevTools =
-        e.key === "F12" ||
-        (isCtrlOrMeta && isShift && ["i", "j", "c"].includes(key));
-
+      // 2. Windows Snipping Tool: Win + Shift + S / Ctrl + Shift + S / Alt + Shift + S
       if (
-        isSnippingTool ||
-        isPrintScreen ||
-        isMacScreenshot ||
-        isBrowserCapture ||
-        isSaveOrPrint ||
-        isDevTools
+        (key === "s" || code === "KeyS" || keyCode === 83) &&
+        e.shiftKey &&
+        (e.metaKey || e.ctrlKey || e.altKey)
       ) {
+        return true;
+      }
+
+      // 3. Any Meta (Win key) + Shift combination
+      if ((code.startsWith("Meta") || key === "meta") && e.shiftKey) {
+        return true;
+      }
+
+      // 4. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        ["3", "4", "5", "6", "#", "$", "%", "^"].includes(key)
+      ) {
+        return true;
+      }
+
+      // 5. Browser Web Capture / Screenshot tool (Edge: Ctrl+Shift+S)
+      if (e.ctrlKey && e.shiftKey && (key === "s" || code === "KeyS")) {
+        return true;
+      }
+
+      // 6. Save Page (Ctrl+S), Print (Ctrl+P), View Source (Ctrl+U)
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        ["p", "s", "u"].includes(key) &&
+        !e.altKey
+      ) {
+        return true;
+      }
+
+      // 7. DevTools combos: F12, Ctrl+Shift+I / J / C
+      if (
+        key === "f12" ||
+        keyCode === 123 ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "j", "c"].includes(key))
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
+    const handleKeyDownCapture = (e: KeyboardEvent) => {
+      if (isScreenshotAttempt(e)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         clearClipboardSilently();
-        return;
+        return false;
       }
 
       // Normal Reader Navigation
@@ -730,25 +748,14 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Windows Chromium also fires PrintScreen on keyup
+    // Windows Chromium also fires PrintScreen and modifier combos on keyup
     const handleKeyUpCapture = (e: KeyboardEvent) => {
-      const key = e.key ? e.key.toLowerCase() : "";
-      const isPrintScreen =
-        e.key === "PrintScreen" ||
-        e.code === "PrintScreen" ||
-        e.keyCode === 44 ||
-        (e as any).which === 44;
-
-      const isSnippingTool =
-        (key === "s" || e.code === "KeyS" || e.keyCode === 83) &&
-        e.shiftKey &&
-        (e.metaKey || e.ctrlKey || e.altKey);
-
-      if (isPrintScreen || isSnippingTool) {
+      if (isScreenshotAttempt(e)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         clearClipboardSilently();
+        return false;
       }
     };
 
@@ -757,6 +764,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       if (e.touches && e.touches.length >= 3) {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
       }
     };
 
@@ -764,6 +772,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       if (e.touches && e.touches.length >= 3) {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
       }
     };
 
@@ -777,20 +786,45 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       e.preventDefault();
     };
 
-    window.addEventListener("keydown", handleKeyDownCapture, { capture: true, passive: false });
-    window.addEventListener("keyup", handleKeyUpCapture, { capture: true, passive: false });
-    window.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
-    window.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
+    // Prevent selection and copy
+    const handleCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      clearClipboardSilently();
+    };
+
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    // Attach to window, document, and documentElement in capture phase
+    const opts = { capture: true, passive: false };
+    window.addEventListener("keydown", handleKeyDownCapture, opts);
+    window.addEventListener("keyup", handleKeyUpCapture, opts);
+    document.addEventListener("keydown", handleKeyDownCapture, opts);
+    document.addEventListener("keyup", handleKeyUpCapture, opts);
+    window.addEventListener("touchstart", handleTouchStart, opts);
+    window.addEventListener("touchmove", handleTouchMove, opts);
     window.addEventListener("blur", handleBlur);
-    window.addEventListener("contextmenu", handleContextMenu);
+    window.addEventListener("contextmenu", handleContextMenu, { capture: true });
+    window.addEventListener("copy", handleCopy, { capture: true });
+    window.addEventListener("cut", handleCopy, { capture: true });
+    window.addEventListener("dragstart", handleDragStart, { capture: true });
 
     return () => {
+      if (typeof (navigator as any).keyboard?.unlock === "function") {
+        try { (navigator as any).keyboard.unlock(); } catch {}
+      }
       window.removeEventListener("keydown", handleKeyDownCapture, { capture: true });
       window.removeEventListener("keyup", handleKeyUpCapture, { capture: true });
+      document.removeEventListener("keydown", handleKeyDownCapture, { capture: true });
+      document.removeEventListener("keyup", handleKeyUpCapture, { capture: true });
       window.removeEventListener("touchstart", handleTouchStart, { capture: true });
       window.removeEventListener("touchmove", handleTouchMove, { capture: true });
       window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("contextmenu", handleContextMenu);
+      window.removeEventListener("contextmenu", handleContextMenu, { capture: true });
+      window.removeEventListener("copy", handleCopy, { capture: true });
+      window.removeEventListener("cut", handleCopy, { capture: true });
+      window.removeEventListener("dragstart", handleDragStart, { capture: true });
       document.getElementById("rabbi-print-guard")?.remove();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
