@@ -1203,9 +1203,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                 {Math.round(zoomScale * 100)}%
               </span>
               <button
-                onClick={() => setZoomScale((s) => Math.min(2.0, +(s + 0.05).toFixed(2)))}
+                onClick={() => setZoomScale((s) => Math.min(1.4, +(s + 0.05).toFixed(2)))}
                 className="p-1 text-gold hover:text-white hover:bg-gold/15 rounded-lg transition-all cursor-pointer active:scale-90"
-                title="አጉላ (Zoom In up to 200%)"
+                title="አጉላ (Zoom In up to 140%)"
               >
                 <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
