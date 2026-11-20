@@ -997,7 +997,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     switch (theme) {
       case "dark":     return "bg-slate-950 text-slate-100 border-slate-800 shadow-2xl";
       case "midnight": return "bg-[#0a0f1d] text-slate-100 border-gold/30 shadow-2xl";
-      case "sepia":    return "bg-[#fbf3e2] text-[#4a3728] border-[#e2d3be] shadow-2xl";
       default:         return "bg-[#fefdfa] text-slate-900 border-gold/25 shadow-2xl";
     }
   };
@@ -1007,7 +1006,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     switch (theme) {
       case "dark":     return "bg-slate-950";
       case "midnight": return "bg-[#060a14]";
-      case "sepia":    return "bg-[#efe5d0]";
       default:         return "bg-navy-deep";
     }
   };
@@ -1018,8 +1016,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return "invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(1.15)";
       case "midnight":
         return "invert(0.96) hue-rotate(180deg) contrast(1.25) brightness(0.9)";
-      case "sepia":
-        return "sepia(0.4) contrast(0.96) brightness(0.97)";
       default:
         return "none";
     }
@@ -1031,8 +1027,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return "bg-slate-900 border-slate-700/80 shadow-2xl";
       case "midnight":
         return "bg-[#0a0f1d] border-gold/40 shadow-2xl";
-      case "sepia":
-        return "bg-[#fbf3e2] border-[#e2d3be] shadow-2xl";
       default:
         return "bg-white border-gold/30 shadow-2xl";
     }
@@ -1044,8 +1038,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return "bg-slate-800/90 text-slate-200 border border-slate-700";
       case "midnight":
         return "bg-[#060a14]/90 text-gold border border-gold/30";
-      case "sepia":
-        return "bg-[#efe5d0]/95 text-[#4a3728] border border-[#dfd0ba]";
       default:
         return "bg-white/90 text-navy/80 border border-navy/10";
     }
@@ -1116,25 +1108,33 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             </button>
           )}
 
-          {/* Zoom for PDF */}
+          {/* PDF Zoom & Upscale widget (exact match to user visual, small 5% steps up to 200%) */}
           {isPdf && (
-            <div className="hidden sm:flex items-center gap-0.5 rounded-xl bg-navy/40 px-1.5 py-1 border border-gold/25">
-              <button onClick={() => setZoomScale((s) => Math.max(0.6, +(s - 0.15).toFixed(2)))} className="p-1 text-gold hover:text-white cursor-pointer" title="Zoom Out">
-                <ZoomOut className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5 sm:gap-2.5 rounded-xl bg-navy/60 px-2 sm:px-3 py-1 sm:py-1.5 border border-gold/30 shadow-sm">
+              <button
+                onClick={() => setZoomScale((s) => Math.max(0.6, +(s - 0.05).toFixed(2)))}
+                className="p-1 text-gold hover:text-white hover:bg-gold/15 rounded-lg transition-all cursor-pointer active:scale-90"
+                title="አሳንስ (Zoom Out)"
+              >
+                <ZoomOut className="h-4 w-4" />
               </button>
-              <span className="text-[10px] text-gold font-mono px-1 min-w-[36px] text-center">
+              <span className="text-xs sm:text-sm text-gold font-mono font-bold px-1 min-w-[42px] sm:min-w-[48px] text-center select-none">
                 {Math.round(zoomScale * 100)}%
               </span>
-              <button onClick={() => setZoomScale((s) => Math.min(2.5, +(s + 0.15).toFixed(2)))} className="p-1 text-gold hover:text-white cursor-pointer" title="Zoom In">
-                <ZoomIn className="h-3.5 w-3.5" />
+              <button
+                onClick={() => setZoomScale((s) => Math.min(2.0, +(s + 0.05).toFixed(2)))}
+                className="p-1 text-gold hover:text-white hover:bg-gold/15 rounded-lg transition-all cursor-pointer active:scale-90"
+                title="አጉላ (Zoom In up to 200%)"
+              >
+                <ZoomIn className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          {/* Theme switcher for all books (PDF, DOCX, Text) */}
+          {/* Theme switcher (Bright/ነጭ, Dark/ጨለማ, Midnight/ምሽት) */}
           {!isVideo && (
             <div className="flex items-center rounded-xl bg-navy/40 p-1 border border-gold/25">
-              {(["cream", "sepia", "dark", "midnight"] as const).map((th) => (
+              {(["cream", "dark", "midnight"] as const).map((th) => (
                 <button
                   key={th}
                   onClick={() => setTheme(th)}
@@ -1143,40 +1143,28 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                   }`}
                   title={`${th} theme`}
                 >
-                  {th === "cream" ? "ነጭ" : th === "sepia" ? "ሴፒያ" : th === "dark" ? "ጨለማ" : "ምሽት"}
+                  {th === "cream" ? "ነጭ" : th === "dark" ? "ጨለማ" : "ምሽት"}
                 </button>
               ))}
             </div>
           )}
 
-          {/* Font size / Zoom resize for all books (PDF, DOCX, Text) */}
-          {!isVideo && (
+          {/* Font size controls for text & DOCX books ONLY */}
+          {!isVideo && !isPdf && (
             <div className="flex items-center gap-1 rounded-xl bg-navy/40 px-2 py-1 border border-gold/25">
               <Type className="h-3.5 w-3.5 text-gold shrink-0" />
               <button
-                onClick={() => {
-                  if (isPdf) {
-                    setZoomScale((s) => Math.max(0.6, +(s - 0.15).toFixed(2)));
-                  } else {
-                    setFontSize((s) => Math.max(12, s - 2));
-                  }
-                }}
+                onClick={() => setFontSize((s) => Math.max(12, s - 2))}
                 className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer active:scale-95"
                 title="የጽሑፍ መጠን ቀንስ (A-)"
               >
                 A-
               </button>
-              <span className="text-[10px] text-white font-mono min-w-[34px] text-center">
-                {isPdf ? `${Math.round(zoomScale * 100)}%` : `${fontSize}px`}
+              <span className="text-[10px] text-white font-mono min-w-[28px] text-center">
+                {fontSize}px
               </span>
               <button
-                onClick={() => {
-                  if (isPdf) {
-                    setZoomScale((s) => Math.min(2.5, +(s + 0.15).toFixed(2)));
-                  } else {
-                    setFontSize((s) => Math.min(36, s + 2));
-                  }
-                }}
+                onClick={() => setFontSize((s) => Math.min(36, s + 2))}
                 className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer active:scale-95"
                 title="የጽሑፍ መጠን ጨምር (A+)"
               >
@@ -1428,10 +1416,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         ) : (
           /* ── CASE B: BOOK READER ───────────────────────────────────────── */
           <main className={`flex-1 flex flex-col overflow-hidden transition-colors duration-200 ${getPdfBgClass()}`}>
-            {/* Scrollable page area */}
+            {/* Scrollable page area (supports horizontal scroll when zoomed up to 200%) */}
             <div
               ref={pdfContainerRef}
-              className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 flex flex-col items-center transition-all duration-75 ${getPdfBgClass()}`}
+              className={`flex-1 overflow-y-auto overflow-x-auto p-4 md:p-6 flex flex-col items-center transition-all duration-75 ${getPdfBgClass()}`}
               style={{
                 filter: isBlurred ? "blur(36px) contrast(0.5) brightness(0.9)" : "none",
                 opacity: isBlurred ? 0.25 : 1,
@@ -1467,7 +1455,16 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                   )}
 
                   {!pdfLoading && !pdfError && (
-                    <div className={`flex gap-4 items-start justify-center w-full ${twoPageView ? "lg:flex-row flex-col max-w-6xl" : "flex-col items-center max-w-3xl"}`}>
+                    <div
+                      className={`flex gap-4 items-start justify-center transition-all duration-150 ${
+                        twoPageView ? "lg:flex-row flex-col" : "flex-col items-center"
+                      }`}
+                      style={{
+                        width: `${Math.max(100, Math.round(zoomScale * 100))}%`,
+                        maxWidth: `${Math.round((twoPageView ? 1152 : 768) * zoomScale)}px`,
+                        minWidth: "280px",
+                      }}
+                    >
                       {/* Page 1 */}
                       <div
                         className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-colors duration-200 ${getPdfCardClass()} ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}
