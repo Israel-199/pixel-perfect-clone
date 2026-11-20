@@ -1501,7 +1501,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             {/* Scrollable page area (supports horizontal scroll when zoomed up to 200%) */}
             <div
               ref={pdfContainerRef}
-              className={`flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 md:p-6 flex flex-col items-center transition-all duration-75 ${getPdfBgClass()}`}
+              className={`flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 md:p-6 transition-all duration-75 ${getPdfBgClass()}`}
               style={{
                 filter: isBlurred ? "blur(36px) contrast(0.5) brightness(0.9)" : "none",
                 opacity: isBlurred ? 0.25 : 1,
@@ -1511,7 +1511,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             >
               {isPdf ? (
                 /* PDF Canvas area */
-                <div className="flex flex-col items-center w-full flex-1">
+                <div className="flex flex-col w-full flex-1">
                   {pdfLoading && (
                     <div className="flex flex-col items-center justify-center flex-1 py-20">
                       <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold border-t-transparent mb-4" />
@@ -1538,13 +1538,13 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
                   {!pdfLoading && !pdfError && (
                     <div
-                      className={`flex gap-3 sm:gap-4 items-start justify-center transition-all duration-150 w-full ${
+                      style={{ minWidth: "100%", display: "flex", justifyContent: "center", alignItems: "flex-start" }}
+                    >
+                    <div
+                      className={`flex gap-3 sm:gap-4 items-start justify-center transition-all duration-150 ${
                         twoPageView ? "lg:flex-row flex-col" : "flex-col items-center"
                       }`}
-                      style={{
-                        width: zoomScale > 1 ? `${Math.round(zoomScale * 100)}%` : "100%",
-                        maxWidth: `${Math.round((twoPageView ? 1152 : 768) * zoomScale)}px`,
-                      }}
+                      style={{ width: "fit-content" }}
                     >
                       {/* Page 1 */}
                       <div
@@ -1579,6 +1579,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                           </div>
                         </div>
                       )}
+                    </div>
                     </div>
                   )}
                 </div>

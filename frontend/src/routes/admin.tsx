@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { showToast } from "@/lib/toast";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   ShieldAlert,
@@ -397,7 +398,7 @@ function AdminRoute() {
       );
     } catch (err: any) {
       setPrivatePrayers(prevPrayers);
-      alert(err.message || "የጸሎት ሁኔታ መቀየር አልተሳካም።");
+      showToast.error("ጸሎት ሁኔታ መቀየር አልተሳካም", err.message || "የጸሎት ሁኔታ መቀየር አልተሳካም።");
     } finally {
       setTogglingPrayerId(null);
     }
@@ -417,7 +418,7 @@ function AdminRoute() {
       clearApiCache();
     } catch (err: any) {
       setPrivatePrayers(prevPrayers);
-      alert(err.message || "ጸሎት መሰረዝ አልተሳካም።");
+      showToast.error("ጸሎት መሰረዝ አልተሳካም", err.message || "ጸሎት መሰረዝ አልተሳካም።");
     } finally {
       setDeletingPrayerId(null);
     }
@@ -481,7 +482,7 @@ function AdminRoute() {
       fetchDashboardStats(true);
       fetchUsers(true);
     } catch (err: any) {
-      alert(err.message || "የጥያቄ ሁኔታ መቀየር አልተሳካም።");
+      showToast.error("የጥያቄ ሁኔታ ስህተት", err.message || "የጥያቄ ሁኔታ መቀየር አልተሳካም።");
     } finally {
       // 4. Release button loading and disabled state exactly when API finished
       setActionLoadingId(null);
@@ -842,7 +843,7 @@ function AdminRoute() {
       fetchAdminRequests(true);
     } catch (err: any) {
       setContents(prevContents);
-      alert(err.message || "ይዘቱን መሰረዝ አልተሳካም።");
+      showToast.error("ይዘት መሰረዝ አልተሳካም", err.message || "ይዘቱን መሰረዝ አልተሳካም።");
     } finally {
       setDeletingLoading(false);
     }
@@ -950,7 +951,7 @@ function AdminRoute() {
       clearApiCache();
     } catch (err: any) {
       setAdminsList(prevList);
-      alert(err.message || "አስተዳዳሪ መሰረዝ አልተሳካም።");
+      showToast.error("አስተዳዳሪ መሰረዝ አልተሳካም", err.message || "አስተዳዳሪ መሰረዝ አልተሳካም።");
     } finally {
       setDeletingAdminLoading(false);
     }
@@ -3834,7 +3835,7 @@ function AdminRoute() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(resetPasswordSuccess);
-                        alert("የይለፍ ቃሉ ኮፒ ተደርጓል!");
+                        showToast.success("ኮፒ ተደርጓል! ✅", "የይለፍ ቃሉ ወደ ቅንጥብ ሰሌዳ ተቀድቷል።");
                       }}
                       className="rounded bg-navy/5 px-2.5 py-1 text-xs font-sans text-navy hover:bg-gold/20 cursor-pointer"
                     >

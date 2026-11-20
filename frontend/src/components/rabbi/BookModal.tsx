@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount, parseDocx } from "@/lib/bookUtils";
 import { PaymentAccounts } from "@/components/rabbi/PaymentAccounts";
 import { prefetchBookContent } from "@/lib/prefetch";
+import { showToast } from "@/lib/toast";
 
 export interface BookItem {
   id: string;
@@ -42,8 +43,6 @@ export const BookModal: React.FC<BookModalProps> = ({
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string>(book?.requestStatus || "NONE");
   const [pageCount, setPageCount] = useState<number>(0);
 
@@ -88,9 +87,6 @@ export const BookModal: React.FC<BookModalProps> = ({
     }
 
     setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
     try {
       const res = await fetchApi<{ message: string; request: any }>("/requests", {
         method: "POST",
@@ -98,10 +94,10 @@ export const BookModal: React.FC<BookModalProps> = ({
       });
 
       setCurrentStatus("PENDING");
-      setSuccessMsg("የመጽሐፍ ጥያቄዎ በተሳካ ሁኔታ ተልኳል! ክፍያዎ ሲረጋገጥ አድሚን ይፈቅድልዎታል።");
+      showToast.success("ጥያቄ ተልኳል! ✅", "የመጽሐፍ ጥያቄዎ ተልኳል። ክፍያዎን አረጋግጠው አድሚን ይፈቅድልዎታል።");
       if (onRequestSubmitted) onRequestSubmitted();
     } catch (err: any) {
-      setErrorMsg(err.message || "ጥያቄ መላክ አልተሳካም። እባክዎ እንደገና ይሞክሩ።");
+      showToast.error("ጥያቄ አልተሳካም", err.message || "ጥያቄ መላክ አልተሳካም። እባክዎ እንደገና ይሞክሩ።");
     } finally {
       setLoading(false);
     }
@@ -216,18 +212,7 @@ export const BookModal: React.FC<BookModalProps> = ({
 
             {/* Actions & Status */}
             <div>
-              {errorMsg && (
-                <div className="mb-3 rounded-md bg-red-50 p-2.5 text-xs text-red-700 border border-red-200">
-                  {errorMsg}
-                </div>
-              )}
 
-              {successMsg && (
-                <div className="mb-3 rounded-md bg-green-50 p-2.5 text-xs text-green-800 border border-green-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                  <span>{successMsg}</span>
-                </div>
-              )}
 
               {/* Status Display or Request Action */}
               {book.isPermitted || currentStatus === "PERMITTED" ? (
