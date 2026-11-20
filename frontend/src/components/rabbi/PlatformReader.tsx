@@ -652,17 +652,147 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   }, [isPdf, pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
   // ============================================================================
-  // 4. PAGE KEYBOARD NAVIGATION
+  // 4. SCREENSHOT & LEAK PREVENTION (Zero-blackout, strictly non-intrusive)
   // ============================================================================
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    // Dynamic print-guard stylesheet blocks print-to-PDF without affecting on-screen display
+    const printGuardStyle = document.createElement("style");
+    printGuardStyle.id = "rabbi-print-guard";
+    printGuardStyle.innerHTML =
+      "@media print { body * { display: none !important; } }";
+    document.head.appendChild(printGuardStyle);
+
+    const clearClipboardSilently = () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText("");
+        }
+      } catch {}
+    };
+
+    const handleKeyDownCapture = (e: KeyboardEvent) => {
+      const key = e.key ? e.key.toLowerCase() : "";
+      const isShift = e.shiftKey;
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      const isAlt = e.altKey;
+
+      // 1. Windows Snipping Tool: Win + Shift + S (or Ctrl/Alt + Shift + S)
+      const isSnippingTool =
+        (key === "s" || e.code === "KeyS" || e.keyCode === 83) &&
+        isShift &&
+        (isCtrlOrMeta || isAlt);
+
+      // 2. PrintScreen key (standard PrintScreen, PrtScn)
+      const isPrintScreen =
+        e.key === "PrintScreen" ||
+        e.code === "PrintScreen" ||
+        e.keyCode === 44 ||
+        (e as any).which === 44;
+
+      // 3. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
+      const isMacScreenshot =
+        isCtrlOrMeta &&
+        isShift &&
+        ["3", "4", "5", "6", "$", "%"].includes(e.key);
+
+      // 4. Browser Web Capture / Screenshot tool (Edge: Ctrl+Shift+S, Firefox, etc.)
+      const isBrowserCapture =
+        isCtrlOrMeta && isShift && (key === "s" || e.code === "KeyS");
+
+      // 5. Save Page (Ctrl+S) or Print (Ctrl+P) or View Source (Ctrl+U)
+      const isSaveOrPrint =
+        isCtrlOrMeta && (key === "p" || key === "s" || key === "u");
+
+      // 6. DevTools combos: F12, Ctrl+Shift+I / J / C
+      const isDevTools =
+        e.key === "F12" ||
+        (isCtrlOrMeta && isShift && ["i", "j", "c"].includes(key));
+
+      if (
+        isSnippingTool ||
+        isPrintScreen ||
+        isMacScreenshot ||
+        isBrowserCapture ||
+        isSaveOrPrint ||
+        isDevTools
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        clearClipboardSilently();
+        return;
+      }
+
+      // Normal Reader Navigation
       if (!isVideo) {
         if (e.key === "ArrowRight" || e.key === "PageDown") handleNextPage();
         else if (e.key === "ArrowLeft" || e.key === "PageUp") handlePrevPage();
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+
+    // Windows Chromium also fires PrintScreen on keyup
+    const handleKeyUpCapture = (e: KeyboardEvent) => {
+      const key = e.key ? e.key.toLowerCase() : "";
+      const isPrintScreen =
+        e.key === "PrintScreen" ||
+        e.code === "PrintScreen" ||
+        e.keyCode === 44 ||
+        (e as any).which === 44;
+
+      const isSnippingTool =
+        (key === "s" || e.code === "KeyS" || e.keyCode === 83) &&
+        e.shiftKey &&
+        (e.metaKey || e.ctrlKey || e.altKey);
+
+      if (isPrintScreen || isSnippingTool) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        clearClipboardSilently();
+      }
+    };
+
+    // Mobile: Block 3-finger swipe screenshot gestures (Android / Samsung / Xiaomi / Oppo / Huawei)
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches && e.touches.length >= 3) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches && e.touches.length >= 3) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    // Silent clipboard clearing when window loses focus (e.g. external capture tool opens)
+    const handleBlur = () => {
+      clearClipboardSilently();
+    };
+
+    // Prevent context menu (right click / long press on mobile)
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("keydown", handleKeyDownCapture, { capture: true, passive: false });
+    window.addEventListener("keyup", handleKeyUpCapture, { capture: true, passive: false });
+    window.addEventListener("touchstart", handleTouchStart, { capture: true, passive: false });
+    window.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDownCapture, { capture: true });
+      window.removeEventListener("keyup", handleKeyUpCapture, { capture: true });
+      window.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      window.removeEventListener("touchmove", handleTouchMove, { capture: true });
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("contextmenu", handleContextMenu);
+      document.getElementById("rabbi-print-guard")?.remove();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVideo]);
 
