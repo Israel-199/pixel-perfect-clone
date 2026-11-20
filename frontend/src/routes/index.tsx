@@ -226,9 +226,9 @@ function Index() {
   }, [activeBook]);
 
   return (
-    <>
+    <div className="w-full overflow-x-hidden">
       {/* Hero */}
-      <section className="relative isolate overflow-hidden bg-navy-deep">
+      <section className="relative isolate overflow-hidden bg-navy-deep w-full">
         <img
           src={heroImg}
           alt="በተራራ ላይ በጎችን የሚጠብቅ እረኛ በፀሐይ መውጫ ጊዜ"
@@ -286,7 +286,8 @@ function Index() {
       </section>
 
       {/* Pillars */}
-      <section className="mx-auto max-w-[1180px] px-4 sm:px-6 py-8 sm:py-10">
+      <section className="w-full px-4 sm:px-6 py-8 sm:py-10">
+        <div className="mx-auto max-w-[1180px]">
         <div className="grid rounded-2xl bg-card shadow-card md:grid-cols-3 border border-gold/15">
           {PILLAR_KEYS.map(({ icon: Icon, titleKey, bodyKey, link, to }, i) => (
             <article
@@ -313,10 +314,12 @@ function Index() {
             </article>
           ))}
         </div>
+        </div>
       </section>
 
       {/* Three panels: Exact Recently Posted Content by Admin (Media, Book, Course) */}
-      <section className="mx-auto grid max-w-[1180px] gap-6 px-4 sm:px-6 pb-12 sm:pb-14 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      <section className="w-full px-4 sm:px-6 pb-12 sm:pb-14">
+        <div className="mx-auto grid max-w-[1180px] gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {/* Panel 1 (Left): Slidable Recent Media posted by admin */}
         <div
           onClick={() => navigate({ to: "/media" })}
@@ -512,6 +515,7 @@ function Index() {
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
+        </div>
       </section>
 
       {/* Sections strip */}
@@ -583,6 +587,6 @@ function Index() {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

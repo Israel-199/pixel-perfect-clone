@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Book, Library, GraduationCap, LayoutList, Lock, CheckCircle2, PlayCircle, Music, BookOpen } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import { prefetchBookContent } from "@/lib/prefetch";
 import { BookItem, BookModal } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 import { formatEtbWithUsd } from "@/lib/bookUtils";
@@ -87,6 +88,8 @@ function BooksRoute() {
       setLoading(true);
       const data = await fetchApi<{ books: BookItem[] }>("/books", { skipCache: true });
       setBooks(data.books);
+      // Prefetch PDF content for permitted books so reader opens instantly
+      data.books.filter((b) => b.isPermitted).forEach((b) => prefetchBookContent(b));
     } catch (err) {
       console.error("Failed to fetch books:", err);
     } finally {

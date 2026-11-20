@@ -302,7 +302,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <LanguageProvider>
-          <div className="min-h-screen bg-cream font-body flex gap-0 flex-col">
+          <div className="min-h-screen w-full bg-cream font-body flex gap-0 flex-col overflow-x-hidden">
             {!isAdmin && <Header />}
 
             <main className="flex-1">

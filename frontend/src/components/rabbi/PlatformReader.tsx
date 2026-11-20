@@ -15,7 +15,6 @@ import {
   Maximize2,
   Columns,
   Type,
-  ShieldAlert,
   ZoomIn,
   ZoomOut,
   RefreshCw,
@@ -30,6 +29,7 @@ import { useLanguage } from "@/lib/language";
 import { API_BASE_URL } from "@/lib/api";
 import { filterNumberInput } from "@/lib/inputValidation";
 import { parseDocx, fromRoman, fromAlpha, parseTableOfContentsText, SUBCHAPTER_HEADING_REGEX } from "@/lib/bookUtils";
+import { ensurePdfjsLoaded, getCachedPdfBytes, prefetchPdfBytes } from "@/lib/prefetch";
 
 interface PlatformReaderProps {
   book: BookItem;
@@ -68,30 +68,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [jumpPageInput, setJumpPageInput] = useState<string>("1");
-
-  // ── Screenshot / DRM security state ─────────────────────────────────────────
-  // isScreenBlackout drives the React-rendered full-black overlay
-  // isBlackoutActiveRef is read synchronously in the RAF loop & event handlers
-  const [isScreenBlackout, setIsScreenBlackout] = useState<boolean>(false);
-  const [securityNotice, setSecurityNotice] = useState<string | null>(null);
-  const isBlackoutActiveRef = useRef<boolean>(false);
-  const rafRef = useRef<number | null>(null);
-
-  // ── Mobile Touch Guard (Hardware Screenshot Prevention) ─────────────────────
-  // Physical buttons (Power + VolDown) on mobile phones do not trigger key events.
-  // The Touch Guard ensures book content is only visible while the user is actively
-  // touching/holding the screen. If fingers lift to press screenshot buttons,
-  // the content instantly blurs and covers.
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
-  const [isTouchReading, setIsTouchReading] = useState<boolean>(false);
-
-  useEffect(() => {
-    const isTouch =
-      "ontouchstart" in window ||
-      navigator.maxTouchPoints > 0 ||
-      window.matchMedia("(pointer: coarse)").matches;
-    setIsTouchDevice(isTouch);
-  }, []);
+  // Reader security (blackout removed per user request)
 
   // ── Reader refs ─────────────────────────────────────────────────────────────
   const readerRef = useRef<HTMLDivElement | null>(null);
@@ -220,8 +197,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   // Video overlay refs — canvas stream is piped into these so Android Chrome
   // shows black in OS-level screenshots (video compositor path is excluded from
   // Android's screenshot framebuffer capture).
-  const pdfVideoRef = useRef<HTMLVideoElement | null>(null);
-  const pdfVideoRef2 = useRef<HTMLVideoElement | null>(null);
 
   // Exact Page Label helper (uses Roman or customized numbering if present in PDF)
   const getPageLabel = useCallback(
@@ -450,44 +425,19 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
     const loadPdfJs = async () => {
       try {
-        if (!(window as any).pdfjsLib) {
-          await new Promise<void>((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error("PDF.js failed to load"));
-            document.head.appendChild(script);
-          });
-        }
+        // ── Step 1: Ensure PDF.js is loaded (uses prefetch cache if already loaded) ──
+        await ensurePdfjsLoaded();
 
         const pdfjs = (window as any).pdfjsLib;
         pdfjs.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-        // Robust fetch with Cloudinary 401 handling via backend proxy
-        const fetchPdfData = async (targetUrl: string): Promise<Uint8Array> => {
-          const isCloudinary = targetUrl.includes("cloudinary.com");
-          const proxyUrl = `${API_BASE_URL}/books/pdf-proxy?url=${encodeURIComponent(targetUrl)}`;
-          // For Cloudinary URLs, try proxy first (since Cloudinary CDN restricts raw PDFs with 401), fallback to direct
-          const urlsToTry = isCloudinary ? [proxyUrl, targetUrl] : [targetUrl, proxyUrl];
-
-          let lastError: any = null;
-          for (const u of urlsToTry) {
-            try {
-              const res = await fetch(u);
-              if (res.ok) {
-                const buffer = await res.arrayBuffer();
-                return new Uint8Array(buffer);
-              }
-              lastError = new Error(`Failed to fetch PDF: ${res.status}`);
-            } catch (e: any) {
-              lastError = e;
-            }
-          }
-          throw lastError || new Error("Failed to load PDF data.");
-        };
-
-        const uint8Data = await fetchPdfData(pdfUrl);
+        // ── Step 2: Get PDF bytes — instant if prefetched, otherwise fetch now ──
+        let uint8Data: Uint8Array | null = getCachedPdfBytes(pdfUrl);
+        if (!uint8Data) {
+          uint8Data = await prefetchPdfBytes(pdfUrl);
+        }
+        if (!uint8Data) throw new Error("Failed to load PDF data.");
 
         const loadingTask = pdfjs.getDocument({
           data: uint8Data,
@@ -652,14 +602,6 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         canvas.style.position = "absolute";
         canvas.style.opacity = "0";
         canvas.style.pointerEvents = "none";
-
-        // If blackout is active, paint solid black immediately
-        if (isBlackoutActiveRef.current) {
-          ctx.fillStyle = "#000000";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          return;
-        }
-
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
         await page.render({ canvasContext: ctx, viewport, transform }).promise;
 
@@ -690,9 +632,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   useEffect(() => {
     if (!isPdf || !pdfDoc) return;
-    renderPdfPage(currentPage, pdfCanvasRef.current, pdfVideoRef.current);
+    renderPdfPage(currentPage, pdfCanvasRef.current);
     if (twoPageView && currentPage < pdfNumPages) {
-      renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
+      renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
     }
   }, [isPdf, pdfDoc, currentPage, zoomScale, twoPageView, pdfNumPages, renderPdfPage]);
 
@@ -700,9 +642,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   useEffect(() => {
     if (!isPdf || !pdfDoc) return;
     const onResize = () => {
-      renderPdfPage(currentPage, pdfCanvasRef.current, pdfVideoRef.current);
+      renderPdfPage(currentPage, pdfCanvasRef.current);
       if (twoPageView && currentPage < pdfNumPages) {
-        renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
+        renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
       }
     };
     window.addEventListener("resize", onResize);
@@ -710,233 +652,19 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   }, [isPdf, pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
   // ============================================================================
-  // 4. HARDENED SCREENSHOT & ANTI-LEAK PROTECTION
+  // 4. PAGE KEYBOARD NAVIGATION
   // ============================================================================
-  const wipeCanvasesBlack = useCallback(() => {
-    [pdfCanvasRef.current, pdfCanvasRef2.current].forEach((canvas) => {
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-    });
-  }, []);
-
-  // Synchronous, zero-latency blackout across both DOM and canvases
-  const activateBlackout = useCallback(() => {
-    isBlackoutActiveRef.current = true;
-    setIsScreenBlackout(true);
-    wipeCanvasesBlack();
-    if (contentAreaRef.current) {
-      contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
-      contentAreaRef.current.style.opacity = "0";
-      contentAreaRef.current.style.pointerEvents = "none";
-    }
-    try {
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText("");
-      }
-    } catch {}
-  }, [wipeCanvasesBlack]);
-
-  const deactivateBlackout = useCallback(() => {
-    isBlackoutActiveRef.current = false;
-    setIsScreenBlackout(false);
-    setSecurityNotice(null);
-    if (contentAreaRef.current) {
-      contentAreaRef.current.style.filter = "none";
-      contentAreaRef.current.style.opacity = "1";
-      contentAreaRef.current.style.pointerEvents = "auto";
-    }
-    // Re-render pages after restoring
-    if (pdfDoc) {
-      setTimeout(() => {
-        renderPdfPage(currentPage, pdfCanvasRef.current, pdfVideoRef.current);
-        if (twoPageView && currentPage < pdfNumPages) {
-          renderPdfPage(currentPage + 1, pdfCanvasRef2.current, pdfVideoRef2.current);
-        }
-      }, 80);
-    }
-  }, [pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
-
-  // RAF loop: runs every frame; keeps content hidden while blackout is active
-  useEffect(() => {
-    const loop = () => {
-      if (isBlackoutActiveRef.current) {
-        wipeCanvasesBlack();
-        if (contentAreaRef.current && contentAreaRef.current.style.opacity !== "0") {
-          contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
-          contentAreaRef.current.style.opacity = "0";
-          contentAreaRef.current.style.pointerEvents = "none";
-        }
-      }
-      // Check focus every frame (60fps = catches Snipping Tool, Game Bar, Alt-Tab)
-      if (!document.hasFocus() || document.hidden) {
-        if (!isBlackoutActiveRef.current) {
-          isBlackoutActiveRef.current = true;
-          setIsScreenBlackout(true);
-          wipeCanvasesBlack();
-          if (contentAreaRef.current) {
-            contentAreaRef.current.style.filter = "blur(60px) brightness(0)";
-            contentAreaRef.current.style.opacity = "0";
-            contentAreaRef.current.style.pointerEvents = "none";
-          }
-        }
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [wipeCanvasesBlack]);
-
-  // Event-based protection layer (PC + Android / iOS)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const ctrl = e.ctrlKey || e.metaKey;
-
-      // Block copy/print/save/select-all
-      if (ctrl && ["c", "a", "p", "s", "u", "x"].includes(e.key.toLowerCase())) {
-        e.preventDefault();
-        activateBlackout();
-        return;
-      }
-
-      // Windows Snipping Tool: Win + Shift + S (or Ctrl/Alt + Shift + S)
-      const isWinShiftS =
-        (e.key?.toLowerCase() === "s" || e.code === "KeyS" || e.keyCode === 83) &&
-        e.shiftKey &&
-        (e.metaKey || e.ctrlKey || e.altKey);
-
-      // PrintScreen and DevTools / screenshot combos
-      const isPrintScreen =
-        e.key === "PrintScreen" ||
-        e.code === "PrintScreen" ||
-        e.keyCode === 44 ||
-        (e as any).which === 44;
-
-      if (
-        isPrintScreen ||
-        isWinShiftS ||
-        e.key === "F12" ||
-        ((ctrl || e.altKey) && e.shiftKey && ["i", "j", "c", "s"].includes(e.key.toLowerCase()))
-      ) {
-        e.preventDefault();
-        activateBlackout();
-        try { navigator.clipboard?.writeText(""); } catch {}
-      }
-
       if (!isVideo) {
         if (e.key === "ArrowRight" || e.key === "PageDown") handleNextPage();
         else if (e.key === "ArrowLeft" || e.key === "PageUp") handlePrevPage();
       }
     };
-
-    // Windows Chromium fires PrintScreen on KEYUP, not keydown
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const isPrintScreen =
-        e.key === "PrintScreen" ||
-        e.code === "PrintScreen" ||
-        e.keyCode === 44 ||
-        (e as any).which === 44;
-
-      if (isPrintScreen) {
-        e.preventDefault();
-        activateBlackout();
-        try { navigator.clipboard?.writeText(""); } catch {}
-      }
-    };
-
-    // Window blur ? fires when ANY external tool (Snipping Tool, Game Bar,
-    // screen capture overlay) pulls focus away.
-    const handleBlur = () => { activateBlackout(); };
-
-    // Window focus ? smoothly restores view when returning to the reader
-    const handleFocus = () => {
-      if (isBlackoutActiveRef.current) {
-        deactivateBlackout();
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden || document.visibilityState !== "visible") {
-        activateBlackout();
-      } else {
-        deactivateBlackout();
-      }
-    };
-
-    const blockContextMenu = (e: MouseEvent) => e.preventDefault();
-
-    // ?? Android / Mobile Screenshot Protection ????????????????????????????????
-    // 1. Multi-touch (?2 fingers) ? covers Power+VolDown & 3-finger swipe
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 2) {
-        activateBlackout();
-      } else if (isBlackoutActiveRef.current && e.touches.length === 1) {
-        deactivateBlackout();
-      }
-    };
-
-    // 2. touchcancel fires on Android when hardware buttons interrupt a touch session
-    const handleTouchCancel = () => {
-      activateBlackout();
-    };
-
-    // 3. touchend with sudden 0-finger state after multi-touch
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.changedTouches.length >= 2 && e.touches.length === 0) {
-        activateBlackout();
-      }
-    };
-
-    // 4. pagehide fires on Android recents / app-switcher (screen captured as thumbnail)
-    const handlePageHide = () => { activateBlackout(); };
-
-    // 5. freeze event fires on Android when Chrome freezes the page (screenshot assistant)
-    const handleFreeze = () => { activateBlackout(); };
-
-    // 6. Screen orientation change
-    const handleOrientationChange = () => { activateBlackout(); };
-
-    // Print prevention CSS (also blocks Ctrl+P on PC)
-    const printStyle = document.createElement("style");
-    printStyle.id = "rabbi-drm-print-guard";
-    printStyle.innerHTML =
-      "@media print { * { display: none !important; visibility: hidden !important; } }";
-    document.head.appendChild(printStyle);
-
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("contextmenu", blockContextMenu);
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchcancel", handleTouchCancel, { passive: true });
-    window.addEventListener("touchend", handleTouchEnd, { passive: true });
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("freeze", handleFreeze);
-    screen.orientation?.addEventListener("change", handleOrientationChange);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("contextmenu", blockContextMenu);
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchcancel", handleTouchCancel);
-      window.removeEventListener("touchend", handleTouchEnd);
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("freeze", handleFreeze);
-      screen.orientation?.removeEventListener("change", handleOrientationChange);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.getElementById("rabbi-drm-print-guard")?.remove();
-    };
-  }, [activateBlackout, deactivateBlackout, isVideo]);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVideo]);
 
   // ============================================================================
   // 5. PAGE CONTROLS
@@ -1066,27 +794,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       onCut={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      {/* ── PITCH-BLACK SCREENSHOT VEIL ─────────────────────────────────────────
-          z-[999999] sits above EVERYTHING. When active the user (and any screen
-          capture tool) sees only #000000. The div itself has no children so
-          there's nothing to capture even with accessibility APIs.             */}
-      {isScreenBlackout && (
-        <div
-          className="fixed inset-0 select-none cursor-pointer"
-          style={{ zIndex: 999999, backgroundColor: "#000000" }}
-          onClick={deactivateBlackout}
-        />
-      )}
-
-      {/* ── SECURITY TOAST ──────────────────────────────────────────────────── */}
-      {securityNotice && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white shadow-2xl border border-red-400 animate-in fade-in slide-in-from-top-4 pointer-events-none">
-          <ShieldAlert className="h-4 w-4 shrink-0" />
-          <span>{securityNotice}</span>
-        </div>
-      )}
-
-      {/* ── TOP HEADER BAR ──────────────────────────────────────────────────── */}
+            {/* ── TOP HEADER BAR ──────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 bg-navy-deep/95 border-b border-gold/25 backdrop-blur-md z-40 shrink-0">
         {/* Title area */}
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
@@ -1103,7 +811,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               </span>
             </div>
             <p className="text-[10px] text-on-navy-muted truncate max-w-[200px] sm:max-w-none">
-              ደራሲ፦ {book.author || "RABBI Ministry"} • {t("protectedContent")}
+              ደራሲ፦ {book.author || "RABBI Ministry"}
             </p>
           </div>
         </div>
@@ -1454,30 +1162,14 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                   )}
 
                   {!pdfLoading && !pdfError && (
-                    <div className={`flex gap-4 items-start justify-center w-full ${twoPageView ? "lg:flex-row flex-col" : "flex-col items-center"}`}>
-                      {/* Page 1 — hidden canvas feeds a <video> element.
-                          Android Chrome renders <video> through the protected
-                          video compositor path, which is excluded from OS-level
-                          screenshot capture (shows as black on Android). */}
+                    <div className={`flex gap-4 items-start justify-center w-full ${twoPageView ? "lg:flex-row flex-col max-w-6xl" : "flex-col items-center max-w-3xl"}`}>
+                      {/* Page 1 */}
                       <div
                         className={`relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}
-                        style={{ isolation: "isolate", willChange: "transform" }}
                       >
-                        {/* Hidden canvas — renders PDF pixels but is never visible */}
                         <canvas
                           ref={pdfCanvasRef}
-                          style={{ position: "absolute", opacity: 0, pointerEvents: "none", top: 0, left: 0 }}
-                          aria-hidden="true"
-                        />
-                        {/* Visible video — displays canvas stream; black in OS screenshots */}
-                        <video
-                          ref={pdfVideoRef}
-                          muted
-                          playsInline
-                          autoPlay
-                          disablePictureInPicture
-                          style={{ display: "block", width: "100%", height: "auto", userSelect: "none", WebkitUserSelect: "none" } as React.CSSProperties}
-                          onContextMenu={(e) => e.preventDefault()}
+                          className="block w-full h-auto"
                         />
                         <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
                           {t("page")} {getPageLabel(currentPage)}
@@ -1488,21 +1180,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       {twoPageView && currentPage < pdfNumPages && (
                         <div
                           className="relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white flex-1 min-w-0 hidden lg:block"
-                          style={{ isolation: "isolate", willChange: "transform" }}
                         >
                           <canvas
                             ref={pdfCanvasRef2}
-                            style={{ position: "absolute", opacity: 0, pointerEvents: "none", top: 0, left: 0 }}
-                            aria-hidden="true"
-                          />
-                          <video
-                            ref={pdfVideoRef2}
-                            muted
-                            playsInline
-                            autoPlay
-                            disablePictureInPicture
-                            style={{ display: "block", width: "100%", height: "auto", userSelect: "none", WebkitUserSelect: "none" } as React.CSSProperties}
-                            onContextMenu={(e) => e.preventDefault()}
+                            className="block w-full h-auto"
                           />
                           <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
                             {t("page")} {getPageLabel(currentPage + 1)}
@@ -1582,7 +1263,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       </div>
                       <div className="relative z-1 mt-8 pt-4 border-t border-current/15 flex items-center justify-between text-xs opacity-60 font-mono">
                         <span>— {currentPage + 1} —</span>
-                        <span>{t("protectedContent")}</span>
+          
                       </div>
                     </div>
                   )}

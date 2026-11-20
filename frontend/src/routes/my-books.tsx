@@ -4,6 +4,7 @@ import { BookOpen, Lock, CheckCircle2, Clock, XCircle, Send, PlayCircle, PlusCir
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
+import { prefetchBookContent } from "@/lib/prefetch";
 import { BookItem } from "@/components/rabbi/BookModal";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 
@@ -42,6 +43,10 @@ function MyBooksRoute() {
       setLoading(true);
       const data = await fetchApi<{ requests: UserRequestItem[] }>("/requests/my", { skipCache: true });
       setRequests(data.requests);
+      // Prefetch PDF content for permitted books so reader opens instantly
+      data.requests
+        .filter((r) => r.status === "PERMITTED")
+        .forEach((r) => prefetchBookContent({ ...r.book, isPermitted: true }));
     } catch (err: any) {
       setError(err.message || "የእርስዎን መጽሐፍት ማምጣት አልተሳካም።");
     } finally {

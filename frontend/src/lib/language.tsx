@@ -112,9 +112,9 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   accountNumLabel: { am: "የሂሳብ ቁጥር:", or: "Lakkoofsa Herregaa:", en: "Account Number:" },
   accountNameLabel: {
-    am: "የሂሳብ ስም: RABBI Ministry / መጋቢ ካስሁብ",
-    or: "Maqaa Herregaa: RABBI Ministry / Luba Kaashub",
-    en: "Account Name: RABBI Ministry / Pastor Kashub",
+    am: "የአካውንቱ ባለቤት: ካሌብ መስፍን",
+    or: "Abbaa Herregaa: Kaleb Mesfin",
+    en: "Account Holder: Kaleb Mesfin",
   },
   sendReceiptBtn: {
     am: "የክፍያ ደረሰኝ ለመላክ (@rabbi_admin)",

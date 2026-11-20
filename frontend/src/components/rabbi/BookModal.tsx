@@ -5,6 +5,8 @@ import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { useNavigate } from "@tanstack/react-router";
 import { formatEtbWithUsd, estimateTextPageCount, getPdfPageCount, parseDocx } from "@/lib/bookUtils";
+import { PaymentAccounts } from "@/components/rabbi/PaymentAccounts";
+import { prefetchBookContent } from "@/lib/prefetch";
 
 export interface BookItem {
   id: string;
@@ -70,7 +72,11 @@ export const BookModal: React.FC<BookModalProps> = ({
       const cnt = estimateTextPageCount(content);
       setPageCount(cnt);
     }
-  }, [book]);
+
+    if (book && (book.isPermitted || currentStatus === "PERMITTED")) {
+      prefetchBookContent(book);
+    }
+  }, [book, currentStatus]);
 
   if (!book) return null;
 
@@ -204,18 +210,8 @@ export const BookModal: React.FC<BookModalProps> = ({
                 </div>
               </div>
 
-              {/* Bank Details Box */}
-              <div className="mb-5 rounded-xl bg-gold/10 p-4 border border-gold/30">
-                <h4 className="text-xs font-bold text-navy-deep uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <CreditCard className="h-4 w-4 text-gold" />
-                  {t("cbeBankTransfer")}
-                </h4>
-                <div className="text-xs text-navy space-y-1">
-                  <p><span className="font-semibold">{t("bankTitle")}</span> {t("bankCbeName")}</p>
-                  <p><span className="font-semibold">{t("accountNumber")}</span> <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">1000313542002</code></p>
-                  <p><span className="font-semibold">{t("accountHolder")}</span> Kaleb Mesfin</p>
-                </div>
-              </div>
+              {/* Bank & Payment Details */}
+              <PaymentAccounts className="mb-5" />
             </div>
 
             {/* Actions & Status */}
@@ -236,11 +232,13 @@ export const BookModal: React.FC<BookModalProps> = ({
               {/* Status Display or Request Action */}
               {book.isPermitted || currentStatus === "PERMITTED" ? (
                 <button
+                  onMouseEnter={() => prefetchBookContent(book)}
+                  onTouchStart={() => prefetchBookContent(book)}
                   onClick={() => {
                     onClose();
                     if (onOpenReader) onOpenReader(book);
                   }}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-green-700 transition-all"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-green-700 transition-all cursor-pointer"
                 >
                   <BookOpen className="h-4 w-4" />
                   <span>{t("readNowFull")}</span>

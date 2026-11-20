@@ -38,8 +38,8 @@ export function Header() {
 
   return (
     <>
-      <header className="bg-navy-deep sticky top-0 z-50 border-b border-gold/10 shadow-md">
-        <div className="mx-auto flex max-w-[1240px] items-center gap-2 sm:gap-4 lg:gap-3 xl:gap-6 px-3 sm:px-6 py-3">
+      <header className="bg-navy-deep sticky top-0 z-50 border-b border-gold/10 shadow-md w-full max-w-full">
+        <div className="mx-auto flex max-w-[1240px] w-full items-center justify-between gap-1.5 sm:gap-4 lg:gap-3 xl:gap-6 px-2.5 sm:px-6 py-2.5 sm:py-3">
           <Logo />
           <nav
             className={`ml-auto hidden items-center flex-nowrap whitespace-nowrap lg:flex ${
@@ -69,13 +69,13 @@ export function Header() {
               );
             })}
           </nav>
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5 lg:ml-0 shrink-0">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:ml-0 shrink-0">
             {/* ── 3-Language Selector Pill ──────────────────────────────── */}
-            <div className="flex items-center rounded-full bg-navy/60 p-0.5 border border-gold/30 text-[11px] shadow-xs">
+            <div className="flex items-center rounded-full bg-navy/60 p-0.5 border border-gold/30 text-[10px] sm:text-[11px] shadow-xs">
               <button
                 type="button"
                 onClick={() => setLanguage("am")}
-                className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
                   language === "am"
                     ? "bg-gold text-navy-deep shadow-xs"
                     : "text-gold/70 hover:text-gold"
@@ -87,7 +87,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setLanguage("or")}
-                className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
                   language === "or"
                     ? "bg-gold text-navy-deep shadow-xs"
                     : "text-gold/70 hover:text-gold"
@@ -99,7 +99,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setLanguage("en")}
-                className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
                   language === "en"
                     ? "bg-gold text-navy-deep shadow-xs"
                     : "text-gold/70 hover:text-gold"
@@ -114,10 +114,11 @@ export function Header() {
               <div className="flex items-center gap-1.5 sm:gap-3">
                 <Link
                   to="/my-books"
-                  className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-gold/15 px-2.5 sm:px-4 py-1.5 text-[0.72rem] sm:text-[0.75rem] font-semibold text-gold border border-gold/30 hover:bg-gold/25 transition-all"
+                  className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-gold/15 px-2 sm:px-3 py-1 sm:py-1.5 text-[0.7rem] sm:text-[0.75rem] font-semibold text-gold border border-gold/30 hover:bg-gold/25 transition-all"
+                  title={user.fullName || user.email}
                 >
                   <UserIcon className="h-3.5 w-3.5" />
-                  <span className="max-w-[70px] sm:max-w-none truncate">{user.fullName || user.email.split("@")[0]}</span>
+                  <span className="hidden md:inline max-w-[80px] truncate">{user.fullName || user.email.split("@")[0]}</span>
                 </Link>
 
                 <button
@@ -143,7 +144,7 @@ export function Header() {
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
-              className="flex lg:hidden items-center justify-center rounded-full p-2 text-gold hover:bg-gold/15 border border-gold/30 transition-all cursor-pointer active:scale-95"
+              className="flex lg:hidden items-center justify-center rounded-full p-1.5 sm:p-2 text-gold hover:bg-gold/15 border border-gold/30 transition-all cursor-pointer active:scale-95"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>

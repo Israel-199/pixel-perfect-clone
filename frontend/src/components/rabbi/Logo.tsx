@@ -13,7 +13,7 @@ export function Logo({
   const big = size === "lg";
 
   const content = (
-    <div className="flex items-center gap-3 group select-none">
+    <div className="flex items-center gap-2 sm:gap-3 group select-none shrink-0">
       <div className="relative flex flex-col items-center">
         <svg
           viewBox="0 0 24 12"

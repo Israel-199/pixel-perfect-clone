@@ -20,7 +20,7 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<any>>();
 const inFlightRequests = new Map<string, Promise<any>>();
-const DEFAULT_TTL_MS = 3_000; // 3 seconds - short deduplication window, prevents lag when data is updated
+const DEFAULT_TTL_MS = 30_000; // 30 seconds — fast repeated navigation, still fresh on mutations
 
 export function clearApiCache(prefix?: string) {
   if (!prefix) {
