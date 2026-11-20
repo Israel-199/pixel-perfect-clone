@@ -721,41 +721,44 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
+    // Check if key press indicates screenshot attempt OR preparatory key for screenshot
     const isScreenshotAttempt = (e: KeyboardEvent) => {
       const code = e.code || "";
       const key = (e.key || "").toLowerCase();
       const keyCode = e.keyCode || (e as any).which || 0;
 
-      // 1. PrintScreen key in any form (PrtScn, keyCode 44)
+      // 1. PrintScreen key in any form
       if (key === "printscreen" || code === "PrintScreen" || keyCode === 44) {
         return true;
       }
 
-      // 2. Windows Snipping Tool: Win + Shift + S / Ctrl + Shift + S / Alt + Shift + S
+      // 2. Meta (Windows / Cmd key) pressed down: immediately blur!
+      // In a reader, Meta key has zero reading purpose and is the initial key pressed
+      // 150-300ms before 'S' in Win+Shift+S. Blurring here guarantees the snapshot captures blurred content.
+      if (key === "meta" || code.startsWith("Meta") || keyCode === 91 || keyCode === 92 || e.metaKey) {
+        return true;
+      }
+
+      // 3. Snipping Tool / Web Capture combinations:
+      // Win + Shift + S, Ctrl + Shift + S, Alt + Shift + S
       if (
         (key === "s" || code === "KeyS" || keyCode === 83) &&
-        e.shiftKey &&
-        (e.metaKey || e.ctrlKey || e.altKey)
+        (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)
       ) {
         return true;
       }
 
-      // 3. Any Meta (Win key) + Shift combination
-      if ((code.startsWith("Meta") || key === "meta") && e.shiftKey) {
+      // 4. Any Shift combination with Meta or Alt
+      if (e.shiftKey && (e.metaKey || e.altKey)) {
         return true;
       }
 
-      // 4. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
+      // 5. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
       if (
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
         ["3", "4", "5", "6", "#", "$", "%", "^"].includes(key)
       ) {
-        return true;
-      }
-
-      // 5. Browser Web Capture / Screenshot tool (Edge: Ctrl+Shift+S)
-      if (e.ctrlKey && e.shiftKey && (key === "s" || code === "KeyS")) {
         return true;
       }
 
@@ -804,26 +807,30 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.stopImmediatePropagation();
         clearClipboardSilently();
         return false;
+      } else {
+        // If regular key released (not meta/shift) and window has focus, ensure unblurred
+        if (!e.metaKey && !e.shiftKey && document.hasFocus()) {
+          setIsBlurred(false);
+        }
       }
     };
 
-    // Mobile: Block 3-finger swipe screenshot gestures (Android / Samsung / Xiaomi / Oppo / Huawei)
+    // Mobile: Block multi-touch screenshot gestures (3-finger swipe on Xiaomi/Oppo/Huawei, palm swipe on Samsung)
+    // When 2 or more touches are detected simultaneously, immediately blur before screenshot triggers
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 3) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
+      if (e.touches && e.touches.length >= 2) {
         setIsBlurred(true);
       } else {
-        setIsBlurred(false);
+        if (document.hasFocus()) {
+          setIsBlurred(false);
+        }
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 3) {
+      if (e.touches && e.touches.length >= 2) {
         e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
+        setIsBlurred(true);
       }
     };
 
@@ -841,15 +848,24 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       e.preventDefault();
     };
 
+    // Periodic fast focus sanity check for external screenshot overlay tools (Lightshot, Snipping Tool overlay, Greenshot)
+    const focusCheckInterval = setInterval(() => {
+      if (!document.hasFocus() || document.hidden) {
+        setIsBlurred(true);
+        clearClipboardSilently();
+      }
+    }, 60);
+
     const opts = { capture: true, passive: false };
     window.addEventListener("keydown", handleKeyDownCapture, opts);
     window.addEventListener("keyup", handleKeyUpCapture, opts);
     document.addEventListener("keydown", handleKeyDownCapture, opts);
     document.addEventListener("keyup", handleKeyUpCapture, opts);
-    window.addEventListener("touchstart", handleTouchStart, opts);
+    window.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
     window.addEventListener("touchmove", handleTouchMove, opts);
     window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("pagehide", handleWindowBlur);
     window.addEventListener("mousemove", handleUserActivity);
     window.addEventListener("pointerdown", handleUserActivity);
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -859,6 +875,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     window.addEventListener("dragstart", handleDragStart, { capture: true });
 
     return () => {
+      clearInterval(focusCheckInterval);
       if (typeof (navigator as any).keyboard?.unlock === "function") {
         try { (navigator as any).keyboard.unlock(); } catch {}
       }
@@ -866,10 +883,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       window.removeEventListener("keyup", handleKeyUpCapture, { capture: true });
       document.removeEventListener("keydown", handleKeyDownCapture, { capture: true });
       document.removeEventListener("keyup", handleKeyUpCapture, { capture: true });
-      window.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      window.removeEventListener("touchstart", handleTouchStart, { capture: true } as any);
       window.removeEventListener("touchmove", handleTouchMove, { capture: true });
       window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("pagehide", handleWindowBlur);
       window.removeEventListener("mousemove", handleUserActivity);
       window.removeEventListener("pointerdown", handleUserActivity);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -994,6 +1012,45 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     }
   };
 
+  const getPdfCanvasFilter = () => {
+    switch (theme) {
+      case "dark":
+        return "invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(1.15)";
+      case "midnight":
+        return "invert(0.96) hue-rotate(180deg) contrast(1.25) brightness(0.9)";
+      case "sepia":
+        return "sepia(0.4) contrast(0.96) brightness(0.97)";
+      default:
+        return "none";
+    }
+  };
+
+  const getPdfCardClass = () => {
+    switch (theme) {
+      case "dark":
+        return "bg-slate-900 border-slate-700/80 shadow-2xl";
+      case "midnight":
+        return "bg-[#0a0f1d] border-gold/40 shadow-2xl";
+      case "sepia":
+        return "bg-[#fbf3e2] border-[#e2d3be] shadow-2xl";
+      default:
+        return "bg-white border-gold/30 shadow-2xl";
+    }
+  };
+
+  const getPdfBadgeClass = () => {
+    switch (theme) {
+      case "dark":
+        return "bg-slate-800/90 text-slate-200 border border-slate-700";
+      case "midnight":
+        return "bg-[#060a14]/90 text-gold border border-gold/30";
+      case "sepia":
+        return "bg-[#efe5d0]/95 text-[#4a3728] border border-[#dfd0ba]";
+      default:
+        return "bg-white/90 text-navy/80 border border-navy/10";
+    }
+  };
+
   const activePageObj  = pages[currentPage - 1] || pages[0];
   const secondPageObj  = twoPageView ? pages[currentPage] : null;
 
@@ -1062,20 +1119,20 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
           {/* Zoom for PDF */}
           {isPdf && (
             <div className="hidden sm:flex items-center gap-0.5 rounded-xl bg-navy/40 px-1.5 py-1 border border-gold/25">
-              <button onClick={() => setZoomScale((s) => Math.max(0.6, s - 0.15))} className="p-1 text-gold hover:text-white cursor-pointer" title="Zoom Out">
+              <button onClick={() => setZoomScale((s) => Math.max(0.6, +(s - 0.15).toFixed(2)))} className="p-1 text-gold hover:text-white cursor-pointer" title="Zoom Out">
                 <ZoomOut className="h-3.5 w-3.5" />
               </button>
               <span className="text-[10px] text-gold font-mono px-1 min-w-[36px] text-center">
                 {Math.round(zoomScale * 100)}%
               </span>
-              <button onClick={() => setZoomScale((s) => Math.min(2.0, s + 0.15))} className="p-1 text-gold hover:text-white cursor-pointer" title="Zoom In">
+              <button onClick={() => setZoomScale((s) => Math.min(2.5, +(s + 0.15).toFixed(2)))} className="p-1 text-gold hover:text-white cursor-pointer" title="Zoom In">
                 <ZoomIn className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
-          {/* Theme switcher for text & DOCX books */}
-          {!isVideo && !isPdf && (
+          {/* Theme switcher for all books (PDF, DOCX, Text) */}
+          {!isVideo && (
             <div className="flex items-center rounded-xl bg-navy/40 p-1 border border-gold/25">
               {(["cream", "sepia", "dark", "midnight"] as const).map((th) => (
                 <button
@@ -1092,13 +1149,39 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             </div>
           )}
 
-          {/* Font size for text & DOCX books */}
-          {!isVideo && !isPdf && (
+          {/* Font size / Zoom resize for all books (PDF, DOCX, Text) */}
+          {!isVideo && (
             <div className="flex items-center gap-1 rounded-xl bg-navy/40 px-2 py-1 border border-gold/25">
-              <Type className="h-3.5 w-3.5 text-gold" />
-              <button onClick={() => setFontSize((s) => Math.max(12, s - 2))} className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer" title="Decrease font size">A-</button>
-              <span className="text-[10px] text-white font-mono">{fontSize}px</span>
-              <button onClick={() => setFontSize((s) => Math.min(36, s + 2))} className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer" title="Increase font size">A+</button>
+              <Type className="h-3.5 w-3.5 text-gold shrink-0" />
+              <button
+                onClick={() => {
+                  if (isPdf) {
+                    setZoomScale((s) => Math.max(0.6, +(s - 0.15).toFixed(2)));
+                  } else {
+                    setFontSize((s) => Math.max(12, s - 2));
+                  }
+                }}
+                className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer active:scale-95"
+                title="የጽሑፍ መጠን ቀንስ (A-)"
+              >
+                A-
+              </button>
+              <span className="text-[10px] text-white font-mono min-w-[34px] text-center">
+                {isPdf ? `${Math.round(zoomScale * 100)}%` : `${fontSize}px`}
+              </span>
+              <button
+                onClick={() => {
+                  if (isPdf) {
+                    setZoomScale((s) => Math.min(2.5, +(s + 0.15).toFixed(2)));
+                  } else {
+                    setFontSize((s) => Math.min(36, s + 2));
+                  }
+                }}
+                className="px-1.5 text-xs font-bold text-gold hover:opacity-80 cursor-pointer active:scale-95"
+                title="የጽሑፍ መጠን ጨምር (A+)"
+              >
+                A+
+              </button>
             </div>
           )}
 
@@ -1344,14 +1427,14 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
           </main>
         ) : (
           /* ── CASE B: BOOK READER ───────────────────────────────────────── */
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className={`flex-1 flex flex-col overflow-hidden transition-colors duration-200 ${getPdfBgClass()}`}>
             {/* Scrollable page area */}
             <div
               ref={pdfContainerRef}
-              className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 flex flex-col items-center transition-all duration-75"
+              className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 flex flex-col items-center transition-all duration-75 ${getPdfBgClass()}`}
               style={{
-                filter: isBlurred ? "blur(32px) contrast(0.65)" : "none",
-                opacity: isBlurred ? 0.35 : 1,
+                filter: isBlurred ? "blur(36px) contrast(0.5) brightness(0.9)" : "none",
+                opacity: isBlurred ? 0.25 : 1,
                 userSelect: "none",
                 WebkitUserSelect: "none",
               }}
@@ -1387,13 +1470,16 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                     <div className={`flex gap-4 items-start justify-center w-full ${twoPageView ? "lg:flex-row flex-col max-w-6xl" : "flex-col items-center max-w-3xl"}`}>
                       {/* Page 1 */}
                       <div
-                        className={`relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}
+                        className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-colors duration-200 ${getPdfCardClass()} ${twoPageView ? "flex-1 min-w-0" : "w-full"}`}
                       >
                         <canvas
                           ref={pdfCanvasRef}
-                          className="block w-full h-auto"
+                          className="block w-full h-auto transition-[filter] duration-200"
+                          style={{
+                            filter: getPdfCanvasFilter(),
+                          }}
                         />
-                        <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
+                        <div className={`absolute bottom-2 right-3 text-[10px] font-mono px-2 py-0.5 rounded shadow-sm z-20 ${getPdfBadgeClass()}`}>
                           {t("page")} {getPageLabel(currentPage)}
                         </div>
                       </div>
@@ -1401,13 +1487,16 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       {/* Page 2 (two-page spread) */}
                       {twoPageView && currentPage < pdfNumPages && (
                         <div
-                          className="relative rounded-2xl overflow-hidden shadow-2xl border border-gold/30 bg-white flex-1 min-w-0 hidden lg:block"
+                          className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-colors duration-200 ${getPdfCardClass()} flex-1 min-w-0 hidden lg:block`}
                         >
                           <canvas
                             ref={pdfCanvasRef2}
-                            className="block w-full h-auto"
+                            className="block w-full h-auto transition-[filter] duration-200"
+                            style={{
+                              filter: getPdfCanvasFilter(),
+                            }}
                           />
-                          <div className="absolute bottom-2 right-3 text-[10px] text-navy/70 font-mono bg-white/90 px-2 py-0.5 rounded shadow-sm z-20">
+                          <div className={`absolute bottom-2 right-3 text-[10px] font-mono px-2 py-0.5 rounded shadow-sm z-20 ${getPdfBadgeClass()}`}>
                             {t("page")} {getPageLabel(currentPage + 1)}
                           </div>
                         </div>
