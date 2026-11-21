@@ -2,57 +2,62 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PopupVideoService = void 0;
 const prisma_1 = require("../config/prisma");
+const cloudinary_1 = require("../config/cloudinary");
 class PopupVideoService {
-    static DEFAULT_ID = "default";
     /**
-     * Retrieves the active popup video for public display on the website.
-     * If not active or no video URL is configured, returns null.
+     * Retrieves all active popup videos for public display on the website,
+     * sorted by order ascending and createdAt ascending.
      */
-    static async getPublicPopupVideo() {
+    static async getPublicPopupVideos() {
         try {
-            const popup = await prisma_1.prisma.popupVideo.findUnique({
-                where: { id: this.DEFAULT_ID },
+            const videos = await prisma_1.prisma.popupVideo.findMany({
+                where: {
+                    isActive: true,
+                    videoUrl: { not: "" },
+                },
+                orderBy: [{ order: "asc" }, { createdAt: "asc" }],
             });
-            if (!popup || !popup.isActive || !popup.videoUrl?.trim()) {
-                return null;
-            }
-            return popup;
+            return videos;
         }
         catch (error) {
-            console.error("[PopupVideoService.getPublicPopupVideo] Error:", error);
-            return null;
+            console.error("[PopupVideoService.getPublicPopupVideos] Error:", error);
+            return [];
         }
     }
     /**
-     * Retrieves the popup video config for admin management.
-     * If none exists yet, returns a default template.
+     * Retrieves all popup videos (active and inactive) for admin management.
      */
-    static async getAdminPopupVideo() {
-        let popup = await prisma_1.prisma.popupVideo.findUnique({
-            where: { id: this.DEFAULT_ID },
+    static async getAllAdminPopupVideos() {
+        const videos = await prisma_1.prisma.popupVideo.findMany({
+            orderBy: [{ order: "asc" }, { createdAt: "desc" }],
         });
-        if (!popup) {
-            // Seed initial default record
-            popup = await prisma_1.prisma.popupVideo.create({
-                data: {
-                    id: this.DEFAULT_ID,
-                    title: "About RABBI Digital",
-                    description: "የእኛን ዲጂታል ቤተ-መጻሕፍት እና መንፈሳዊ አገልግሎት በአጭሩ ይመልከቱ",
-                    videoUrl: "",
-                    thumbnailUrl: "",
-                    ctaText: "ስለ እኛ ተጨማሪ እወቅ",
-                    ctaLink: "/about",
-                    isActive: false,
-                    autoPlay: true,
-                },
-            });
-        }
-        return popup;
+        return videos;
     }
     /**
-     * Updates or creates the popup video settings.
+     * Creates a new popup video.
      */
-    static async updatePopupVideo(input) {
+    static async createPopupVideo(input) {
+        // Count existing to assign next order
+        const count = await prisma_1.prisma.popupVideo.count();
+        const created = await prisma_1.prisma.popupVideo.create({
+            data: {
+                title: input.title?.trim() || "About RABBI Digital",
+                description: input.description?.trim() || "",
+                videoUrl: input.videoUrl?.trim() || "",
+                thumbnailUrl: input.thumbnailUrl?.trim() || null,
+                ctaText: input.ctaText?.trim() || "ስለ እኛ ተጨማሪ እወቅ",
+                ctaLink: input.ctaLink?.trim() || "/about",
+                isActive: input.isActive !== undefined ? input.isActive : true,
+                autoPlay: input.autoPlay !== undefined ? input.autoPlay : true,
+                order: input.order !== undefined ? input.order : count,
+            },
+        });
+        return created;
+    }
+    /**
+     * Updates an existing popup video by ID.
+     */
+    static async updatePopupVideo(id, input) {
         const data = {};
         if (input.title !== undefined)
             data.title = String(input.title).trim();
@@ -70,22 +75,41 @@ class PopupVideoService {
             data.isActive = Boolean(input.isActive);
         if (input.autoPlay !== undefined)
             data.autoPlay = Boolean(input.autoPlay);
-        const updated = await prisma_1.prisma.popupVideo.upsert({
-            where: { id: this.DEFAULT_ID },
-            update: data,
-            create: {
-                id: this.DEFAULT_ID,
-                title: data.title || "About RABBI Digital",
-                description: data.description || "የእኛን ዲጂታል ቤተ-መጻሕፍት እና መንፈሳዊ አገልግሎት በአጭሩ ይመልከቱ",
-                videoUrl: data.videoUrl || "",
-                thumbnailUrl: data.thumbnailUrl || null,
-                ctaText: data.ctaText || "ስለ እኛ ተጨማሪ እወቅ",
-                ctaLink: data.ctaLink || "/about",
-                isActive: data.isActive !== undefined ? data.isActive : true,
-                autoPlay: data.autoPlay !== undefined ? data.autoPlay : true,
-            },
+        if (input.order !== undefined)
+            data.order = Number(input.order);
+        const updated = await prisma_1.prisma.popupVideo.update({
+            where: { id },
+            data,
         });
         return updated;
+    }
+    /**
+     * Deletes a popup video by ID and cleans up Cloudinary assets in background.
+     */
+    static async deletePopupVideo(id) {
+        const existing = await prisma_1.prisma.popupVideo.findUnique({
+            where: { id },
+        });
+        if (!existing) {
+            throw new Error("Popup video not found");
+        }
+        if (existing.videoUrl || existing.thumbnailUrl) {
+            (0, cloudinary_1.deleteFilesFromCloudinaryAsync)([existing.videoUrl, existing.thumbnailUrl]);
+        }
+        await prisma_1.prisma.popupVideo.delete({
+            where: { id },
+        });
+        return { success: true };
+    }
+    /**
+     * Reorders multiple popup videos.
+     */
+    static async reorderPopupVideos(orderedIds) {
+        await prisma_1.prisma.$transaction(orderedIds.map((id, index) => prisma_1.prisma.popupVideo.update({
+            where: { id },
+            data: { order: index },
+        })));
+        return { success: true };
     }
 }
 exports.PopupVideoService = PopupVideoService;

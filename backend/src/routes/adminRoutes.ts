@@ -31,8 +31,12 @@ router.delete("/users/:id", AdminController.deleteUser);
 router.put("/users/:id/role", AdminController.updateUserRole);
 router.put("/users/:id/reset-password", AdminController.resetUserPassword);
 
-// Popup Video Management
-router.get("/popup-video", PopupVideoController.getAdmin);
+// Popup Video Management (Multiple videos support)
+router.get("/popup-video", PopupVideoController.getAllAdmin);
+router.post("/popup-video", PopupVideoController.createAdmin);
+router.put("/popup-video/reorder", PopupVideoController.reorderAdmin);
+router.put("/popup-video/:id", PopupVideoController.updateAdmin);
 router.put("/popup-video", PopupVideoController.updateAdmin);
+router.delete("/popup-video/:id", PopupVideoController.deleteAdmin);
 
 export default router;
