@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AdminController, handleMulterError } from "../controllers/adminController";
+import { PopupVideoController } from "../controllers/popupVideoController";
 import { authenticateToken, requireAdmin } from "../middlewares/authMiddleware";
 import { upload } from "../config/cloudinary";
 
@@ -29,5 +30,9 @@ router.put("/users/:id/suspend", AdminController.toggleSuspendUser);
 router.delete("/users/:id", AdminController.deleteUser);
 router.put("/users/:id/role", AdminController.updateUserRole);
 router.put("/users/:id/reset-password", AdminController.resetUserPassword);
+
+// Popup Video Management
+router.get("/popup-video", PopupVideoController.getAdmin);
+router.put("/popup-video", PopupVideoController.updateAdmin);
 
 export default router;

@@ -14,6 +14,7 @@ const requestRoutes_1 = __importDefault(require("./routes/requestRoutes"));
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 const privatePrayerRoutes_1 = __importDefault(require("./routes/privatePrayerRoutes"));
 const bookmarkRoutes_1 = __importDefault(require("./routes/bookmarkRoutes"));
+const popupVideoRoutes_1 = __importDefault(require("./routes/popupVideoRoutes"));
 const prisma_1 = require("./config/prisma");
 const security_1 = require("./middlewares/security");
 dotenv_1.default.config();
@@ -54,6 +55,7 @@ exports.app.use("/api/books", bookRoutes_1.default);
 exports.app.use("/api/requests", requestRoutes_1.default);
 exports.app.use("/api/private-prayers", privatePrayerRoutes_1.default);
 exports.app.use("/api/bookmarks", bookmarkRoutes_1.default);
+exports.app.use("/api/popup-video", popupVideoRoutes_1.default);
 // ─── HEALTHCHECK ─────────────────────────────────────────────────────────────
 exports.app.get("/api/health", (_req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });

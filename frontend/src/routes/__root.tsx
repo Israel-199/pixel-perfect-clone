@@ -16,6 +16,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { PopupVideoWidget } from "@/components/rabbi/PopupVideoWidget";
 import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/language";
 import { Toaster } from "sonner";
@@ -311,6 +312,8 @@ function RootComponent() {
             </main>
 
             {!isAdmin && <Footer />}
+
+            {!isAdmin && <PopupVideoWidget />}
 
             <Toaster
               position="top-right"

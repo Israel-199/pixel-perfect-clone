@@ -46,6 +46,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { fetchApi, clearApiCache, API_BASE_URL } from "@/lib/api";
 import { formatEtbWithUsd } from "@/lib/bookUtils";
+import { AdminPopupVideoManager } from "@/components/rabbi/AdminPopupVideoManager";
 import {
   filterNameInput,
   filterNumberInput,
@@ -165,7 +166,7 @@ interface RegisteredUser {
   pendingRequests: number;
 }
 
-type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "PRIVATE_PRAYERS" | "PROFILE" | "MANAGE_ADMINS" | "MANAGE_USERS";
+type AdminTab = "REQUESTS" | "MANAGE_CONTENTS" | "TRACKING" | "ADD_CONTENT" | "POPUP_VIDEO" | "PRIVATE_PRAYERS" | "PROFILE" | "MANAGE_ADMINS" | "MANAGE_USERS";
 type ContentFilterType = "ALL" | "BOOK" | "VIDEO" | "AUDIO" | "COURSE" | "ARTICLE" | "PRAYER";
 type RequestFilterType = "ALL" | "BOOK" | "MEDIA" | "COURSE";
 
@@ -1552,6 +1553,18 @@ function AdminRoute() {
           </button>
 
           <button
+            onClick={() => setActiveTab("POPUP_VIDEO")}
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === "POPUP_VIDEO"
+                ? "bg-navy-deep text-gold shadow-md border border-gold/40"
+                : "bg-card text-navy border border-navy/10 hover:bg-gold/10"
+            }`}
+          >
+            <Video className="h-4 w-4 text-gold" />
+            <span>ቪዲዮ ማስታወቂያ (Popup Video)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("PRIVATE_PRAYERS")}
             className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === "PRIVATE_PRAYERS"
@@ -2723,6 +2736,11 @@ function AdminRoute() {
               </button>
             </form>
           </div>
+        )}
+
+        {/* ================= TAB: POPUP VIDEO ================= */}
+        {activeTab === "POPUP_VIDEO" && (
+          <AdminPopupVideoManager xhrUpload={xhrUpload} />
         )}
 
         {/* ================= TAB: PRIVATE PRAYERS ================= */}

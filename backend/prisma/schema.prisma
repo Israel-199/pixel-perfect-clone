@@ -89,3 +89,18 @@ model Bookmark {
 
   @@unique([userId, bookId])
 }
+
+model PopupVideo {
+  id           String   @id @default("default")
+  title        String   @default("About RABBI Digital")
+  description  String   @db.Text
+  videoUrl     String
+  thumbnailUrl String?
+  ctaText      String?  @default("ስለ እኛ ተጨማሪ እወቅ")
+  ctaLink      String?  @default("/about")
+  isActive     Boolean  @default(true)
+  autoPlay     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const adminController_1 = require("../controllers/adminController");
+const popupVideoController_1 = require("../controllers/popupVideoController");
 const authMiddleware_1 = require("../middlewares/authMiddleware");
 const cloudinary_1 = require("../config/cloudinary");
 const router = (0, express_1.Router)();
@@ -27,4 +28,7 @@ router.put("/users/:id/suspend", adminController_1.AdminController.toggleSuspend
 router.delete("/users/:id", adminController_1.AdminController.deleteUser);
 router.put("/users/:id/role", adminController_1.AdminController.updateUserRole);
 router.put("/users/:id/reset-password", adminController_1.AdminController.resetUserPassword);
+// Popup Video Management
+router.get("/popup-video", popupVideoController_1.PopupVideoController.getAdmin);
+router.put("/popup-video", popupVideoController_1.PopupVideoController.updateAdmin);
 exports.default = router;
