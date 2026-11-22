@@ -554,10 +554,12 @@ function CoursesRoute() {
   }, [user]);
 
   // Fetch all COURSE mediaType from backend
+  const [coursesLoading, setCoursesLoading] = useState<boolean>(true);
   const [backendCourses, setBackendCourses] = useState<CourseItem[]>([]);
 
   useEffect(() => {
-    fetchApi<{ books: any[] }>("/books")
+    setCoursesLoading(true);
+    fetchApi<{ books: any[] }>("/books", { skipCache: true })
       .then((data) => {
         const custom = (data.books || [])
           .filter((b) => b.mediaType === "COURSE")
@@ -608,19 +610,15 @@ function CoursesRoute() {
           });
         setBackendCourses(custom);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Failed to load courses:", err);
+      })
+      .finally(() => {
+        setCoursesLoading(false);
+      });
   }, []);
 
-  const allCourses = React.useMemo(() => {
-    if (backendCourses.length > 0) {
-      const backendTitles = new Set(backendCourses.map((c) => c.title.trim().toLowerCase()));
-      const remainingDefault = COURSES_DATA.filter(
-        (c) => !backendTitles.has(c.title.trim().toLowerCase())
-      );
-      return [...backendCourses, ...remainingDefault];
-    }
-    return COURSES_DATA;
-  }, [backendCourses]);
+  const allCourses = backendCourses;
 
   // Filter items
   const filteredCourses = allCourses.filter((item) => {
@@ -884,8 +882,12 @@ function CoursesRoute() {
         </div>
 
         {/* Courses / Trainings Grid (Exact Book Section Style) */}
-        {filteredCourses.length === 0 ? (
-          <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center">
+        {coursesLoading ? (
+          <div className="flex justify-center py-16">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-gold border-t-transparent" />
+          </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center shadow-card">
             <School className="h-10 w-10 text-gold/60 mx-auto mb-3" />
             <h4 className="font-display text-base font-bold text-navy mb-1">
               {t("noCoursesFound")}

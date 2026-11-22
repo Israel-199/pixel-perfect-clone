@@ -105,7 +105,7 @@ export function PopupVideoWidget({
     }
 
     let isMounted = true;
-    fetchApi<{ videos?: PopupVideoData[]; popup?: PopupVideoData }>("/popup-video")
+    fetchApi<{ videos?: PopupVideoData[]; popup?: PopupVideoData }>("/popup-video", { skipCache: true })
       .then((res) => {
         if (!isMounted) return;
         if (res?.videos && Array.isArray(res.videos) && res.videos.length > 0) {

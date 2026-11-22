@@ -80,9 +80,12 @@ function MediaRoute() {
   const fetchMedia = async () => {
     try {
       setLoading(true);
-      const data = await fetchApi<{ books: BookItem[] }>("/books");
-      // Filter video/audio media items or all books if needed
-      setMediaItems(data.books);
+      const data = await fetchApi<{ books: BookItem[] }>("/books", { skipCache: true });
+      // Filter video/audio media items only
+      const mediaOnly = (data.books || []).filter(
+        (b) => b.mediaType === "VIDEO" || b.mediaType === "AUDIO"
+      );
+      setMediaItems(mediaOnly);
     } catch (err) {
       console.error("Failed to fetch media:", err);
     } finally {
@@ -97,7 +100,7 @@ function MediaRoute() {
   const filteredItems = mediaItems.filter((item) => {
     if (selectedFilter === "VIDEO") return item.mediaType === "VIDEO";
     if (selectedFilter === "AUDIO") return item.mediaType === "AUDIO";
-    return true; // ALL
+    return item.mediaType === "VIDEO" || item.mediaType === "AUDIO"; // ALL
   });
 
   return (

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { formatEtbWithUsd, getPdfPageCount, parseDocx, estimateTextPageCount } from "@/lib/bookUtils";
 import {
@@ -129,20 +129,20 @@ function Index() {
   });
 
   useEffect(() => {
-    fetchApi<{ books: any[] }>("/books")
+    fetchApi<{ books: any[] }>("/books", { skipCache: true })
       .then((data) => {
         const all = data.books || [];
         // Recent Book
         const book = all.find((b) => b.mediaType === "BOOK" && !b.title.includes("ኮርስ"));
-        if (book) setRecentBook(book);
+        setRecentBook(book || null);
         const booksList = all.filter((b) => b.mediaType === "BOOK" && !b.title.includes("ኮርስ"));
-        if (booksList.length > 0) setRecentBooksList(booksList);
+        setRecentBooksList(booksList);
 
         // Recent Media
         const media = all.find((b) => b.mediaType === "VIDEO" || b.mediaType === "AUDIO");
-        if (media) setRecentMedia(media);
+        setRecentMedia(media || null);
         const mediaList = all.filter((b) => b.mediaType === "VIDEO" || b.mediaType === "AUDIO");
-        if (mediaList.length > 0) setRecentMediaList(mediaList);
+        setRecentMediaList(mediaList);
 
         // Recent Course
         const course = all.find(
@@ -152,7 +152,7 @@ function Index() {
             b.title.includes("ስልጠና") ||
             b.title.includes("ዶርቃ")
         );
-        if (course) setRecentCourse(course);
+        setRecentCourse(course || null);
 
         // Recent Article - Fetch and display scripture for "የዛሬ ቃል"
         const recentArticles = all.filter((b) => b.mediaType === "ARTICLE");
@@ -374,13 +374,13 @@ function Index() {
             </div>
 
             <h3 className="font-display text-lg font-bold text-gold line-clamp-1 group-hover:text-white transition-colors">
-              {activeMedia?.title || "የእሁድ ትምህርት - ቪዲዮና ኦዲዮ"}
+              {activeMedia?.title || "መንፈሳዊ ሚዲያ — ቪዲዮና ኦዲዮ"}
             </h3>
             <p className="text-xs text-on-navy-muted font-semibold mt-1">
-              {t("provider")}: {activeMedia?.author || "RABBI Academy"}
+              {t("provider")}: {activeMedia?.author || "RABBI Digital"}
             </p>
             <p className="text-xs text-on-navy-muted line-clamp-2 mt-2 leading-relaxed">
-              {activeMedia?.description || "የእሁድ መንፈሳዊ ትምህርት ሙሉ ቪዲዮ እና ድምፅ ክምችት።"}
+              {activeMedia?.description || "የተመረጡ የቪዲዮ እና ኦዲዮ ስብከቶች፣ ትምህርቶችና መዝሙሮች።"}
             </p>
           </div>
 
@@ -500,13 +500,13 @@ function Index() {
             </div>
 
             <h3 className="font-display text-lg font-bold text-gold line-clamp-1 group-hover:text-white transition-colors">
-              {recentCourse?.title || "መሠረታዊ የሥነ-መለኮት ጥናት (Theology 101)"}
+              {recentCourse?.title || "ዶርቃ ኮሌጅና ስልጠናዎች"}
             </h3>
             <p className="text-xs text-on-navy-muted font-semibold mt-1">
-              {t("provider")}: {recentCourse?.author || "ዶርቃ ኮሌጅ & አጫጭር ስልጠናዎች"}
+              {t("provider")}: {recentCourse?.author || "ዶርቃ ኮሌጅ & RABBI"}
             </p>
             <p className="text-xs text-on-navy-muted line-clamp-2 mt-2 leading-relaxed">
-              {recentCourse?.description || "በዶርቃ ኮሌጅ የስርዓተ-ትምህርት የተዘጋጁ ኮርሶች እና የፒዲኤፍ ስልጠናዎች።"}
+              {recentCourse?.description || "የሥነ-መለኮት ጥናትና ተግባራዊ የቤተክርስቲያን አመራር ስልጠናዎች።"}
             </p>
           </div>
 

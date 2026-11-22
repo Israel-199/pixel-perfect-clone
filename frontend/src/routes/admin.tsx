@@ -872,6 +872,7 @@ function AdminRoute() {
       fetchDashboardStats(true);
       fetchUsers(true);
       fetchAdminRequests(true);
+      showToast.success("ይዘቱ ተሰርዟል", "ይዘቱ ከድረ-ገጹ ላይ በተሳካ ሁኔታ ተሰርዟል።");
     } catch (err: any) {
       setContents(prevContents);
       showToast.error("ይዘት መሰረዝ አልተሳካም", err.message || "ይዘቱን መሰረዝ አልተሳካም።");

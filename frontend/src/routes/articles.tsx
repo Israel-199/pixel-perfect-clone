@@ -238,21 +238,23 @@ function ArticlesRoute() {
   const [activeTab, setActiveTab] = useState<ArticleTab>("all");
   const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
   const [adminArticles, setAdminArticles] = useState<ArticleItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch any ARTICLE mediaType from backend
   useEffect(() => {
-    fetchApi<{ books: any[] }>("/books")
+    setLoading(true);
+    fetchApi<{ books: any[] }>("/books", { skipCache: true })
       .then((data) => {
         const customArticles = (data.books || [])
           .filter((b) => b.mediaType === "ARTICLE")
           .map((b) => ({
             id: b.id,
-            tab: "daily" as ArticleTab,
-            categoryName: "የዕለት ጽሑፍ",
+            tab: (b.category || "daily") as ArticleTab,
+            categoryName: b.category || "የዕለት ጽሑፍ",
             title: b.title,
             author: b.author || "RABBI",
-            readTime: "5 ደቂቃ",
+            readTime: b.readTime || "5 ደቂቃ",
             date:
               new Date(b.createdAt).toDateString() === new Date().toDateString()
                 ? "ዛሬ የቀረበ"
@@ -266,18 +268,15 @@ function ArticlesRoute() {
           }));
         setAdminArticles(customArticles);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Failed to load articles:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const allArticles = adminArticles.length > 0
-    ? (() => {
-        const adminTitles = new Set(adminArticles.map((a) => a.title.trim().toLowerCase()));
-        const remainingDefault = DEFAULT_ARTICLES.filter(
-          (a) => !adminTitles.has(a.title.trim().toLowerCase())
-        );
-        return [...adminArticles, ...remainingDefault];
-      })()
-    : DEFAULT_ARTICLES;
+  const allArticles = adminArticles;
 
   // Filter based on active tab
   const filteredArticles = allArticles.filter((item) => {
@@ -401,7 +400,18 @@ function ArticlesRoute() {
         </div>
 
         {/* Articles Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-gold border-t-transparent" />
+          </div>
+        ) : filteredArticles.length === 0 ? (
+          <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center shadow-card">
+            <FileText className="mx-auto h-12 w-12 text-gold/60 mb-3" />
+            <h3 className="text-base font-bold text-navy">{t("noArticlesFound")}</h3>
+            <p className="text-xs text-muted-foreground mt-1">{t("noArticlesFoundDesc")}</p>
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filteredArticles.map((article) => (
             <div
               key={article.id}
@@ -448,6 +458,7 @@ function ArticlesRoute() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Full Article Reader Modal */}

@@ -434,6 +434,8 @@ const TRANSLATIONS: Record<string, Record<Language, string>> = {
   filterAllMediaDesc: { am: "ቪዲዮዎችና ኦዲዮዎች", or: "Viidiyoowwan fi Sagaleewwan", en: "Videos and Audios" },
   noMediaFound: { am: "ምንም የተጫነ ሚዲያ የለም", or: "Miidiyaan fe'ame hin jiru", en: "No media available" },
   noMediaFoundDesc: { am: "አድሚን አዲስ ቪዲዮ ወይም ኦዲዮ ሲጭን እዚህ ይገኛሉ።", or: "Yeroo admin viidiyoo ykn sagalee haaraa fe'u asitti argamu.", en: "New video or audio uploaded by admin will appear here." },
+  noArticlesFound: { am: "ምንም የተጫነ ጽሑፍ የለም", or: "Barruun fe'ame hin jiru", en: "No articles available" },
+  noArticlesFoundDesc: { am: "አድሚን አዲስ ጽሑፍ ሲጭን እዚህ ይገኛሉ።", or: "Yeroo admin barruu haaraa fe'u asitti argamu.", en: "New articles uploaded by admin will appear here." },
   statusPermitted: { am: "✓ ተፈቅዷል", or: "✓ Eeyyamameera", en: "✓ Permitted" },
   statusPendingBadge: { am: "⏳ ጥያቄ ተልኳል", or: "⏳ Gaaffiin ergameera", en: "⏳ Requested" },
 
