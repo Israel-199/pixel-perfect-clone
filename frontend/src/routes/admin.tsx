@@ -13,6 +13,7 @@ import {
   Edit3,
   Video,
   Music,
+  CreditCard,
   UserCheck,
   RefreshCw,
   Search,
@@ -781,11 +782,12 @@ function AdminRoute() {
 
   // Open Edit Modal
   const handleOpenEdit = (item: ContentItemAdmin) => {
+    if (!item) return;
     setEditingItem(item);
-    setEditTitle(item.title);
+    setEditTitle(item.title || "");
     setEditAuthor(item.author || "RABBI");
-    setEditPrice(item.price.toString());
-    setEditMediaType(item.mediaType || "BOOK");
+    setEditPrice(item.price != null ? String(item.price) : "0");
+    setEditMediaType((item.mediaType || "BOOK").toUpperCase());
     setEditDescription(item.description || "");
     setEditCoverUrl(item.coverUrl || "");
     setEditSampleContent(item.sampleContent || "");
