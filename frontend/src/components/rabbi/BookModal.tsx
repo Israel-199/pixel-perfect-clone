@@ -21,6 +21,10 @@ export interface BookItem {
   fullContent?: string | null;
   videoUrl?: string | null;
   audioUrl?: string | null;
+  cbeAccount?: string | null;
+  abyssiniaAccount?: string | null;
+  telebirrAccount?: string | null;
+  accountHolder?: string | null;
   requestStatus?: string;
   isPermitted?: boolean;
 }
@@ -207,7 +211,15 @@ export const BookModal: React.FC<BookModalProps> = ({
               </div>
 
               {/* Bank & Payment Details */}
-              <PaymentAccounts className="mb-5" />
+              {book.price > 0 && (
+                <PaymentAccounts
+                  className="mb-5"
+                  cbeAccount={book.cbeAccount}
+                  abyssiniaAccount={book.abyssiniaAccount}
+                  telebirrAccount={book.telebirrAccount}
+                  accountHolder={book.accountHolder}
+                />
+              )}
             </div>
 
             {/* Actions & Status */}

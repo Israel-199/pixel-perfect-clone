@@ -269,7 +269,15 @@ function ArticlesRoute() {
       .catch(() => {});
   }, []);
 
-  const allArticles = [...adminArticles, ...DEFAULT_ARTICLES];
+  const allArticles = adminArticles.length > 0
+    ? (() => {
+        const adminTitles = new Set(adminArticles.map((a) => a.title.trim().toLowerCase()));
+        const remainingDefault = DEFAULT_ARTICLES.filter(
+          (a) => !adminTitles.has(a.title.trim().toLowerCase())
+        );
+        return [...adminArticles, ...remainingDefault];
+      })()
+    : DEFAULT_ARTICLES;
 
   // Filter based on active tab
   const filteredArticles = allArticles.filter((item) => {

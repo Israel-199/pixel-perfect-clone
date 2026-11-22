@@ -5,9 +5,20 @@ import { useLanguage } from "@/lib/language";
 interface PaymentAccountsProps {
   compact?: boolean;
   className?: string;
+  cbeAccount?: string | null;
+  abyssiniaAccount?: string | null;
+  telebirrAccount?: string | null;
+  accountHolder?: string | null;
 }
 
-export function PaymentAccounts({ compact = false, className = "" }: PaymentAccountsProps) {
+export function PaymentAccounts({
+  compact = false,
+  className = "",
+  cbeAccount,
+  abyssiniaAccount,
+  telebirrAccount,
+  accountHolder: customHolder,
+}: PaymentAccountsProps) {
   const { language } = useLanguage();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -32,38 +43,79 @@ export function PaymentAccounts({ compact = false, className = "" }: PaymentAcco
 
   const accountOwner = {
     label: language === "en" ? "Account Holder" : language === "or" ? "Abbaa Herregaa" : "የአካውንቱ ባለቤት",
-    name: "ካሌብ መስፍን (Kaleb Mesfin)",
+    name: customHolder?.trim() || "ካሌብ መስፍን (Kaleb Mesfin)",
   };
 
-  const accounts = [
-    {
-      id: "cbe",
-      bankName: language === "en" ? "Commercial Bank of Ethiopia (CBE)" : language === "or" ? "Baankii Daldala Itoophiyaa (CBE)" : "ኢትዮጵያ ንግድ ባንክ",
-      shortName: language === "en" ? "CBE" : "ንግድ ባንክ",
-      accountNumber: "1000313542002",
-      icon: Building2,
-      badgeColor: "bg-purple-100 text-purple-900 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40",
-      accentBg: "bg-purple-500/10 border-purple-500/25",
-    },
-    {
+  const hasCustomAccounts =
+    cbeAccount !== undefined ||
+    abyssiniaAccount !== undefined ||
+    telebirrAccount !== undefined;
+
+  const accounts: Array<{
+    id: string;
+    bankName: string;
+    shortName: string;
+    accountNumber: string;
+    icon: any;
+    badgeColor: string;
+    accentBg: string;
+  }> = [];
+
+  // CBE is always included
+  accounts.push({
+    id: "cbe",
+    bankName:
+      language === "en"
+        ? "Commercial Bank of Ethiopia (CBE)"
+        : language === "or"
+        ? "Baankii Daldala Itoophiyaa (CBE)"
+        : "ኢትዮጵያ ንግድ ባንክ",
+    shortName: language === "en" ? "CBE" : "ንግድ ባንክ",
+    accountNumber: cbeAccount?.trim() || "1000313542002",
+    icon: Building2,
+    badgeColor:
+      "bg-purple-100 text-purple-900 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40",
+    accentBg: "bg-purple-500/10 border-purple-500/25",
+  });
+
+  // Telebirr: show if explicitly set or if default
+  const showTelebirr = hasCustomAccounts
+    ? Boolean(telebirrAccount && telebirrAccount.trim())
+    : true;
+  if (showTelebirr) {
+    accounts.push({
       id: "telebirr",
       bankName: language === "en" ? "Telebirr" : language === "or" ? "Telebirr" : "ቴሌ ብር",
       shortName: language === "en" ? "Telebirr" : "ቴሌ ብር",
-      accountNumber: "0921161705",
+      accountNumber: (hasCustomAccounts ? telebirrAccount?.trim() : null) || "0921161705",
       icon: Smartphone,
-      badgeColor: "bg-blue-100 text-blue-900 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/40",
+      badgeColor:
+        "bg-blue-100 text-blue-900 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/40",
       accentBg: "bg-blue-500/10 border-blue-500/25",
-    },
-    {
+    });
+  }
+
+  // Abyssinia: show if explicitly set or if default
+  const showAbyssinia = hasCustomAccounts
+    ? Boolean(abyssiniaAccount && abyssiniaAccount.trim())
+    : true;
+  if (showAbyssinia) {
+    accounts.push({
       id: "abyssinia",
-      bankName: language === "en" ? "Bank of Abyssinia" : language === "or" ? "Baankii Abisiiniyaa" : "አቢሲኒያ ባንክ",
+      bankName:
+        language === "en"
+          ? "Bank of Abyssinia"
+          : language === "or"
+          ? "Baankii Abisiiniyaa"
+          : "አቢሲኒያ ባንክ",
       shortName: language === "en" ? "Abyssinia" : "አቢሲኒያ",
-      accountNumber: "68775663",
+      accountNumber: (hasCustomAccounts ? abyssiniaAccount?.trim() : null) || "68775663",
       icon: CreditCard,
-      badgeColor: "bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
+      badgeColor:
+        "bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
       accentBg: "bg-amber-500/10 border-amber-500/25",
-    },
-  ];
+    });
+  }
 
   return (
     <div

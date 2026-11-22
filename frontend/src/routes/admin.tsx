@@ -122,6 +122,10 @@ interface ContentItemAdmin {
   fullContent?: string;
   videoUrl?: string | null;
   audioUrl?: string | null;
+  cbeAccount?: string | null;
+  abyssiniaAccount?: string | null;
+  telebirrAccount?: string | null;
+  accountHolder?: string | null;
   createdAt: string;
   updatedAt?: string;
   approvedCount?: number;
@@ -221,6 +225,10 @@ function AdminRoute() {
   const [videoUrl, setVideoUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
+  const [cbeAccount, setCbeAccount] = useState("1000313542002");
+  const [abyssiniaAccount, setAbyssiniaAccount] = useState("");
+  const [telebirrAccount, setTelebirrAccount] = useState("");
+  const [accountHolder, setAccountHolder] = useState("ካሌብ መስፍን (Kaleb Mesfin)");
 
   // Helper to open Add Content tab with exact category pre-selected
   const handleAddNewContentWithCategory = (cat?: ContentFilterType) => {
@@ -260,6 +268,10 @@ function AdminRoute() {
   const [editFullContent, setEditFullContent] = useState("");
   const [editVideoUrl, setEditVideoUrl] = useState("");
   const [editAudioUrl, setEditAudioUrl] = useState("");
+  const [editCbeAccount, setEditCbeAccount] = useState("");
+  const [editAbyssiniaAccount, setEditAbyssiniaAccount] = useState("");
+  const [editTelebirrAccount, setEditTelebirrAccount] = useState("");
+  const [editAccountHolder, setEditAccountHolder] = useState("");
   const [editUploading, setEditUploading] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editMsg, setEditMsg] = useState<string | null>(null);
@@ -735,6 +747,10 @@ function AdminRoute() {
           fullContent: fullContent, // Preserve every horizontal and vertical space exactly as admin typed
           videoUrl: videoUrl.trim() || null,
           audioUrl: audioUrl.trim() || null,
+          cbeAccount: cbeAccount.trim() || "1000313542002",
+          abyssiniaAccount: abyssiniaAccount.trim() || null,
+          telebirrAccount: telebirrAccount.trim() || null,
+          accountHolder: accountHolder.trim() || "ካሌብ መስፍን (Kaleb Mesfin)",
         }),
       });
 
@@ -748,6 +764,10 @@ function AdminRoute() {
       setVideoUrl("");
       setAudioUrl("");
       setCoverUrl("");
+      setCbeAccount("1000313542002");
+      setAbyssiniaAccount("");
+      setTelebirrAccount("");
+      setAccountHolder("ካሌብ መስፍን (Kaleb Mesfin)");
       await Promise.all([
         fetchAdminContents(true),
         fetchDashboardStats(true),
@@ -772,6 +792,10 @@ function AdminRoute() {
     setEditFullContent(item.fullContent || "");
     setEditVideoUrl(item.videoUrl || "");
     setEditAudioUrl(item.audioUrl || "");
+    setEditCbeAccount(item.cbeAccount || "1000313542002");
+    setEditAbyssiniaAccount(item.abyssiniaAccount || "");
+    setEditTelebirrAccount(item.telebirrAccount || "");
+    setEditAccountHolder(item.accountHolder || "ካሌብ መስፍን (Kaleb Mesfin)");
     setEditMsg(null);
     setEditError(null);
   };
@@ -806,6 +830,10 @@ function AdminRoute() {
           fullContent: editFullContent, // Preserve every horizontal and vertical space
           videoUrl: editVideoUrl.trim() || null,
           audioUrl: editAudioUrl.trim() || null,
+          cbeAccount: editCbeAccount.trim() || "1000313542002",
+          abyssiniaAccount: editAbyssiniaAccount.trim() || null,
+          telebirrAccount: editTelebirrAccount.trim() || null,
+          accountHolder: editAccountHolder.trim() || "ካሌብ መስፍን (Kaleb Mesfin)",
         }),
       });
 
@@ -1187,14 +1215,15 @@ function AdminRoute() {
   // Filtered contents (Memoized for high typing performance in search inputs)
   const filteredContents = useMemo(() => {
     return contents.filter((item) => {
+      const type = (item.mediaType || "BOOK").toUpperCase();
       const matchFilter =
         contentFilter === "ALL"
           ? true
           : contentFilter === "COURSE"
-            ? item.mediaType === "COURSE" ||
+            ? type === "COURSE" ||
               item.title.toLowerCase().includes("ኮርስ") ||
               item.title.toLowerCase().includes("ስልጠና")
-            : item.mediaType === contentFilter;
+            : type === contentFilter;
 
       const matchSearch =
         searchQuery.trim() === ""
@@ -2042,6 +2071,26 @@ function AdminRoute() {
                           <span>የገዢዎች ዝርዝር ({item.approvedCount || 0})</span>
                         </button>
                       </div>
+
+                      {/* Payment Accounts Badges */}
+                      {item.price > 0 && (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                          <span className="font-semibold text-muted-foreground">ሂሳብ፦</span>
+                          <span className="rounded bg-purple-100 text-purple-900 px-1.5 py-0.5 font-mono font-bold border border-purple-200">
+                            CBE: {item.cbeAccount || "1000313542002"}
+                          </span>
+                          {item.abyssiniaAccount && (
+                            <span className="rounded bg-amber-100 text-amber-900 px-1.5 py-0.5 font-mono font-bold border border-amber-200">
+                              አቢሲኒያ: {item.abyssiniaAccount}
+                            </span>
+                          )}
+                          {item.telebirrAccount && (
+                            <span className="rounded bg-blue-100 text-blue-900 px-1.5 py-0.5 font-mono font-bold border border-blue-200">
+                              ቴሌብር: {item.telebirrAccount}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-navy/10 flex items-center justify-between gap-2">
@@ -2379,8 +2428,8 @@ function AdminRoute() {
                 )}
               </div>
 
-              {/* Cover Image — completely removed for ARTICLE, PRAYER, AUDIO, VIDEO (only for BOOK and COURSE) */}
-              {(mediaType === "BOOK" || mediaType === "COURSE") && (
+              {/* Cover Image */}
+              {mediaType !== "PRAYER" && (
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1.5">
                     የሽፋን ፎቶ (Cover Image) <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
@@ -2716,6 +2765,86 @@ function AdminRoute() {
                   </div>
                 </div>
               )}
+
+              {/* ===== Payment Accounts Configuration (CBE required, Abyssinia & Telebirr optional) ===== */}
+              <div className="rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 via-gold/5 to-transparent p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gold/20 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold/20 text-navy-deep">
+                      <CreditCard className="h-4 w-4 text-navy-deep" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-navy-deep uppercase tracking-wider">
+                        የክፍያ ሂሳብ ቁጥሮች (Payment Accounts)
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        ተጠቃሚዎች ይዘቱን ሲገዙ ክፍያ የሚፈጽሙባቸው የባንክና የቴሌብር አማራጮች
+                      </p>
+                    </div>
+                  </div>
+                  <span className="self-start sm:self-auto text-[10px] font-semibold text-gold-soft bg-navy-deep px-2.5 py-1 rounded-full">
+                    CBE ዋና • አቢሲኒያና ቴሌብር አማራጭ
+                  </span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>ኢትዮጵያ ንግድ ባንክ (CBE)</span>
+                      <span className="text-red-500 font-bold">* አስገዳጅ</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={cbeAccount}
+                      onChange={(e) => setCbeAccount(e.target.value)}
+                      placeholder="1000313542002"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono font-bold text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>አቢሲኒያ ባንክ (Bank of Abyssinia)</span>
+                      <span className="text-muted-foreground text-[10px] font-normal">(አማራጭ / Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={abyssiniaAccount}
+                      onChange={(e) => setAbyssiniaAccount(e.target.value)}
+                      placeholder="68775663 (ካለ ያስገቡ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>ቴሌ ብር (Telebirr)</span>
+                      <span className="text-muted-foreground text-[10px] font-normal">(አማራጭ / Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={telebirrAccount}
+                      onChange={(e) => setTelebirrAccount(e.target.value)}
+                      placeholder="0921161705 (ካለ ያስገቡ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-mono text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>የአካውንቱ ባለቤት ስም (Account Holder)</span>
+                      <span className="text-muted-foreground text-[10px] font-normal">(አማራጭ)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={accountHolder}
+                      onChange={(e) => setAccountHolder(e.target.value)}
+                      placeholder="ካሌብ መስፍን (Kaleb Mesfin)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <button
                 type="submit"
@@ -4158,8 +4287,8 @@ function AdminRoute() {
                 </div>
               </div>
 
-              {/* Cover Image — completely removed for ARTICLE, PRAYER, AUDIO, VIDEO (only for BOOK and COURSE) */}
-              {(editMediaType === "BOOK" || editMediaType === "COURSE") && (
+              {/* Cover Image */}
+              {editMediaType !== "PRAYER" && (
                 <div>
                   <label className="block text-xs font-bold text-navy mb-1">
                     የከቨር ፎቶ URL <span className="text-muted-foreground font-normal text-[11px]">(አማራጭ / Optional)</span>
@@ -4290,6 +4419,81 @@ function AdminRoute() {
                   onChange={(e) => setEditFullContent(e.target.value)}
                   className="w-full rounded-xl border border-navy/20 px-3 py-2 text-xs bg-background font-sans"
                 />
+              </div>
+
+              {/* Payment Accounts Configuration in Edit Modal */}
+              <div className="rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 via-gold/5 to-transparent p-4 sm:p-5 space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-gold/20 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gold/20 text-navy-deep">
+                      <CreditCard className="h-4 w-4 text-navy-deep" />
+                    </div>
+                    <h4 className="text-xs font-bold text-navy-deep uppercase tracking-wider">
+                      የክፍያ ሂሳብ ቁጥሮች (Payment Accounts)
+                    </h4>
+                  </div>
+                  <span className="self-start sm:self-auto text-[10px] font-semibold text-gold-soft bg-navy-deep px-2 py-0.5 rounded-full">
+                    CBE ዋና • አቢሲኒያና ቴሌብር አማራጭ
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>ኢትዮጵያ ንግድ ባንክ (CBE)</span>
+                      <span className="text-red-500 font-bold">* አስገዳጅ</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editCbeAccount}
+                      onChange={(e) => setEditCbeAccount(e.target.value)}
+                      placeholder="1000313542002"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-1.5 text-xs bg-background font-mono font-bold text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>አቢሲኒያ ባንክ (Bank of Abyssinia)</span>
+                      <span className="text-muted-foreground text-[10px] font-normal">(አማራጭ)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editAbyssiniaAccount}
+                      onChange={(e) => setEditAbyssiniaAccount(e.target.value)}
+                      placeholder="68775663 (ካለ ያስገቡ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-1.5 text-xs bg-background font-mono text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>ቴሌ ብር (Telebirr)</span>
+                      <span className="text-muted-foreground text-[10px] font-normal">(አማራጭ)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editTelebirrAccount}
+                      onChange={(e) => setEditTelebirrAccount(e.target.value)}
+                      placeholder="0921161705 (ካለ ያስገቡ)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-1.5 text-xs bg-background font-mono text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-navy mb-1 flex items-center justify-between">
+                      <span>የአካውንቱ ባለቤት (Account Holder)</span>
+                      <span className="text-muted-foreground text-[10px] font-normal">(አማራጭ)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editAccountHolder}
+                      onChange={(e) => setEditAccountHolder(e.target.value)}
+                      placeholder="ካሌብ መስፍን (Kaleb Mesfin)"
+                      className="w-full rounded-xl border border-navy/20 px-3 py-1.5 text-xs bg-background text-navy focus:border-gold focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">

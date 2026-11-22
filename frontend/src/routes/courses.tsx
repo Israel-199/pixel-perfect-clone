@@ -25,6 +25,7 @@ import { useLanguage } from "@/lib/language";
 import { fetchApi } from "@/lib/api";
 import { PlatformReader } from "@/components/rabbi/PlatformReader";
 import { BookItem } from "@/components/rabbi/BookModal";
+import { PaymentAccounts } from "@/components/rabbi/PaymentAccounts";
 
 export const Route = createFileRoute("/courses")({
   head: () => ({
@@ -100,6 +101,10 @@ interface CourseItem {
   modules?: string;
   sampleContent: string;
   fullContent?: string;
+  cbeAccount?: string | null;
+  abyssiniaAccount?: string | null;
+  telebirrAccount?: string | null;
+  accountHolder?: string | null;
   requestStatus?: string;
   isPermitted?: boolean;
 }
@@ -548,8 +553,77 @@ function CoursesRoute() {
     }
   }, [user]);
 
+  // Fetch all COURSE mediaType from backend
+  const [backendCourses, setBackendCourses] = useState<CourseItem[]>([]);
+
+  useEffect(() => {
+    fetchApi<{ books: any[] }>("/books")
+      .then((data) => {
+        const custom = (data.books || [])
+          .filter((b) => b.mediaType === "COURSE")
+          .map((b) => {
+            const isTrainings =
+              b.title.toLowerCase().includes("pdf") ||
+              b.title.toLowerCase().includes("ስልጠና") ||
+              (b.description && b.description.toLowerCase().includes("ስልጠና"));
+            const isOromo =
+              b.title.toLowerCase().includes("oromo") ||
+              b.title.toLowerCase().includes("barnoota") ||
+              b.title.toLowerCase().includes("koolleejjii");
+            const isEnglish = /[a-zA-Z]/.test(b.title) && !isOromo;
+            const lang: "amharic" | "oromo" | "english" = isOromo
+              ? "oromo"
+              : isEnglish
+              ? "english"
+              : "amharic";
+            const langLabel =
+              lang === "oromo"
+                ? "Afaan Oromoo"
+                : lang === "english"
+                ? "English"
+                : "አማርኛ";
+
+            return {
+              id: b.id,
+              category: (isTrainings ? "trainings" : "dorcas") as CourseCategory,
+              language: lang,
+              languageLabel: langLabel,
+              title: b.title,
+              subtitle: isTrainings ? "ተግባራዊ ስልጠና" : "ዶርቃ ኮሌጅ",
+              provider: b.author || "ዶርቃ ኮሌጅ (Dorcas College)",
+              description: b.description || "",
+              price: b.price || 0,
+              coverUrl: b.coverUrl,
+              isPdf: isTrainings,
+              modules: isTrainings ? "ተግባራዊ ፒዲኤፍ ሞጁል" : "ኮርስ ሞጁል",
+              sampleContent: b.sampleContent || "",
+              fullContent: b.fullContent || "",
+              cbeAccount: b.cbeAccount,
+              abyssiniaAccount: b.abyssiniaAccount,
+              telebirrAccount: b.telebirrAccount,
+              accountHolder: b.accountHolder,
+              requestStatus: b.requestStatus,
+              isPermitted: b.isPermitted,
+            };
+          });
+        setBackendCourses(custom);
+      })
+      .catch(() => {});
+  }, []);
+
+  const allCourses = React.useMemo(() => {
+    if (backendCourses.length > 0) {
+      const backendTitles = new Set(backendCourses.map((c) => c.title.trim().toLowerCase()));
+      const remainingDefault = COURSES_DATA.filter(
+        (c) => !backendTitles.has(c.title.trim().toLowerCase())
+      );
+      return [...backendCourses, ...remainingDefault];
+    }
+    return COURSES_DATA;
+  }, [backendCourses]);
+
   // Filter items
-  const filteredCourses = COURSES_DATA.filter((item) => {
+  const filteredCourses = allCourses.filter((item) => {
     const matchCategory = item.category === activeCategory;
     const matchLanguage =
       selectedLanguage === "all" ? true : item.language === selectedLanguage;
@@ -1012,27 +1086,16 @@ function CoursesRoute() {
                     </div>
                   </div>
 
-                  {/* Bank Details Box (Matching Book Section) */}
-                  <div className="mb-5 rounded-xl bg-gold/10 p-4 border border-gold/30">
-                    <h4 className="text-xs font-bold text-navy-deep uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <CreditCard className="h-4 w-4 text-gold" />
-                      {t("cbeBankTransfer")}
-                    </h4>
-                    <div className="text-xs text-navy space-y-1">
-                      <p>
-                        <span className="font-semibold">{t("bankTitle")}</span> {t("bankCbeName")}
-                      </p>
-                      <p>
-                        <span className="font-semibold">{t("accountNumber")}</span>{" "}
-                        <code className="bg-gold/20 px-1.5 py-0.5 rounded font-mono font-bold text-navy-deep">
-                          1000313542002
-                        </code>
-                      </p>
-                      <p>
-                        <span className="font-semibold">{t("accountHolder")}</span> RABBI Ministry / ዶርቃ ኮሌጅ
-                      </p>
-                    </div>
-                  </div>
+                  {/* Bank Details Box (Matching Book Section & Payment Accounts) */}
+                  {selectedCourse.price > 0 && (
+                    <PaymentAccounts
+                      className="mb-5"
+                      cbeAccount={selectedCourse.cbeAccount}
+                      abyssiniaAccount={selectedCourse.abyssiniaAccount}
+                      telebirrAccount={selectedCourse.telebirrAccount}
+                      accountHolder={selectedCourse.accountHolder || "RABBI Ministry / ዶርቃ ኮሌጅ"}
+                    />
+                  )}
                 </div>
 
                 {/* Status & Actions */}
