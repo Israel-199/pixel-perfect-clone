@@ -96,6 +96,10 @@ export class AdminService {
         fullContent: book.fullContent,
         videoUrl: book.videoUrl,
         audioUrl: book.audioUrl,
+        cbeAccount: book.cbeAccount,
+        abyssiniaAccount: book.abyssiniaAccount,
+        telebirrAccount: book.telebirrAccount,
+        accountHolder: book.accountHolder,
         createdAt: book.createdAt,
         updatedAt: book.updatedAt,
         approvedCount: approvedRequests.length,
@@ -200,6 +204,10 @@ export class AdminService {
     videoUrl?: string;
     audioUrl?: string;
     mediaType?: string;
+    cbeAccount?: string;
+    abyssiniaAccount?: string;
+    telebirrAccount?: string;
+    accountHolder?: string;
   }) {
     const title = validateString(data.title, "Title", { required: true, max: 200 });
     const author = data.author ? validateName(data.author, "Author", false) || "RABBI" : "RABBI";
@@ -231,6 +239,11 @@ export class AdminService {
       coverUrl = defaultCovers[mediaType] || defaultCovers.BOOK;
     }
 
+    const cbeAccount = data.cbeAccount?.trim() || "1000313542002";
+    const abyssiniaAccount = data.abyssiniaAccount?.trim() || null;
+    const telebirrAccount = data.telebirrAccount?.trim() || null;
+    const accountHolder = data.accountHolder?.trim() || "ካሌብ መስፍን (Kaleb Mesfin)";
+
     return prisma.book.create({
       data: {
         title,
@@ -243,6 +256,10 @@ export class AdminService {
         videoUrl: videoUrl || null,
         audioUrl: audioUrl || null,
         mediaType,
+        cbeAccount,
+        abyssiniaAccount,
+        telebirrAccount,
+        accountHolder,
       },
     });
   }
@@ -260,6 +277,10 @@ export class AdminService {
       videoUrl?: string;
       audioUrl?: string;
       mediaType?: string;
+      cbeAccount?: string;
+      abyssiniaAccount?: string;
+      telebirrAccount?: string;
+      accountHolder?: string;
     }
   ) {
     if (!id || !id.trim()) {
@@ -331,6 +352,18 @@ export class AdminService {
       if (validMediaTypes.includes(mt)) {
         updatePayload.mediaType = mt;
       }
+    }
+    if (data.cbeAccount !== undefined) {
+      updatePayload.cbeAccount = data.cbeAccount?.trim() || "1000313542002";
+    }
+    if (data.abyssiniaAccount !== undefined) {
+      updatePayload.abyssiniaAccount = data.abyssiniaAccount?.trim() || null;
+    }
+    if (data.telebirrAccount !== undefined) {
+      updatePayload.telebirrAccount = data.telebirrAccount?.trim() || null;
+    }
+    if (data.accountHolder !== undefined) {
+      updatePayload.accountHolder = data.accountHolder?.trim() || "ካሌብ መስፍን (Kaleb Mesfin)";
     }
 
     const updated = await prisma.book.update({

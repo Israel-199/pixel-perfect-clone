@@ -36,7 +36,12 @@ export class BookService {
 
     return books.map((book) => {
       const status = userRequests[book.id] || "NONE";
-      const isPermitted = isAdmin || status === "PERMITTED";
+      const isPermitted =
+        isAdmin ||
+        status === "PERMITTED" ||
+        book.price === 0 ||
+        book.mediaType === "ARTICLE" ||
+        book.mediaType === "PRAYER";
 
       return {
         id: book.id,
@@ -50,6 +55,10 @@ export class BookService {
         fullContent: isPermitted ? book.fullContent : null,
         videoUrl: isPermitted ? book.videoUrl : null,
         audioUrl: isPermitted ? book.audioUrl : null,
+        cbeAccount: book.cbeAccount,
+        abyssiniaAccount: book.abyssiniaAccount,
+        telebirrAccount: book.telebirrAccount,
+        accountHolder: book.accountHolder,
         requestStatus: status,
         isPermitted,
         createdAt: book.createdAt,
@@ -74,7 +83,12 @@ export class BookService {
       requestStatus = reqRecord.status;
     }
 
-    const isPermitted = isAdmin || requestStatus === "PERMITTED";
+    const isPermitted =
+      isAdmin ||
+      requestStatus === "PERMITTED" ||
+      book.price === 0 ||
+      book.mediaType === "ARTICLE" ||
+      book.mediaType === "PRAYER";
 
     return {
       id: book.id,
@@ -88,6 +102,10 @@ export class BookService {
       fullContent: isPermitted ? book.fullContent : null,
       videoUrl: isPermitted ? book.videoUrl : null,
       audioUrl: isPermitted ? book.audioUrl : null,
+      cbeAccount: book.cbeAccount,
+      abyssiniaAccount: book.abyssiniaAccount,
+      telebirrAccount: book.telebirrAccount,
+      accountHolder: book.accountHolder,
       requestStatus,
       isPermitted,
     };

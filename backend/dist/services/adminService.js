@@ -84,6 +84,10 @@ class AdminService {
                 fullContent: book.fullContent,
                 videoUrl: book.videoUrl,
                 audioUrl: book.audioUrl,
+                cbeAccount: book.cbeAccount,
+                abyssiniaAccount: book.abyssiniaAccount,
+                telebirrAccount: book.telebirrAccount,
+                accountHolder: book.accountHolder,
                 createdAt: book.createdAt,
                 updatedAt: book.updatedAt,
                 approvedCount: approvedRequests.length,
@@ -180,6 +184,10 @@ class AdminService {
         if (!coverUrl) {
             coverUrl = defaultCovers[mediaType] || defaultCovers.BOOK;
         }
+        const cbeAccount = data.cbeAccount?.trim() || "1000313542002";
+        const abyssiniaAccount = data.abyssiniaAccount?.trim() || null;
+        const telebirrAccount = data.telebirrAccount?.trim() || null;
+        const accountHolder = data.accountHolder?.trim() || "ካሌብ መስፍን (Kaleb Mesfin)";
         return prisma_1.prisma.book.create({
             data: {
                 title,
@@ -192,6 +200,10 @@ class AdminService {
                 videoUrl: videoUrl || null,
                 audioUrl: audioUrl || null,
                 mediaType,
+                cbeAccount,
+                abyssiniaAccount,
+                telebirrAccount,
+                accountHolder,
             },
         });
     }
@@ -273,6 +285,18 @@ class AdminService {
             if (validMediaTypes.includes(mt)) {
                 updatePayload.mediaType = mt;
             }
+        }
+        if (data.cbeAccount !== undefined) {
+            updatePayload.cbeAccount = data.cbeAccount?.trim() || "1000313542002";
+        }
+        if (data.abyssiniaAccount !== undefined) {
+            updatePayload.abyssiniaAccount = data.abyssiniaAccount?.trim() || null;
+        }
+        if (data.telebirrAccount !== undefined) {
+            updatePayload.telebirrAccount = data.telebirrAccount?.trim() || null;
+        }
+        if (data.accountHolder !== undefined) {
+            updatePayload.accountHolder = data.accountHolder?.trim() || "ካሌብ መስፍን (Kaleb Mesfin)";
         }
         const updated = await prisma_1.prisma.book.update({
             where: { id },

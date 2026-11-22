@@ -36,7 +36,11 @@ model Book {
   fullContent   String?           @db.Text
   videoUrl      String?
   audioUrl      String?
-  mediaType     String            @default("BOOK") // BOOK, VIDEO, AUDIO, IMAGE
+  mediaType     String            @default("BOOK") // BOOK, VIDEO, AUDIO, IMAGE, COURSE, ARTICLE, PRAYER
+  cbeAccount       String?           @default("1000313542002")
+  abyssiniaAccount String?
+  telebirrAccount  String?
+  accountHolder    String?           @default("ካሌብ መስፍን (Kaleb Mesfin)")
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   requests      PurchaseRequest[]
