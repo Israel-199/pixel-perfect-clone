@@ -670,6 +670,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         const page = await pdfDoc.getPage(pageNo);
         const baseViewport = page.getViewport({ scale: 1 });
 
+        const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
         const container = pdfContainerRef.current;
         const availableWidth = container
           ? twoPageView
@@ -677,7 +679,17 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
             : container.clientWidth - 32
           : Math.min(window.innerWidth - 48, 900);
 
-        const targetWidth = Math.max(300, availableWidth) * zoomScale;
+        // Mobile readability optimization (for readers 50+):
+        // On mobile screens (<768px), fitting the entire PDF page width into ~340px phone screen
+        // shrinks standard 10-11pt book text to unreadable ~7.5px.
+        // We set a comfortable reading base width (~560px) only on mobile,
+        // so the rendered font size physically matches comfortable desktop reading size,
+        // while leaving desktop PC rendering and document layout 100% untouched.
+        const effectiveBaseWidth = isMobile
+          ? Math.max(availableWidth * 1.55, 560)
+          : availableWidth;
+
+        const targetWidth = Math.max(300, effectiveBaseWidth) * zoomScale;
         const scale = targetWidth / baseViewport.width;
         const dpr = window.devicePixelRatio || 1;
         const viewport = page.getViewport({ scale });
@@ -957,10 +969,10 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       }
     };
 
-    // Mobile: Block multi-touch screenshot gestures (3-finger swipe on Xiaomi/Oppo/Huawei, palm swipe on Samsung)
-    // When 2 or more touches are detected simultaneously, immediately blur before screenshot triggers
+    // Mobile: Block multi-finger screenshot gestures (3-finger swipe on Xiaomi/Oppo/Huawei, palm swipe on Samsung)
+    // When 3 or more touches are detected simultaneously, immediately blur before screenshot triggers
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 2) {
+      if (e.touches && e.touches.length >= 3) {
         applyInstantBlur();
       } else {
         if (document.hasFocus()) {
@@ -970,7 +982,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 2) {
+      if (e.touches && e.touches.length >= 3) {
         e.preventDefault();
         applyInstantBlur();
       }
@@ -1319,9 +1331,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                 {Math.round(zoomScale * 100)}%
               </span>
               <button
-                onClick={() => setZoomScale((s) => Math.min(1.4, +(s + 0.05).toFixed(2)))}
+                onClick={() => {
+                  const maxZ = typeof window !== "undefined" && window.innerWidth < 768 ? 2.2 : 1.4;
+                  setZoomScale((s) => Math.min(maxZ, +(s + 0.05).toFixed(2)));
+                }}
                 className="p-1 text-gold hover:text-white hover:bg-gold/15 rounded-lg transition-all cursor-pointer active:scale-90"
-                title="አጉላ (Zoom In up to 140%)"
+                title={typeof window !== "undefined" && window.innerWidth < 768 ? "አጉላ (Zoom In up to 220%)" : "አጉላ (Zoom In up to 140%)"}
               >
                 <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
@@ -1730,7 +1745,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
                   {!pdfLoading && !pdfError && (
                     <div
-                      style={{ minWidth: "100%", display: "flex", justifyContent: "center", alignItems: "flex-start" }}
+                      style={{
+                        minWidth: "100%",
+                        display: "flex",
+                        justifyContent: canvasDisplayWidth > (pdfContainerRef.current?.clientWidth || 0) ? "flex-start" : "center",
+                        alignItems: "flex-start",
+                      }}
                     >
                     <div
                       className={`flex gap-3 sm:gap-4 items-start justify-center transition-all duration-150 ${
@@ -1749,6 +1769,11 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                       <div
                         className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-colors duration-200 ${getPdfCardClass()} ${twoPageView ? "flex-1 min-w-0" : ""}`}
                         style={!twoPageView && canvasDisplayWidth > 0 ? { width: `${canvasDisplayWidth}px` } : {}}
+                        onDoubleClick={() => {
+                          if (typeof window !== "undefined" && window.innerWidth < 768) {
+                            setZoomScale((s) => (s >= 1.3 ? 1.0 : 1.4));
+                          }
+                        }}
                       >
                         <canvas
                           ref={pdfCanvasRef}
