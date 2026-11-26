@@ -42,6 +42,7 @@ export function Header() {
         <div className="mx-auto flex max-w-[1240px] w-full items-center justify-between gap-1.5 sm:gap-4 lg:gap-3 xl:gap-6 px-2.5 sm:px-6 py-2.5 sm:py-3">
           <Logo />
           <nav
+            aria-label="Main Navigation"
             className={`ml-auto hidden items-center flex-nowrap whitespace-nowrap lg:flex ${
               language === "or"
                 ? "gap-1.5 xl:gap-3 2xl:gap-4"
@@ -154,7 +155,7 @@ export function Header() {
         {/* ── Mobile & Tablet Dropdown Navigation Drawer ──────────────── */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gold/20 bg-navy-deep/98 px-4 py-3 shadow-2xl backdrop-blur-md animate-in slide-in-from-top-2">
-            <nav className="flex flex-col gap-1 max-h-[75vh] overflow-y-auto py-1">
+            <nav aria-label="Mobile Navigation" className="flex flex-col gap-1 max-h-[75vh] overflow-y-auto py-1">
               {navItems.map((item) => {
                 const isActive =
                   location.pathname === item.href ||

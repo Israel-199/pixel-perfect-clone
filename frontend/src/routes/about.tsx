@@ -550,7 +550,6 @@ function AboutRoute() {
                 </div>
               </div>
 
-              {/* Call to Serve Banner */}
               <div className="rounded-2xl bg-gradient-to-r from-gold/15 to-navy-deep/10 p-6 md:p-8 border border-gold/40 flex flex-col md:flex-row items-center justify-between gap-6">
                 <div>
                   <h4 className="font-display text-lg font-bold text-navy mb-1">

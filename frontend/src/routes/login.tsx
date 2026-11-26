@@ -81,7 +81,7 @@ function LoginRoute() {
             {t("signUpHereText")}
           </Link>
         </p>
-      </div>
+      </div>   
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-card px-4 py-8 shadow-card sm:rounded-xl sm:px-10 border border-gold/20">

@@ -1,17 +1,8 @@
-# RABBI Digital — robots.txt
-# https://www.rabbidigital.com
-
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /admin/
-Disallow: /my-books
-Disallow: /my-books/
-Disallow: /login
-Disallow: /register
-Disallow: /forgot-password
 
-# Allow all major crawlers full access to public content
+Sitemap: https://www.rabbidigital.com/sitemap.xml
+
 User-agent: Googlebot
 Allow: /
 
@@ -24,4 +15,5 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
-Sitemap: https://www.rabbidigital.com/sitemap.xml
+User-agent: *
+Allow: /

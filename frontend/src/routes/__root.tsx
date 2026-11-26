@@ -256,6 +256,62 @@ export const Route =
                   },
                   "query-input": "required name=search_term_string"
                 }
+              },
+              {
+                "@type": "ItemList",
+                "@id": "https://www.rabbidigital.com/#navigation",
+                "name": "Main Navigation",
+                "itemListElement": [
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 1,
+                    "name": "መነሻ ገጽ (Home)",
+                    "description": "RABBI Digital - Spiritual digital products & Christian education",
+                    "url": "https://www.rabbidigital.com/"
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 2,
+                    "name": "መጻሕፍት (Books)",
+                    "description": "Spiritual, theological and educational Christian books",
+                    "url": "https://www.rabbidigital.com/books"
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 3,
+                    "name": "ኮርሶች (Courses)",
+                    "description": "Biblical study and theology courses at Dorcas College",
+                    "url": "https://www.rabbidigital.com/courses"
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 4,
+                    "name": "ሚዲያ (Media)",
+                    "description": "Spiritual songs, sermons, audio and video lessons",
+                    "url": "https://www.rabbidigital.com/media"
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 5,
+                    "name": "ጽሑፎች (Articles)",
+                    "description": "Christian faith, Bible teachings and inspirational articles",
+                    "url": "https://www.rabbidigital.com/articles"
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 6,
+                    "name": "ጸሎት (Prayer)",
+                    "description": "Prayer requests, spiritual devotion and fellowship",
+                    "url": "https://www.rabbidigital.com/prayer"
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    "position": 7,
+                    "name": "ስለ እኛ (About)",
+                    "description": "About RABBI Digital, mission and vision",
+                    "url": "https://www.rabbidigital.com/about"
+                  }
+                ]
               }
             ]
           })
