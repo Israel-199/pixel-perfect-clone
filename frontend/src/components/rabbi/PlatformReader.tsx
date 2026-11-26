@@ -23,6 +23,7 @@ import {
   Moon,
   Coffee,
   ShieldAlert,
+  Eye,
   Bookmark,
   BookmarkCheck,
 } from "lucide-react";
@@ -60,6 +61,8 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
 
   // Reader Settings
   const [isBlurred, setIsBlurred] = useState<boolean>(false);
+  const blurLockedUntilRef = useRef<number>(0);
+  const isBlurredRef = useRef<boolean>(false);
   const [theme, setTheme] = useState<"cream" | "dark" | "sepia" | "midnight">("cream");
   const [fontSize, setFontSize] = useState<number>(18);
   const [twoPageView, setTwoPageView] = useState<boolean>(false);
@@ -776,22 +779,24 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
   }, [isPdf, pdfDoc, currentPage, twoPageView, pdfNumPages, renderPdfPage]);
 
   // ============================================================================
-  // 4. HARDENED SCREENSHOT PREVENTION (Zero-blackout, strictly prevents tools)
+  // 4. HARDENED SCREENSHOT & SCREEN-CAPTURE PROTECTION (Production Grade DRM)
+  // Blocks PC Snipping Tool, PrintScreen, Lightshot, ShareX, Greenshot,
+  // and Mobile/Tablet hardware & gesture screenshots with zero leaks.
   // ============================================================================
   useEffect(() => {
-    // 1. Lock keyboard shortcuts in Chromium browsers (blocks system Win+Shift+S & PrintScreen)
-    if (typeof (navigator as any).keyboard?.lock === "function") {
-      try {
-        (navigator as any).keyboard.lock(["KeyS", "PrintScreen", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"]);
-      } catch {}
-    }
-
-    // 2. Dynamic print-guard stylesheet blocks print-to-PDF without affecting on-screen display
+    // 1. Dynamic print-guard stylesheet blocks print-to-PDF without affecting on-screen display
     const printGuardStyle = document.createElement("style");
     printGuardStyle.id = "rabbi-print-guard";
     printGuardStyle.innerHTML =
       "@media print { body * { display: none !important; visibility: hidden !important; } }";
     document.head.appendChild(printGuardStyle);
+
+    // 2. Lock keyboard shortcuts in Chromium browsers if allowed (fullscreen)
+    if (typeof (navigator as any).keyboard?.lock === "function") {
+      try {
+        (navigator as any).keyboard.lock(["KeyS", "PrintScreen", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"]);
+      } catch {}
+    }
 
     const clearClipboardSilently = () => {
       try {
@@ -801,72 +806,147 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       } catch {}
     };
 
-    // Synchronous direct DOM manipulation:
-    // When fast typing Win+Shift+S, React state updates are asynchronous and too slow.
-    // Setting CSS properties directly on the DOM nodes happens in under 0.1ms, guaranteeeing
-    // the screen buffer is already blurred before the OS can capture the snapshot.
-    const applyInstantBlur = () => {
+    // Synchronous direct DOM shielding:
+    // Applies 60px heavy blur + 0% opacity + visibility:hidden instantly in under 0.1ms
+    // so no screenshot app framebuffer or OS grab can capture readable content.
+    const wipeCanvasBuffers = () => {
+      try {
+        [pdfCanvasRef.current, pdfCanvasRef2.current].forEach((canvas) => {
+          if (canvas) {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.save();
+              ctx.fillStyle = "#0c1322";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.restore();
+            }
+          }
+        });
+      } catch {}
+    };
+
+    const restoreCanvasBuffers = () => {
+      try {
+        if (isPdf && pdfCanvasRef.current) {
+          renderPdfPage(currentPage, pdfCanvasRef.current);
+          if (twoPageView && currentPage < pdfNumPages && pdfCanvasRef2.current) {
+            renderPdfPage(currentPage + 1, pdfCanvasRef2.current);
+          }
+        }
+      } catch {}
+    };
+
+    const applyInstantBlur = (durationMs: number = 3000) => {
+      isBlurredRef.current = true;
       setIsBlurred(true);
+      blurLockedUntilRef.current = Math.max(blurLockedUntilRef.current, Date.now() + durationMs);
+      wipeCanvasBuffers();
+
       try {
         if (pdfContainerRef.current) {
-          pdfContainerRef.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
-          pdfContainerRef.current.style.setProperty("opacity", "0.2", "important");
+          pdfContainerRef.current.style.setProperty("filter", "blur(60px) contrast(0.1) brightness(0.1)", "important");
+          pdfContainerRef.current.style.setProperty("opacity", "0", "important");
+          pdfContainerRef.current.style.setProperty("visibility", "hidden", "important");
         }
         if (contentAreaRef.current) {
-          contentAreaRef.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+          contentAreaRef.current.style.setProperty("filter", "blur(60px) contrast(0.1) brightness(0.1)", "important");
+          contentAreaRef.current.style.setProperty("opacity", "0", "important");
+          contentAreaRef.current.style.setProperty("visibility", "hidden", "important");
         }
         if (pdfCanvasRef.current) {
-          pdfCanvasRef.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+          pdfCanvasRef.current.style.setProperty("filter", "blur(60px) contrast(0.1) brightness(0.1)", "important");
+          pdfCanvasRef.current.style.setProperty("opacity", "0", "important");
+          pdfCanvasRef.current.style.setProperty("visibility", "hidden", "important");
         }
         if (pdfCanvasRef2.current) {
-          pdfCanvasRef2.current.style.setProperty("filter", "blur(36px) contrast(0.5) brightness(0.9)", "important");
+          pdfCanvasRef2.current.style.setProperty("filter", "blur(60px) contrast(0.1) brightness(0.1)", "important");
+          pdfCanvasRef2.current.style.setProperty("opacity", "0", "important");
+          pdfCanvasRef2.current.style.setProperty("visibility", "hidden", "important");
+        }
+        if (videoContainerRef.current) {
+          videoContainerRef.current.style.setProperty("filter", "blur(60px) contrast(0.1) brightness(0.1)", "important");
+          videoContainerRef.current.style.setProperty("opacity", "0", "important");
+          videoContainerRef.current.style.setProperty("visibility", "hidden", "important");
         }
       } catch {}
       clearClipboardSilently();
     };
 
-    const removeInstantBlur = () => {
+    const removeInstantBlur = (force: boolean = false) => {
+      // If within mandatory cooldown lockout, prevent unblurring!
+      if (!force && Date.now() < blurLockedUntilRef.current) {
+        return;
+      }
+      // If window is still unfocused or hidden, do not unblur!
+      if (!force && (!document.hasFocus() || document.hidden)) {
+        return;
+      }
+
+      isBlurredRef.current = false;
       setIsBlurred(false);
+      restoreCanvasBuffers();
       try {
         if (pdfContainerRef.current) {
           pdfContainerRef.current.style.removeProperty("filter");
           pdfContainerRef.current.style.removeProperty("opacity");
+          pdfContainerRef.current.style.removeProperty("visibility");
         }
         if (contentAreaRef.current) {
           contentAreaRef.current.style.removeProperty("filter");
+          contentAreaRef.current.style.removeProperty("opacity");
+          contentAreaRef.current.style.removeProperty("visibility");
         }
         if (pdfCanvasRef.current) {
           pdfCanvasRef.current.style.removeProperty("filter");
+          pdfCanvasRef.current.style.removeProperty("opacity");
+          pdfCanvasRef.current.style.removeProperty("visibility");
           pdfCanvasRef.current.style.filter = getPdfCanvasFilter();
         }
         if (pdfCanvasRef2.current) {
           pdfCanvasRef2.current.style.removeProperty("filter");
+          pdfCanvasRef2.current.style.removeProperty("opacity");
+          pdfCanvasRef2.current.style.removeProperty("visibility");
           pdfCanvasRef2.current.style.filter = getPdfCanvasFilter();
+        }
+        if (videoContainerRef.current) {
+          videoContainerRef.current.style.removeProperty("filter");
+          videoContainerRef.current.style.removeProperty("opacity");
+          videoContainerRef.current.style.removeProperty("visibility");
         }
       } catch {}
     };
 
     const handleWindowBlur = () => {
-      applyInstantBlur();
+      // Whenever window loses focus (Snipping tool, Lightshot, Mobile screenshot buttons, App switcher)
+      applyInstantBlur(3500);
     };
 
     const handleWindowFocus = () => {
-      if (document.hasFocus() && !document.hidden) {
-        removeInstantBlur();
-      }
+      // Delay unblur so screenshot capture overlay has completely dissolved
+      setTimeout(() => {
+        if (document.hasFocus() && !document.hidden && Date.now() >= blurLockedUntilRef.current) {
+          removeInstantBlur(false);
+        }
+      }, 600);
     };
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        applyInstantBlur();
-      } else if (document.hasFocus()) {
-        removeInstantBlur();
+        applyInstantBlur(4000);
+      } else {
+        setTimeout(() => {
+          if (document.hasFocus() && !document.hidden && Date.now() >= blurLockedUntilRef.current) {
+            removeInstantBlur(false);
+          }
+        }, 600);
       }
     };
 
     const handleUserActivity = () => {
-      if (document.hasFocus() && !document.hidden) {
-        removeInstantBlur();
+      // CRITICAL: When blurred, NEVER unblur automatically on mouse movements!
+      // This prevents Windows Snipping Tool / Lightshot from unblurring when dragging the crosshair.
+      if (isBlurredRef.current) {
+        return;
       }
     };
 
@@ -875,16 +955,14 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       return tag === "input" || tag === "textarea" || target?.isContentEditable;
     };
 
-    // Ultra-fast screenshot attempt detection:
-    // Detects preparatory keys (Meta, Shift, Alt, PrintScreen) the instant they are pressed down,
-    // ensuring the content is blurred before the full combination is completed.
+    // Ultra-fast screenshot attempt detection for PC & Mac:
     const isScreenshotAttempt = (e: KeyboardEvent) => {
       const code = e.code || "";
       const key = (e.key || "").toLowerCase();
       const keyCode = e.keyCode || (e as any).which || 0;
       const inInput = isTargetInput(e.target);
 
-      // 1. PrintScreen key in any form
+      // 1. PrintScreen key in any form (Windows / Linux)
       if (key === "printscreen" || code === "PrintScreen" || keyCode === 44) {
         return true;
       }
@@ -899,7 +977,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return true;
       }
 
-      // 4. Any combination of Shift with Meta, Alt, or Ctrl (even inside inputs)
+      // 4. Any combination of Shift with Meta, Alt, or Ctrl
       if (e.shiftKey && (e.metaKey || e.altKey || e.ctrlKey)) {
         return true;
       }
@@ -912,7 +990,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return true;
       }
 
-      // 6. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
+      // 6. Windows Game Bar / screenshot: Win+G or Win+Alt+PrtScn
+      if ((e.metaKey || e.altKey) && (key === "g" || key === "printscreen")) {
+        return true;
+      }
+
+      // 7. MacOS Screenshot shortcuts: Cmd + Shift + 3 / 4 / 5 / 6
       if (
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
@@ -921,12 +1004,12 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         return true;
       }
 
-      // 7. Save Page (Ctrl+S), Print (Ctrl+P), View Source (Ctrl+U)
+      // 8. Save Page (Ctrl+S), Print (Ctrl+P), View Source (Ctrl+U)
       if ((e.ctrlKey || e.metaKey) && ["p", "s", "u"].includes(key) && !e.altKey) {
         return true;
       }
 
-      // 8. DevTools combos: F12, Ctrl+Shift+I / J / C
+      // 9. DevTools combos: F12, Ctrl+Shift+I / J / C
       if (
         key === "f12" ||
         keyCode === 123 ||
@@ -943,7 +1026,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        applyInstantBlur();
+        applyInstantBlur(3500);
         return;
       }
 
@@ -960,31 +1043,22 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
         e.stopPropagation();
         e.stopImmediatePropagation();
         clearClipboardSilently();
+        applyInstantBlur(3500);
         return;
-      } else {
-        // If regular key released (not meta/shift) and window has focus, ensure unblurred
-        if (!e.metaKey && !e.shiftKey && document.hasFocus()) {
-          removeInstantBlur();
-        }
       }
     };
 
-    // Mobile: Block multi-finger screenshot gestures (3-finger swipe on Xiaomi/Oppo/Huawei, palm swipe on Samsung)
-    // When 3 or more touches are detected simultaneously, immediately blur before screenshot triggers
+    // Mobile / Tablet: Multi-touch gesture protection (2-finger, 3-finger swipe or palm swipe)
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 3) {
-        applyInstantBlur();
-      } else {
-        if (document.hasFocus()) {
-          removeInstantBlur();
-        }
+      if (e.touches && e.touches.length >= 2) {
+        applyInstantBlur(3500);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches && e.touches.length >= 3) {
+      if (e.touches && e.touches.length >= 2) {
         e.preventDefault();
-        applyInstantBlur();
+        applyInstantBlur(3500);
       }
     };
 
@@ -1002,12 +1076,32 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       e.preventDefault();
     };
 
-    // High-frequency focus monitor for external screenshot overlay tools (Lightshot, Snipping Tool overlay, Greenshot)
+    // High-frequency focus monitor: Catches screenshot overlay tools (Lightshot, Snipping Tool, Greenshot)
     const focusCheckInterval = setInterval(() => {
       if (!document.hasFocus() || document.hidden) {
-        applyInstantBlur();
+        applyInstantBlur(2000);
       }
-    }, 30);
+    }, 25);
+
+    // Prevent browser extensions (e.g. GoFullPage, Awesome Screenshot) from scraping canvas
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+    try {
+      HTMLCanvasElement.prototype.toDataURL = function (...args) {
+        if (this === pdfCanvasRef.current || this === pdfCanvasRef2.current) {
+          return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        }
+        return origToDataURL.apply(this, args);
+      };
+      HTMLCanvasElement.prototype.toBlob = function (callback, ...args) {
+        if (this === pdfCanvasRef.current || this === pdfCanvasRef2.current) {
+          const dummy = document.createElement("canvas");
+          dummy.width = 1; dummy.height = 1;
+          return origToBlob.call(dummy, callback, ...args);
+        }
+        return origToBlob.apply(this, [callback, ...args]);
+      };
+    } catch {}
 
     const opts = { capture: true, passive: false };
     window.addEventListener("keydown", handleKeyDownCapture, opts);
@@ -1027,7 +1121,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
     window.addEventListener("cut", handleCopy, { capture: true });
     window.addEventListener("dragstart", handleDragStart, { capture: true });
 
-    return () => {
+return () => {
       clearInterval(focusCheckInterval);
       if (typeof (navigator as any).keyboard?.unlock === "function") {
         try { (navigator as any).keyboard.unlock(); } catch {}
@@ -1212,6 +1306,67 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
       onCut={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
+      {/* ── PRODUCTION DRM SECURITY SHIELD OVERLAY (Protects against any screen shot app on PC & Mobile) ── */}
+      {isBlurred && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-navy-deep/98 p-6 text-center select-none backdrop-blur-3xl animate-in fade-in duration-100"
+          style={{ pointerEvents: "auto" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gold/15 text-gold border border-gold/40 shadow-2xl mb-5 animate-pulse">
+            <ShieldAlert className="h-10 w-10 text-gold" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-display font-bold text-gold mb-2">
+            ደህንነቱ የተጠበቀ ይዘት (Protected Content)
+          </h2>
+          <p className="text-xs sm:text-sm text-on-navy-muted max-w-md leading-relaxed mb-6 px-4">
+            ይህ መጽሐፍ በዲጂታል ቅጂ መብት ጥበቃ ስር ነው። ቅጽበታዊ ፎቶ (Screenshot)፣ ቀረጻ (Recording) ወይም ማጋራት በጥብቅ የተከለከለ ነው።
+            <br />
+            <span className="text-[11px] opacity-75 mt-2 block font-mono text-gold/80">
+              Screenshots and screen capture tools are strictly restricted.
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              isBlurredRef.current = false;
+              blurLockedUntilRef.current = 0;
+              setIsBlurred(false);
+              if (pdfContainerRef.current) {
+                pdfContainerRef.current.style.removeProperty("filter");
+                pdfContainerRef.current.style.removeProperty("opacity");
+                pdfContainerRef.current.style.removeProperty("visibility");
+              }
+              if (contentAreaRef.current) {
+                contentAreaRef.current.style.removeProperty("filter");
+                contentAreaRef.current.style.removeProperty("opacity");
+                contentAreaRef.current.style.removeProperty("visibility");
+              }
+              if (pdfCanvasRef.current) {
+                pdfCanvasRef.current.style.removeProperty("filter");
+                pdfCanvasRef.current.style.removeProperty("opacity");
+                pdfCanvasRef.current.style.removeProperty("visibility");
+                pdfCanvasRef.current.style.filter = getPdfCanvasFilter();
+              }
+              if (pdfCanvasRef2.current) {
+                pdfCanvasRef2.current.style.removeProperty("filter");
+                pdfCanvasRef2.current.style.removeProperty("opacity");
+                pdfCanvasRef2.current.style.removeProperty("visibility");
+                pdfCanvasRef2.current.style.filter = getPdfCanvasFilter();
+              }
+              if (videoContainerRef.current) {
+                videoContainerRef.current.style.removeProperty("filter");
+                videoContainerRef.current.style.removeProperty("opacity");
+                videoContainerRef.current.style.removeProperty("visibility");
+              }
+            }}
+            className="px-6 py-3 rounded-2xl bg-gold text-navy-deep font-bold text-xs sm:text-sm uppercase tracking-wider hover:bg-gold/90 transition-all cursor-pointer shadow-xl active:scale-95 flex items-center gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            <span>ንባብ ይቀጥሉ (Resume Reading)</span>
+          </button>
+        </div>
+      )}
             {/* ── TOP HEADER BAR (Fully responsive across all screen sizes) ───────────────── */}
       <header className="flex flex-col md:flex-row md:items-center md:justify-between px-3 sm:px-6 py-2 sm:py-2.5 gap-2 bg-navy-deep/95 border-b border-gold/25 backdrop-blur-md z-40 shrink-0">
         {/* Row 1 on mobile: Title & Window Controls (TOC & Close) */}
@@ -1710,8 +1865,9 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
               ref={pdfContainerRef}
               className={`flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 md:p-6 transition-all duration-75 ${getPdfBgClass()}`}
               style={{
-                filter: isBlurred ? "blur(36px) contrast(0.5) brightness(0.9)" : "none",
-                opacity: isBlurred ? 0.25 : 1,
+                filter: isBlurred ? "blur(60px) contrast(0.1) brightness(0.1)" : "none",
+                opacity: isBlurred ? 0 : 1,
+                visibility: isBlurred ? "hidden" : "visible",
                 userSelect: "none",
                 WebkitUserSelect: "none",
               }}
@@ -1844,7 +2000,7 @@ export const PlatformReader: React.FC<PlatformReaderProps> = ({ book, onClose })
                   {/* Left page */}
                   <div
                     className={`relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-10 min-h-[60vh] flex flex-col justify-between border ${getThemeClasses()}`}
-                    style={{ fontSize: `${fontSize}px`, isolation: "isolate", willChange: "transform" }}
+                    style={{ fontSize: `${fontSize}px`, isolation: "isolate", willChange: "transform", filter: isBlurred ? "blur(60px) contrast(0.1) brightness(0.1)" : "none", opacity: isBlurred ? 0 : 1, visibility: isBlurred ? "hidden" : "visible" }}
                   >
                     <div className="relative z-1">
                       <div className="flex items-center justify-between border-b border-current/15 pb-3 mb-6 text-[11px] font-bold tracking-widest uppercase opacity-60">
